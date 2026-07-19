@@ -1,5 +1,10 @@
-# Composed Action Contract Cross-Product Fixtures
+# Legacy Composed Action Contract Fixture Pointer
 
-These fixtures document the stable refs Wrkr exports for downstream Gait and Axym consumers.
+The former hand-authored Gait validation and Axym correlation projections have
+been removed. They were illustrative shapes, not exact production Wrkr output,
+and are no longer an authoritative interoperability contract.
 
-They do not implement Gait runtime enforcement or Axym compliance correlation. They show the expected input shape those products can validate or join against: `composition_id`, `resolution_key`, member `path_ids[]`, `workflow_chain_refs[]`, `proposed_action_contract_refs[]`, decision trace refs, and evidence refs.
+Use `scenarios/cross-product/action-contract-interop/` instead. Its artifacts
+and packet views are produced by a real Wrkr scan/state/export pipeline,
+validated by schema and digest, regenerated into temporary storage for exact
+byte comparison, and passed unchanged to external Gait/Axym consumers.

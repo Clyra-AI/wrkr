@@ -10,9 +10,11 @@
     "composition_ids",
     "proposed_action_contract_refs",
     "proposed_action_contract_v3",
-    "proposed_action_contract_artifact"
+    "proposed_action_contract_artifact",
+    "action_contract_packet_v1",
+    "action_contract_conformance_fixture_v1"
   ],
-  "validated_on": "2026-07-18",
+  "validated_on": "2026-07-19",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:4-repos",
@@ -20,7 +22,15 @@
     "scenarios/wrkr/scan-diff-no-noise",
     "core/export/actioncontracts.TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent",
     "core/export/actioncontracts.TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity",
-    "core/report.TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements"
+    "core/report.TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements",
+    "core/report.TestActionContractPacketSizeReadabilityAndCloneStripBudgets",
+    "core/export/actioncontracts.TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively",
+    "core/cli.TestReportDefaultOutputDoesNotIncludeActionContractPacket",
+    "testinfra/contracts.TestActionContractPacketSchemaValidatesRealArtifactProjection",
+    "internal/scenarios.TestScenarioActionContractPacketPaidAssessment",
+    "scenarios/cross-product/action-contract-interop/expected/fixture-manifest.json",
+    "testinfra/contracts.TestActionContractConformanceExactBytesRegenerateFromWrkr",
+    "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
   ],
   "artifact_size_deltas": [
     {
@@ -46,6 +56,54 @@
       "budget_bytes": 25165824,
       "delta_bytes": 0,
       "measurement_source": "internal/acceptance.TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection"
+    },
+    {
+      "artifact": "action-contract-packet.json",
+      "fixture": "core/report.actionContractPacketTestInput",
+      "measured_bytes": 6562,
+      "budget_bytes": 65536,
+      "delta_bytes": 6562,
+      "measurement_source": "core/report.TestActionContractPacketSizeReadabilityAndCloneStripBudgets"
+    },
+    {
+      "artifact": "action-contract-packet.md",
+      "fixture": "core/report.actionContractPacketTestInput",
+      "measured_bytes": 3779,
+      "budget_bytes": 32768,
+      "delta_bytes": 3779,
+      "measurement_source": "core/report.TestActionContractPacketSizeReadabilityAndCloneStripBudgets"
+    },
+    {
+      "artifact": "action-contract-interop-exact-byte-pack",
+      "fixture": "scenarios/cross-product/action-contract-interop/expected",
+      "measured_bytes": 810663,
+      "budget_bytes": 1048576,
+      "delta_bytes": 810663,
+      "measurement_source": "testinfra/contracts.TestActionContractConformanceExactBytesRegenerateFromWrkr"
+    },
+    {
+      "artifact": "action-contract-artifact.json",
+      "fixture": "scenarios/cross-product/action-contract-interop/expected/approval-expiry",
+      "measured_bytes": 51391,
+      "budget_bytes": 65536,
+      "delta_bytes": 51391,
+      "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
+    },
+    {
+      "artifact": "action-contract-packet.json",
+      "fixture": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation",
+      "measured_bytes": 33319,
+      "budget_bytes": 65536,
+      "delta_bytes": 33319,
+      "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
+    },
+    {
+      "artifact": "action-contract-packet.md",
+      "fixture": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation",
+      "measured_bytes": 13626,
+      "budget_bytes": 32768,
+      "delta_bytes": 13626,
+      "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
     }
   ],
   "validations": [
@@ -55,11 +113,15 @@
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1",
-        "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent -count=1"
+        "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent -count=1",
+        "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1",
+        "go test ./internal/scenarios -run TestScenarioActionContractPacketPaidAssessment -tags=scenario -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
-        "internal/enterprisepressure.EndpointDense:4-repos"
+        "internal/enterprisepressure.EndpointDense:4-repos",
+        "core/report.actionContractPacketTestInput",
+        "internal/scenarios.TestScenarioActionContractPacketPaidAssessment"
       ],
       "evidence": "Saved state, evidence JSON, and endpoint-dense state remain under committed byte budgets."
     },
@@ -70,11 +132,13 @@
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureHardening -count=1",
         "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity -count=1",
-        "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1"
+        "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1",
+        "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
-        "internal/enterprisepressure.VariantBaseline:64-repos"
+        "internal/enterprisepressure.VariantBaseline:64-repos",
+        "core/export/actioncontracts.testSnapshot"
       ],
       "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, and fixture repo names."
     },
@@ -83,10 +147,12 @@
       "status": "pass",
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
-        "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1"
+        "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1",
+        "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1"
       ],
       "fixture_names": [
-        "internal/enterprisepressure.VariantBaseline:96-repos"
+        "internal/enterprisepressure.VariantBaseline:96-repos",
+        "core/export/actioncontracts.testSnapshot"
       ],
       "evidence": "Nested owner fields are checked through requireAcceptanceOwnerFieldsRedacted across customer-redacted report payloads."
     },
@@ -95,11 +161,13 @@
       "status": "pass",
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
-        "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1"
+        "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1",
+        "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
-        "internal/enterprisepressure.EndpointDense:4-repos"
+        "internal/enterprisepressure.EndpointDense:4-repos",
+        "core/report.actionContractPacketTestInput"
       ],
       "evidence": "Canonical refs remain present while repeated endpoint, authority, and mutable-endpoint payload clones are bounded or omitted from shareable/default artifacts."
     },
@@ -108,11 +176,13 @@
       "status": "pass",
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
-        "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureContract -count=1"
+        "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureContract -count=1",
+        "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
-        "scenarios/wrkr/enterprise-pressure"
+        "scenarios/wrkr/enterprise-pressure",
+        "core/report.actionContractPacketTestInput"
       ],
       "evidence": "Agent Action BOM lead stays under 45 lines and 5 sections; enterprise markdown stays under the scenario contract line budget."
     },
@@ -122,13 +192,29 @@
       "commands": [
         "go test ./internal/e2e/diff -run TestE2EScenarioUnchangedReposProduceZeroDiffNoise -count=1",
         "go test -tags scenario ./internal/scenarios -run TestScenarioFirstOfferNoisePackAssessmentSharpening -count=1",
-        "go test ./testinfra/contracts -run TestStory24NoisePackAssessmentContracts -count=1"
+        "go test ./testinfra/contracts -run TestStory24NoisePackAssessmentContracts -count=1",
+        "go test ./core/cli -run TestReportDefaultOutputDoesNotIncludeActionContractPacket -count=1"
       ],
       "fixture_names": [
         "scenarios/wrkr/scan-diff-no-noise",
-        "scenarios/wrkr/first-offer-noise-pack"
+        "scenarios/wrkr/first-offer-noise-pack",
+        "core/cli.seedActionContractPacketState"
       ],
       "evidence": "Unchanged fixture scans produce zero diff noise, and first-offer assessment fixtures keep expected focused findings."
+    },
+    {
+      "name": "exact_byte_interop",
+      "status": "pass",
+      "commands": [
+        "scripts/generate_action_contract_conformance.sh --check",
+        "go test ./testinfra/contracts -run 'Test.*ActionContract.*Conformance|Test.*ExactBytes' -count=1",
+        "go test ./scripts/action_contract_conformance -count=1"
+      ],
+      "fixture_names": [
+        "scenarios/cross-product/action-contract-interop/inputs/scenario-specs.json",
+        "scenarios/cross-product/action-contract-interop/expected/fixture-manifest.json"
+      ],
+      "evidence": "All nine internal artifact and packet fixtures are produced by the real Wrkr pipeline, schema/digest verified, and regenerated to temporary storage for exact-byte comparison. External Gait/Axym receipts remain a separate Tier 12 release dependency."
     }
   ],
   "public_surface_decision": "composition public surface may be exposed only when this receipt is present, status is green, and every validation listed here is pass"

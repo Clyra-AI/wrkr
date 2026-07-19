@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
- wrkr report [--json] [--json-stdout auto|full] [--explain] [--md] [--md-path <path>] [--pdf] [--pdf-path <path>] [--evidence-json] [--evidence-json-path <path>] [--evidence-json-scope lead|full] [--csv-backlog] [--csv-backlog-path <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--redact <fields>] [--baseline <path>] [--previous-state <path>] [--top <n>] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--recent-pr-review] [--review-ids <ids>] [--review-since <date>] [--review-until <date>] [--review-limit <n>] [--state <path>]
+ wrkr report [--json] [--json-stdout auto|full] [--explain] [--md] [--md-path <path>] [--pdf] [--pdf-path <path>] [--evidence-json] [--evidence-json-path <path>] [--evidence-json-scope lead|full] [--csv-backlog] [--csv-backlog-path <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary|action-contract-packet] [--contract-id <id>] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--redact <fields>] [--baseline <path>] [--previous-state <path>] [--top <n>] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--recent-pr-review] [--review-ids <ids>] [--review-since <date>] [--review-until <date>] [--review-limit <n>] [--state <path>]
 ```
 
 ## Flags
@@ -21,6 +21,7 @@
 - `--csv-backlog`
 - `--csv-backlog-path`
 - `--template`
+- `--contract-id`
 - `--share-profile`
 - `--paired-share-profile`
 - `--redact`
@@ -73,6 +74,8 @@ wrkr report --template agent-action-bom --focus bom --evidence-json --evidence-j
 wrkr report --template agent-action-bom --evidence-json --evidence-json-scope full --evidence-json-path ./.tmp/full-agent-action-bom-evidence.json --json
 wrkr report --template agent-action-bom --recent-pr-review --review-limit 10 --review-since 2026-05-01 --json
 wrkr report --template agent-action-bom --recent-pr-review --review-ids pr/42,mr/17 --json
+wrkr report --state ./.wrkr/last-scan.json --template action-contract-packet --contract-id pac-0123456789abcdef --share-profile internal --json
+wrkr report --state ./.wrkr/last-scan.json --template action-contract-packet --contract-id pac-0123456789abcdef --share-profile customer-redacted
 ```
 
 ## Behavior contract
@@ -85,6 +88,26 @@ Saved scan state must be complete. If the selected `--state` or `--previous-stat
 reviewer, identity-label, account-like, and local-path detail. Shareable/default
 artifacts are customer-safe by default.
 
+`--template action-contract-packet` is an opt-in, single-contract buyer view.
+It requires the saved-state `--contract-id`; Wrkr never selects the first item
+from a collection implicitly. `--json` emits packet schema version `1` directly,
+while the non-JSON form writes bounded Markdown to stdout. Add `--md --md-path
+<path>` to write that Markdown atomically. The packet is projected from the
+same normalized portable artifact used by `wrkr export action-contracts`, so
+its contract, family, revision, canonical digest, share-profile variant, and
+redacted identity agree with export. JSON and Markdown cover the composed path,
+authority, credential posture, typed readiness checks, expected/forbidden
+effects, confirmation, approval, compensation, visible evidence gaps, imported
+Gait/Axym observations, and the next action. Static reachability is labeled as
+possible and never presented as observed execution.
+
+Packet output remains outside the default report, finding count, and first
+screen. A non-internal share profile applies the existing recursive redaction
+before artifact and packet identity are assigned. Packet output does not accept
+paired or additive redaction flags; select exactly one share profile. Wrkr
+still proposes and reports only: Gait decides activation and runtime
+enforcement, and Axym verifies downstream evidence.
+
 Expected JSON keys: `status`, `generated_at`, additive `deployment_mode`, additive `next_steps`, additive `policy_outcomes`, `top_findings`, bounded `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `agent_action_bom`, additive `focus_view`, additive `action_path_to_control_first`, additive `composed_action_paths`, additive `composed_action_path_to_control_first`, additive `action_surface_registry`, additive `control_path_graph`, additive `workflow_chains`, additive `runtime_sessions`, additive `runtime_evidence`, additive `evidence_packets`, additive `recent_pr_review`, additive `assessment_summary`, additive `public_surface_assessment`, additive `exposure_groups`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `compliance_summary`, `summary`, `md_path`, `pdf_path`, additive `evidence_json_path`, additive `backlog_csv_path`, additive `artifact_paths`, and additive `suppressed_counts`.
 Composed authority output is covered by the Sprint 0 output-safety freeze. The green receipt at `testinfra/contracts/fixtures/freeze-gate/story-0.1-receipt.json` gates public `composed_action_paths`, proposed Action Contract, and composition-first Agent Action BOM schema fields.
 `summary.composed_action_paths` and top-level `composed_action_paths` are additive, deterministic composition artifacts built from existing action paths, workflow chains, graph refs, action classes, target classes, credentials, and evidence refs. Stages use `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, and `destructive_sink` as roles inside the composition object; they are not a second detector classification system. `claim_state` distinguishes static reachability from declared policy, runtime-controlled, observed-execution, contradictory, and unknown states. A declared policy or static reachability path does not become `runtime_controlled` without sufficient runtime enforcement and required outcome/proof evidence.
@@ -92,7 +115,7 @@ Composition stages and transitions can also carry delegated authority relationsh
 Composition-level `recommended_control`, `recommended_control_reasons`, `escalating_transition_refs`, and `most_restrictive_source` reuse the existing canonical recommendation enum. Equivalent outcomes use a one-pass snapshot: a weaker route is raised, never lowered, to its most restrictive eligible peer, records `composition:equivalent_outcome_control_parity` and `equivalent_outcome_escalation_source`, and rebuilds its report-only proposed contract. Unknown controls fail closed to `block` rather than being assigned a guessed rank. Broadened, unknown, or contradictory delegation transitions can also raise proposed Action Contract evidence requirements without inventing a Wrkr runtime verdict.
 `outcome_key`, `equivalent_outcome_refs[]`, `approval_evasion_signal`, `coverage_delta_reasons[]`, and `materiality` identify bounded deploy, egress, privileged-mutation, and release compositions that can reach the same stable outcome with materially different authority, approval, policy, Gait, credential, or evidence posture. Target identity is part of the grouping key; authority and credential posture are comparison deltas, not grouping material.
 Each composition can carry a report-only `proposed_action_contract` and stable `proposed_action_contract_refs[]`. Wrkr proposes this machine-readable shape for downstream Gait/control workflows but does not enforce runtime policy; `report_only=true` is part of the contract. Existing `recommended_action_contract` fields remain compatibility projections during migration.
-Canonical composition fixtures live under `scenarios/wrkr/composed-action-paths/` with cross-product Gait/Axym reference fixtures under `scenarios/cross-product/composed-action-contracts/`; run the scenario and contract test lanes named in those fixtures before treating new composition fields as release-ready.
+Canonical composition fixtures live under `scenarios/wrkr/composed-action-paths/`. The authoritative cross-product Gait/Axym handoff is the production-generated, exact-byte pack under `scenarios/cross-product/action-contract-interop/`; the old `composed-action-contracts/` projections are not interoperability evidence. Run the scenario, contract, and external-consumer lanes named in the conformance pack before treating new composition fields as release-ready.
 Top-level `deployment_mode` mirrors `summary.deployment_mode` so report consumers can read the declared data posture without reopening `source_privacy`.
 `summary.deployment_mode` is the additive report-summary contract for customer data posture. It uses the same canonical values as scan and evidence output: `local_only`, `customer_controlled_storage`, `connected_saas_metadata`, and `managed_platform`.
 `summary.public_surface_assessment` and additive top-level `public_surface_assessment` are the opt-in public-evidence summary contract. They count and list `public_observed`, `public_inferred`, `unsupported_public_claim`, and `private_evidence_absent` entries from a saved public-surface scan without upgrading any of them into verified private runtime, approval, credential, or control evidence.

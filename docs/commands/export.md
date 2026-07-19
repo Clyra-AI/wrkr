@@ -64,6 +64,17 @@ complete saved set while each redacted artifact receives its own valid identity
 and never claims to be the internal artifact. Export stays local and does not
 activate, approve, execute, or send a contract to Gait or Axym.
 
+The release-level cross-product contract is the exact-byte pack under
+`scenarios/cross-product/action-contract-interop/`. Its documented generator
+check mode rebuilds all nine scenarios into temporary storage, validates
+artifact/packet schemas and digests, and byte-compares them with the committed
+pack. Only the explicit generator update mode may replace the goldens, and its
+diff requires human review. The committed manifest pins the producer,
+artifact/contract/packet schema versions, identities, and hashes.
+Tier 12 passes each artifact file unchanged to externally owned Gait and Axym
+consumer commands through `scripts/test_action_contract_interop.sh`; absent
+consumer dependencies fail with exit `7` rather than invoking a Wrkr stand-in.
+
 Saved scan state must be complete. If `--state` carries `partial_result`, `source_errors`, or `source_degraded`, inventory, appendix, ticket, declaration, and Action Contract exports return `invalid_input` (exit `6`) before writing derived output.
 
 Compatibility note:

@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/report/action-contract-packet.schema.json",
+  "title": "Wrkr Action Contract Buyer Packet",
+  "type": "object",
+  "required": [
+    "schema_id", "schema_version", "packet_id", "template", "section_order",
+    "identity", "path", "authority_requirements", "credential_posture",
+    "readiness_checks", "effects", "confirmation_requirement",
+    "approval_requirement", "compensation_requirement", "evidence_gaps",
+    "lifecycle_observations", "reachability", "next_step",
+    "authority_boundary", "report_only"
+  ],
+  "properties": {
+    "schema_id": {"const": "https://wrkr.dev/schemas/v1/report/action-contract-packet.schema.json"},
+    "schema_version": {"const": "1"},
+    "packet_id": {"type": "string", "pattern": "^pacpkt-[a-f0-9]{16}$"},
+    "template": {"const": "action-contract-packet"},
+    "section_order": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {"type": "string", "enum": ["identity", "path", "authority_requirements", "credential_posture", "readiness_checks", "effects", "confirmation_approval", "compensation", "evidence_gaps", "lifecycle_observations", "next_step"]}
+    },
+    "identity": {"$ref": "#/$defs/identity"},
+    "path": {"$ref": "#/$defs/path"},
+    "affected_asset": {"type": "string", "maxLength": 180},
+    "authority_requirements": {
+      "type": "array", "maxItems": 24,
+      "items": {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json#/$defs/authorityRequirement"}
+    },
+    "credential_posture": {"$ref": "#/$defs/credentialPosture"},
+    "readiness_checks": {
+      "type": "array", "maxItems": 32,
+      "items": {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json#/$defs/precondition"}
+    },
+    "effects": {"$ref": "#/$defs/effects"},
+    "confirmation_requirement": {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json#/$defs/confirmation"},
+    "approval_requirement": {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json#/$defs/approval"},
+    "compensation_requirement": {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json#/$defs/compensation"},
+    "evidence_gaps": {"type": "array", "maxItems": 32, "items": {"$ref": "#/$defs/gap"}},
+    "lifecycle_observations": {
+      "type": "array", "maxItems": 16,
+      "items": {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json#/$defs/lifecycleObservation"}
+    },
+    "reachability": {"$ref": "#/$defs/reachability"},
+    "next_step": {"$ref": "#/$defs/nextStep"},
+    "truncations": {"type": "array", "items": {"$ref": "#/$defs/truncation"}},
+    "authority_boundary": {"type": "string"},
+    "report_only": {"const": true}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "evidenceState": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+    "freshnessState": {"type": "string", "enum": ["fresh", "stale", "expired", "unknown"]},
+    "stringList": {"type": "array", "maxItems": 8, "items": {"type": "string", "maxLength": 180}},
+    "identity": {
+      "type": "object",
+      "required": ["artifact_id", "contract_id", "contract_family_id", "contract_content_digest", "canonical_content_digest", "contract_version", "revision", "share_profile", "redacted", "source_scan_refs", "creation_evidence"],
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^paca-[a-f0-9]{16}$"},
+        "contract_id": {"type": "string", "pattern": "^pac-[a-f0-9]{8,64}$"},
+        "contract_family_id": {"type": "string"},
+        "contract_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "canonical_content_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "contract_version": {"const": "3"},
+        "revision": {"type": "integer", "minimum": 1},
+        "supersedes_ref": {"type": "string"},
+        "share_profile": {"type": "string", "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"]},
+        "redacted": {"type": "boolean"},
+        "source_scan_refs": {"$ref": "#/$defs/stringList"},
+        "creation_evidence": {"$ref": "#/$defs/stringList"}
+      },
+      "additionalProperties": false
+    },
+    "path": {
+      "type": "object",
+      "required": ["composition_id", "stages"],
+      "properties": {
+        "composition_id": {"type": "string"},
+        "pattern_id": {"type": "string"},
+        "resolution_key": {"type": "string", "maxLength": 180},
+        "path_ids": {"$ref": "#/$defs/stringList"},
+        "target": {"type": "string", "maxLength": 180},
+        "target_class": {"type": "string"},
+        "outcome_class": {"type": "string"},
+        "stages": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/stage"}}
+      },
+      "additionalProperties": false
+    },
+    "stage": {
+      "type": "object",
+      "required": ["stage_id", "role"],
+      "properties": {
+        "stage_id": {"type": "string"},
+        "role": {"type": "string", "enum": ["source", "transform", "sink", "internal_sink", "external_sink", "privileged_sink", "destructive_sink"]},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string", "maxLength": 180},
+        "action_classes": {"$ref": "#/$defs/stringList"},
+        "target_class": {"type": "string"},
+        "evidence_state": {"$ref": "#/$defs/evidenceState"},
+        "freshness_state": {"$ref": "#/$defs/freshnessState"}
+      },
+      "additionalProperties": false
+    },
+    "credentialPosture": {
+      "type": "object",
+      "required": ["evidence_state", "freshness_state", "activation_grant"],
+      "properties": {
+        "required_mode": {"type": "string", "enum": ["ephemeral", "scoped", "standing_or_unknown"]},
+        "requirement_ids": {"$ref": "#/$defs/stringList"},
+        "evidence_state": {"$ref": "#/$defs/evidenceState"},
+        "freshness_state": {"$ref": "#/$defs/freshnessState"},
+        "activation_grant": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "effects": {
+      "type": "object",
+      "required": ["expected", "forbidden"],
+      "properties": {
+        "expected": {"$ref": "#/$defs/stringList"},
+        "forbidden": {"$ref": "#/$defs/stringList"}
+      },
+      "additionalProperties": false
+    },
+    "gap": {
+      "type": "object",
+      "required": ["requirement_id", "kind", "evidence_state", "freshness_state"],
+      "properties": {
+        "requirement_id": {"type": "string"},
+        "kind": {"type": "string"},
+        "evidence_state": {"$ref": "#/$defs/evidenceState"},
+        "freshness_state": {"$ref": "#/$defs/freshnessState"},
+        "reason_codes": {"$ref": "#/$defs/stringList"}
+      },
+      "additionalProperties": false
+    },
+    "reachability": {
+      "type": "object",
+      "required": ["claim_state", "evidence_state", "freshness_state", "observed_execution", "buyer_label"],
+      "properties": {
+        "claim_state": {"type": "string", "enum": ["static_only", "partially_evidenced", "declared_policy_only", "runtime_controlled", "observed_execution", "contradictory", "unknown"]},
+        "evidence_state": {"$ref": "#/$defs/evidenceState"},
+        "freshness_state": {"$ref": "#/$defs/freshnessState"},
+        "observed_execution": {"type": "boolean"},
+        "buyer_label": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "nextStep": {
+      "type": "object",
+      "required": ["action", "reason", "owner"],
+      "properties": {"action": {"type": "string"}, "reason": {"type": "string"}, "owner": {"type": "string"}},
+      "additionalProperties": false
+    },
+    "truncation": {
+      "type": "object",
+      "required": ["field", "reason"],
+      "properties": {"field": {"type": "string"}, "omitted_count": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "enum": ["item_cap", "value_rune_cap"]}},
+      "additionalProperties": false
+    }
+  }
+}

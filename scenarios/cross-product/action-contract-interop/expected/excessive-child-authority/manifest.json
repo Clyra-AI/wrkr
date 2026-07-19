@@ -1,0 +1,13 @@
+{
+  "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json",
+  "schema_version": "1",
+  "share_profile": "internal",
+  "artifacts": [
+    {
+      "artifact_id": "paca-f0439d8fbe107324",
+      "contract_id": "pac-42354ce47489338a",
+      "canonical_content_digest": "sha256:f0439d8fbe107324a125092aa4c4bf4e1b18d4d2c228e355edc1fe73d24e4c20",
+      "filename": "pac-42354ce47489338a.json"
+    }
+  ]
+}

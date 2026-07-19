@@ -78,7 +78,7 @@ func parseReportTemplateShare(templateRaw string, shareProfileRaw string) (repor
 	}
 	template, ok := reportcore.ParseTemplate(templateValue)
 	if !ok {
-		return "", "", fmt.Errorf("--template must be one of exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary")
+		return "", "", fmt.Errorf("--template must be one of exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary|action-contract-packet")
 	}
 
 	shareValue := strings.TrimSpace(shareProfileRaw)

@@ -101,6 +101,15 @@ var packs = map[string]Pack{
 		ProofTitle:           "Proof and evidence gaps",
 		ActionsTitle:         "Recommended controls",
 	},
+	"action-contract-packet": {
+		HeadlineTitle:        "Action Contract identity",
+		ExecutiveRollupTitle: "Action Contract buyer packet",
+		TopRisksTitle:        "Typed evidence gaps",
+		ChangesTitle:         "Revision and lifecycle evidence",
+		LifecycleTitle:       "Imported Gait and Axym observations",
+		ProofTitle:           "Artifact and contract digests",
+		ActionsTitle:         "Next contract action",
+	},
 }
 
 func Resolve(name string) Pack {

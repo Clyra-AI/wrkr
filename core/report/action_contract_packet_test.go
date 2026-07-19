@@ -1,0 +1,190 @@
+package report
+
+import (
+	"encoding/json"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/risk"
+)
+
+func TestBuildActionContractPacketNormalizesBuyerSectionsAndVisibleGaps(t *testing.T) {
+	t.Parallel()
+
+	input := actionContractPacketTestInput()
+	packet, err := BuildActionContractPacket(input)
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	if packet.SchemaVersion != "1" || packet.PacketID == "" || !packet.ReportOnly {
+		t.Fatalf("unexpected packet identity: %+v", packet)
+	}
+	if packet.Identity.ContractID != input.Contract.ContractID || packet.Identity.ArtifactID != input.ArtifactID {
+		t.Fatalf("packet must preserve selected artifact identity: %+v", packet.Identity)
+	}
+	if len(packet.Path.Stages) != 2 || packet.Path.Stages[0].Role != risk.CompositionStageRoleSource {
+		t.Fatalf("packet stages must be deterministically source-to-sink: %+v", packet.Path.Stages)
+	}
+	if len(packet.AuthorityRequirements) != 2 || packet.AuthorityRequirements[0].Kind != "business_owner" {
+		t.Fatalf("authority requirements must be stably sorted: %+v", packet.AuthorityRequirements)
+	}
+	if len(packet.EvidenceGaps) < 2 {
+		t.Fatalf("weak and stale evidence must remain visible as gaps: %+v", packet.EvidenceGaps)
+	}
+	if !strings.Contains(packet.AuthorityRequirements[1].ObservedValue, ActionContractPacketTruncationMarker) || len(packet.Truncations) == 0 {
+		t.Fatalf("long presentation values must be explicitly truncated: requirements=%+v truncations=%+v", packet.AuthorityRequirements, packet.Truncations)
+	}
+	if packet.Reachability.ObservedExecution {
+		t.Fatalf("static composition must not be rendered as observed execution: %+v", packet.Reachability)
+	}
+	if !strings.Contains(packet.NextStep.Action, "Gait") {
+		t.Fatalf("next step must preserve the Wrkr/Gait authority boundary: %+v", packet.NextStep)
+	}
+}
+
+func TestBuildActionContractPacketIsStableAcrossInputOrdering(t *testing.T) {
+	t.Parallel()
+
+	leftInput := actionContractPacketTestInput()
+	rightInput := actionContractPacketTestInput()
+	reverseRequirements(rightInput.Contract.AuthorityRequirements)
+	reversePreconditions(rightInput.Contract.Preconditions)
+	reversePacketStages(rightInput.Composition.Stages)
+
+	left, err := BuildActionContractPacket(leftInput)
+	if err != nil {
+		t.Fatalf("build left packet: %v", err)
+	}
+	right, err := BuildActionContractPacket(rightInput)
+	if err != nil {
+		t.Fatalf("build right packet: %v", err)
+	}
+	if !reflect.DeepEqual(left, right) {
+		t.Fatalf("packet model changed under input reordering\nleft=%+v\nright=%+v", left, right)
+	}
+}
+
+func TestRenderActionContractPacketMarkdownProjectsSharedModel(t *testing.T) {
+	t.Parallel()
+
+	packet, err := BuildActionContractPacket(actionContractPacketTestInput())
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	markdown := RenderActionContractPacketMarkdown(packet)
+	for _, want := range []string{
+		"# Wrkr Action Contract Packet",
+		"## Contract and Artifact Identity",
+		"## Composed Path",
+		"## Authority Requirements",
+		"## Credential Posture",
+		"## Readiness Checks",
+		"## Expected and Forbidden Effects",
+		"## Confirmation and Approval",
+		"## Compensation",
+		"## Evidence Gaps",
+		"## Imported Gait and Axym Evidence",
+		"## Next Action",
+		packet.Identity.ContractID,
+		"possible static reachability; not observed execution",
+	} {
+		if !strings.Contains(markdown, want) {
+			t.Fatalf("markdown missing %q:\n%s", want, markdown)
+		}
+	}
+	if lines := strings.Count(markdown, "\n"); lines > ActionContractPacketMarkdownLineCap {
+		t.Fatalf("packet markdown exceeded line cap: got=%d cap=%d", lines, ActionContractPacketMarkdownLineCap)
+	}
+}
+
+func TestActionContractPacketSizeReadabilityAndCloneStripBudgets(t *testing.T) {
+	t.Parallel()
+
+	packet, err := BuildActionContractPacket(actionContractPacketTestInput())
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	payload, err := json.MarshalIndent(packet, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal packet: %v", err)
+	}
+	markdown := RenderActionContractPacketMarkdown(packet)
+	const jsonBudget = 64 * 1024
+	const markdownBudget = 32 * 1024
+	if len(payload) > jsonBudget || len(markdown) > markdownBudget {
+		t.Fatalf("packet exceeded size budget: json=%d/%d markdown=%d/%d", len(payload), jsonBudget, len(markdown), markdownBudget)
+	}
+	if lines := strings.Count(markdown, "\n"); lines > ActionContractPacketMarkdownLineCap {
+		t.Fatalf("packet exceeded readability line cap: lines=%d cap=%d", lines, ActionContractPacketMarkdownLineCap)
+	}
+	if strings.Contains(string(payload), "allowed_transitions") || strings.Contains(string(payload), "contract_kind") {
+		t.Fatalf("packet must project buyer fields instead of cloning the full contract: %s", payload)
+	}
+	t.Logf("action-contract-packet measured_bytes json=%d markdown=%d markdown_lines=%d", len(payload), len(markdown), strings.Count(markdown, "\n"))
+}
+
+func actionContractPacketTestInput() ActionContractPacketInput {
+	longObserved := "owner:" + strings.Repeat("customer-private-identity-", 16)
+	contract := risk.ProposedActionContract{
+		ContractID:              "pac-0123456789abcdef",
+		ContractFamilyID:        "pacf-0123456789abcdef",
+		ContractContentDigest:   "sha256:" + strings.Repeat("a", 64),
+		ContractVersion:         risk.ProposedActionContractVersionV3,
+		ContractKind:            risk.ProposedActionContractKind,
+		CompositionRef:          "cap-01234567",
+		Revision:                2,
+		SupersedesRef:           "pac-fedcba9876543210",
+		RequiredCredentialMode:  "ephemeral",
+		ExpectedOutcomeClass:    "release_publish",
+		ReadinessState:          "needs_evidence",
+		AuthorityReadinessState: "needs_evidence",
+		ReportOnly:              true,
+		AuthorityRequirements: []risk.ProposedActionRequirement{
+			{RequirementID: "pacr-requester", Kind: "requesting_identity", RequiredConstraint: "requester:verified", ObservedValue: longObserved, EvidenceState: risk.EvidenceStateInferred, FreshnessState: evidencepolicy.FreshnessStateUnknown, EvidenceRefs: []string{"identity:requester"}},
+			{RequirementID: "pacr-owner", Kind: "business_owner", RequiredConstraint: "owner:required", ObservedValue: "team-platform", EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh, EvidenceRefs: []string{"owner:platform"}},
+		},
+		Preconditions: []risk.ProposedActionPrecondition{
+			{RequirementID: "pacp-check", Kind: "required_check", RequiredConstraint: "tests:pass", ObservedResult: "pass", EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateStale, EvidenceRefs: []string{"check:tests"}},
+			{RequirementID: "pacp-effect", Kind: "expected_effect", RequiredConstraint: "release_publish", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: evidencepolicy.FreshnessStateFresh},
+			{RequirementID: "pacp-forbidden", Kind: "forbidden_effect", RequiredConstraint: "secret_disclosure", EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh},
+		},
+		ConfirmationRequirement: &risk.ProposedActionConfirmation{Mode: "explicit", Required: true, EvidenceState: risk.EvidenceStateUnknown, FreshnessState: evidencepolicy.FreshnessStateUnknown},
+		ApprovalRequirement:     &risk.ProposedActionApproval{Required: true, ApproverRoles: []string{"security", "system_owner"}, MinimumApprovals: 2, SeparationOfDuties: []string{"requester_not_approver"}, ScopeDigest: "sha256:" + strings.Repeat("b", 64), ValidityWindow: "PT1H", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: evidencepolicy.FreshnessStateFresh},
+		CompensationRequirement: &risk.ProposedActionCompensation{Required: true, Kind: "rollback", ProcedureRef: "runbook:rollback", Target: "release:stable", ExecutionWindow: "PT15M", VerificationRequired: true, EvidenceState: risk.EvidenceStateDeclared, FreshnessState: evidencepolicy.FreshnessStateFresh},
+		LifecycleObservations:   []risk.ProposedActionLifecycleObservation{{ObservationID: "paco-1", Kind: "gait_activation_request", Producer: "gait", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: evidencepolicy.FreshnessStateFresh, EvidenceRefs: []string{"gait:request:1"}}},
+	}
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-01234567", PatternID: risk.CompositionPatternPackageChangeToRelease,
+		ResolutionKey: "release|stable", PathIDs: []string{"apc-source", "apc-sink"}, AffectedAsset: "release:stable", TargetIdentity: "release:stable", TargetClass: risk.TargetClassReleaseAdjacent,
+		OutcomeClass: "release_publish", ClaimState: risk.CompositionClaimStaticOnly, EvidenceState: risk.EvidenceStateDeclared, FreshnessState: evidencepolicy.FreshnessStateFresh,
+		Stages: []risk.CompositionStage{
+			{StageID: "stage-sink", Role: risk.CompositionStageRoleDestructiveSink, ToolType: "ci", Location: ".github/workflows/release.yml", TargetClass: risk.TargetClassReleaseAdjacent},
+			{StageID: "stage-source", Role: risk.CompositionStageRoleSource, ToolType: "agent", Location: "AGENTS.md", ActionClasses: []string{"package_write"}},
+		},
+	}
+	return ActionContractPacketInput{
+		ArtifactID: "paca-0123456789abcdef", CanonicalContentDigest: "sha256:" + strings.Repeat("c", 64),
+		ShareProfile: string(ShareProfileInternal), ArtifactRedacted: false, SourceScanRefs: []string{"saved_scan:v1"}, CreationEvidence: []string{"proof:risk-assessment"},
+		Contract: contract, Composition: composition,
+	}
+}
+
+func reverseRequirements(values []risk.ProposedActionRequirement) {
+	for left, right := 0, len(values)-1; left < right; left, right = left+1, right-1 {
+		values[left], values[right] = values[right], values[left]
+	}
+}
+
+func reversePreconditions(values []risk.ProposedActionPrecondition) {
+	for left, right := 0, len(values)-1; left < right; left, right = left+1, right-1 {
+		values[left], values[right] = values[right], values[left]
+	}
+}
+
+func reversePacketStages(values []risk.CompositionStage) {
+	for left, right := 0, len(values)-1; left < right; left, right = left+1, right-1 {
+		values[left], values[right] = values[right], values[left]
+	}
+}

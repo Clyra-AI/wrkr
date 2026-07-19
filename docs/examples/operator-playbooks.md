@@ -66,10 +66,12 @@ Use this packet when the operator needs to hand the result to a buyer, GRC partn
 
 - `wrkr report --template ciso --md --md-path ./.tmp/ciso.md --pdf --pdf-path ./.tmp/ciso.pdf --evidence-json --evidence-json-path ./.tmp/report-evidence.json --csv-backlog --csv-backlog-path ./.tmp/control-backlog.csv --json`
 - `wrkr report --template agent-action-bom --json --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json`
+- `wrkr report --state ./.wrkr/last-scan.json --template action-contract-packet --contract-id pac-0123456789abcdef --share-profile customer-redacted --md --md-path ./.tmp/action-contract-packet.md --json`
 - `wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json`
 - `wrkr verify --chain --json`
 
 Operator curates and explains the packet. Buyer/GRC consumer reads the generated Markdown/PDF plus the evidence bundle and proof verification result; they do not need to rerun the scan to review the output.
+For one proposed Action Contract, use `action-contract-packet` instead of a broad report. The selector is mandatory, JSON and Markdown share one model, unknown or weak evidence remains visible, and the packet never implies that Wrkr activated the contract or observed static reachability executing. Gait owns activation/enforcement; Axym owns downstream verification.
 
 ## Design-partner control validation workflow
 

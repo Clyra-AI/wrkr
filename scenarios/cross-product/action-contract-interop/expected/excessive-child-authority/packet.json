@@ -1,0 +1,1051 @@
+{
+  "schema_id": "https://wrkr.dev/schemas/v1/report/action-contract-packet.schema.json",
+  "schema_version": "1",
+  "packet_id": "pacpkt-364faeff038aff4e",
+  "template": "action-contract-packet",
+  "section_order": [
+    "identity",
+    "path",
+    "authority_requirements",
+    "credential_posture",
+    "readiness_checks",
+    "effects",
+    "confirmation_approval",
+    "compensation",
+    "evidence_gaps",
+    "lifecycle_observations",
+    "next_step"
+  ],
+  "identity": {
+    "artifact_id": "paca-f0439d8fbe107324",
+    "contract_id": "pac-42354ce47489338a",
+    "contract_family_id": "pacf-d7654d6666f3a346",
+    "contract_content_digest": "sha256:650cd3de48f8559c5ae30f0b3cda2a266ea1e2653acdfbad2c5a5776f49073bc",
+    "canonical_content_digest": "sha256:f0439d8fbe107324a125092aa4c4bf4e1b18d4d2c228e355edc1fe73d24e4c20",
+    "contract_version": "3",
+    "revision": 1,
+    "share_profile": "internal",
+    "redacted": false,
+    "source_scan_refs": [
+      "saved_scan:v1"
+    ],
+    "creation_evidence": [
+      "wch-2514b320edea",
+      "wch-e09776c197c7"
+    ]
+  },
+  "path": {
+    "composition_id": "cap-04370928364635c9",
+    "pattern_id": "code_to_deploy",
+    "resolution_key": "rk-843baf1b21135736+rk-95c14e9fdd46075b",
+    "path_ids": [
+      "apc-4b1b72ce2c70",
+      "apc-f721ab3a31a8"
+    ],
+    "target": "built_in:deploy_workflow+built_in:release_automation",
+    "target_class": "production_impacting",
+    "outcome_class": "production_deploy",
+    "stages": [
+      {
+        "stage_id": "cas-9b871b9cb6fbbe5b",
+        "role": "source",
+        "tool_type": "agnt_agent",
+        "location": ".github/workflows/release.yml",
+        "action_classes": [
+          "deploy",
+          "read",
+          "write"
+        ],
+        "target_class": "production_impacting",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown"
+      },
+      {
+        "stage_id": "cas-ab465825ec2b08e4",
+        "role": "privileged_sink",
+        "tool_type": "skill",
+        "location": ".agents/skills/release/SKILL.md",
+        "action_classes": [
+          "deploy",
+          "execute",
+          "read",
+          "write"
+        ],
+        "target_class": "production_impacting",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown"
+      }
+    ]
+  },
+  "affected_asset": "built_in:deploy_workflow+built_in:release_automation",
+  "authority_requirements": [
+    {
+      "requirement_id": "pacr-9f06573b17b074df",
+      "kind": "affected_system_owner",
+      "required_constraint": "affected_system_owner:required",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:affected_system_owner:missing",
+        "authority:affected_system_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-c313bd0c78d83db3",
+      "kind": "business_owner",
+      "required_constraint": "business_owner:required",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:business_owner:missing",
+        "authority:business_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-2f36b02f74422b27",
+      "kind": "credential_subject_constraint",
+      "required_constraint": "subject:built_in:deploy_workflow+built_in:release_automation",
+      "observed_value": "built_in:deploy_workflow+built_in:release_automation",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:credential_subject_constraint:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-c5872611a2264a82",
+      "kind": "delegation_root",
+      "required_constraint": "delegation_root:required",
+      "observed_value": "authority-b3aed31f4204875e",
+      "evidence_state": "contradictory",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:delegation_root:unknown",
+        "authority:excessive_child_scope"
+      ]
+    },
+    {
+      "requirement_id": "pacr-b8062fb1c21650a8",
+      "kind": "originating_intent",
+      "required_constraint": "composition:cap-04370928364635c9",
+      "observed_value": "code_to_deploy",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:originating_intent:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-71faa6274b936e1b",
+      "kind": "permitted_agent_role",
+      "required_constraint": "roles:privileged_sink,source",
+      "observed_value": "privileged_sink,source",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:permitted_agent_role:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-9301c432e05c77fd",
+      "kind": "policy_authority",
+      "required_constraint": "policy_authority:required",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:policy_authority:missing",
+        "authority:policy_authority:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-72ffe78854c97e4e",
+      "kind": "requester_identity",
+      "required_constraint": "requester_identity:required",
+      "observed_value": "stage:cas-9b871b9cb6fbbe5b",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:requester_identity:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-97afc6905762276c",
+      "kind": "separation_of_duties",
+      "required_constraint": "requester_must_not_approve",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "authority:separation_of_duties:missing",
+        "authority:separation_of_duties:unknown"
+      ]
+    }
+  ],
+  "credential_posture": {
+    "required_mode": "ephemeral",
+    "requirement_ids": [
+      "pacp-5ec86b18589ad4d5",
+      "pacr-2f36b02f74422b27",
+      "pacr-72ffe78854c97e4e"
+    ],
+    "evidence_state": "unknown",
+    "freshness_state": "unknown",
+    "activation_grant": false
+  },
+  "readiness_checks": [
+    {
+      "requirement_id": "pacp-5ec86b18589ad4d5",
+      "kind": "credential_mode",
+      "required_constraint": "credential_mode:ephemeral",
+      "observed_value": "ephemeral",
+      "observed_result": "ephemeral",
+      "acceptable_producers": [
+        "credential_authority"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:credential_mode:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-f4f95d66c641f251",
+      "kind": "effect_contract",
+      "required_constraint": "effect_contract:required",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:effect_contract:missing",
+        "precondition:effect_contract:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-86633f4d449b8bfb",
+      "kind": "environment",
+      "required_constraint": "environment:declared",
+      "observed_value": "production",
+      "observed_result": "production",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:environment:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-94dd87a8c94e1149",
+      "kind": "expected_effect",
+      "required_constraint": "effect:production_deploy",
+      "observed_value": "production_deploy",
+      "observed_result": "production_deploy",
+      "acceptable_producers": [
+        "action_path"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:expected_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-732b92bbc81d456c",
+      "kind": "forbidden_effect",
+      "required_constraint": "effect:not_unbounded",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:forbidden_effect:missing",
+        "precondition:forbidden_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-b4c3f8068bd0a543",
+      "kind": "freshness",
+      "required_constraint": "fresh",
+      "observed_value": "unknown",
+      "observed_result": "unknown",
+      "acceptable_producers": [
+        "evidence_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:freshness:not_fresh",
+        "precondition:freshness:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-b461d184960386b7",
+      "kind": "policy_digest",
+      "required_constraint": "policy_digest:required",
+      "observed_value": "sha256:c05e5678452349abb58f97eac5c8550411fcacc2a5265f0739620e54878ef3ac",
+      "observed_result": "sha256:c05e5678452349abb58f97eac5c8550411fcacc2a5265f0739620e54878ef3ac",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:policy_digest:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-42982e218369daa4",
+      "kind": "producer",
+      "required_constraint": "producer:approved",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:producer:missing",
+        "precondition:producer:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-001ebe549bd920c7",
+      "kind": "required_check",
+      "required_constraint": "check:required",
+      "acceptable_producers": [
+        "ci",
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:required_check:missing",
+        "precondition:required_check:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-c6cd3ef0e88960fd",
+      "kind": "sandbox",
+      "required_constraint": "sandbox:required",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:sandbox:missing",
+        "precondition:sandbox:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-ac0637a1c33aa740",
+      "kind": "target",
+      "required_constraint": "target:bounded",
+      "observed_value": "built_in:deploy_workflow+built_in:release_automation",
+      "observed_result": "built_in:deploy_workflow+built_in:release_automation",
+      "acceptable_producers": [
+        "action_path"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:target:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-29846cf020ae2b30",
+      "kind": "validation_contract",
+      "required_constraint": "validation_contract:required",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "credential_likely_scope:source_control_write",
+        "credential_present:true",
+        "credential_referenced_by_workflow:true",
+        "credential_target_system:source_control",
+        "matched_target:built_in:deploy_workflow"
+      ],
+      "reason_codes": [
+        "precondition:validation_contract:missing",
+        "precondition:validation_contract:unknown"
+      ]
+    }
+  ],
+  "effects": {
+    "expected": [
+      "production_deploy"
+    ],
+    "forbidden": [
+      "effect:not_unbounded"
+    ]
+  },
+  "confirmation_requirement": {
+    "mode": "not_required",
+    "required": false,
+    "evidence_state": "verified",
+    "freshness_state": "unknown",
+    "evidence_refs": [
+      ".gait/policy.yaml",
+      "approval_status=unapproved",
+      "baseline:discovered_surface",
+      "credential_likely_scope:source_control_write",
+      "credential_present:true",
+      "credential_referenced_by_workflow:true",
+      "credential_target_system:source_control",
+      "matched_target:built_in:deploy_workflow"
+    ],
+    "reason_codes": [
+      "confirmation:not_required"
+    ]
+  },
+  "approval_requirement": {
+    "required": false,
+    "approver_roles": [
+      "control_owner",
+      "security_reviewer"
+    ],
+    "minimum_approvals": 0,
+    "separation_of_duties": [
+      "requester_must_not_approve"
+    ],
+    "scope_digest": "sha256:591d4f68a7c1fea4af0f010f6717cf3420ae27a29cca930347ded2cc5437d266",
+    "validity_window": "PT24H",
+    "reapproval_triggers": [
+      "contract_content_change",
+      "scope_digest_change"
+    ],
+    "evidence_state": "verified",
+    "freshness_state": "unknown",
+    "evidence_refs": [
+      ".gait/policy.yaml",
+      "approval_status=unapproved",
+      "baseline:discovered_surface",
+      "credential_likely_scope:source_control_write",
+      "credential_present:true",
+      "credential_referenced_by_workflow:true",
+      "credential_target_system:source_control",
+      "matched_target:built_in:deploy_workflow"
+    ],
+    "reason_codes": [
+      "approval:not_required"
+    ]
+  },
+  "compensation_requirement": {
+    "required": true,
+    "kind": "documented_recovery",
+    "target": "built_in:deploy_workflow+built_in:release_automation",
+    "execution_window": "PT24H",
+    "verification_required": true,
+    "acceptable_producers": [
+      "control_declaration",
+      "gait_policy"
+    ],
+    "evidence_state": "unknown",
+    "freshness_state": "unknown",
+    "evidence_refs": [
+      ".gait/policy.yaml",
+      "approval_status=unapproved",
+      "baseline:discovered_surface",
+      "credential_likely_scope:source_control_write",
+      "credential_present:true",
+      "credential_referenced_by_workflow:true",
+      "credential_target_system:source_control",
+      "matched_target:built_in:deploy_workflow"
+    ],
+    "reason_codes": [
+      "compensation:required"
+    ]
+  },
+  "evidence_gaps": [
+    {
+      "requirement_id": "pacr-9f06573b17b074df",
+      "kind": "authority:affected_system_owner",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:affected_system_owner:missing",
+        "authority:affected_system_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-c313bd0c78d83db3",
+      "kind": "authority:business_owner",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:business_owner:missing",
+        "authority:business_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-2f36b02f74422b27",
+      "kind": "authority:credential_subject_constraint",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:credential_subject_constraint:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-c5872611a2264a82",
+      "kind": "authority:delegation_root",
+      "evidence_state": "contradictory",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:delegation_root:unknown",
+        "authority:excessive_child_scope"
+      ]
+    },
+    {
+      "requirement_id": "pacr-b8062fb1c21650a8",
+      "kind": "authority:originating_intent",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:originating_intent:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-71faa6274b936e1b",
+      "kind": "authority:permitted_agent_role",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:permitted_agent_role:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-9301c432e05c77fd",
+      "kind": "authority:policy_authority",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:policy_authority:missing",
+        "authority:policy_authority:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-72ffe78854c97e4e",
+      "kind": "authority:requester_identity",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:requester_identity:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-97afc6905762276c",
+      "kind": "authority:separation_of_duties",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:separation_of_duties:missing",
+        "authority:separation_of_duties:unknown"
+      ]
+    },
+    {
+      "requirement_id": "compensation",
+      "kind": "compensation",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "compensation:required"
+      ]
+    },
+    {
+      "requirement_id": "pacp-5ec86b18589ad4d5",
+      "kind": "precondition:credential_mode",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:credential_mode:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-f4f95d66c641f251",
+      "kind": "precondition:effect_contract",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:effect_contract:missing",
+        "precondition:effect_contract:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-86633f4d449b8bfb",
+      "kind": "precondition:environment",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:environment:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-94dd87a8c94e1149",
+      "kind": "precondition:expected_effect",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:expected_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-732b92bbc81d456c",
+      "kind": "precondition:forbidden_effect",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:forbidden_effect:missing",
+        "precondition:forbidden_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-b4c3f8068bd0a543",
+      "kind": "precondition:freshness",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:freshness:not_fresh",
+        "precondition:freshness:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-b461d184960386b7",
+      "kind": "precondition:policy_digest",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:policy_digest:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-42982e218369daa4",
+      "kind": "precondition:producer",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:producer:missing",
+        "precondition:producer:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-001ebe549bd920c7",
+      "kind": "precondition:required_check",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:required_check:missing",
+        "precondition:required_check:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-c6cd3ef0e88960fd",
+      "kind": "precondition:sandbox",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:sandbox:missing",
+        "precondition:sandbox:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-ac0637a1c33aa740",
+      "kind": "precondition:target",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:target:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-29846cf020ae2b30",
+      "kind": "precondition:validation_contract",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:validation_contract:missing",
+        "precondition:validation_contract:unknown"
+      ]
+    }
+  ],
+  "lifecycle_observations": [
+    {
+      "observation_id": "pacl-6875d9ac2e72efe2",
+      "kind": "gait_rejection",
+      "producer": "gait",
+      "evidence_state": "verified",
+      "freshness_state": "fresh",
+      "observed_at": "2026-07-19T00:00:00Z",
+      "evidence_refs": [
+        "interop:excessive-child-authority"
+      ],
+      "proof_refs": [
+        "proof:interop:excessive-child-authority"
+      ]
+    }
+  ],
+  "reachability": {
+    "claim_state": "declared_policy_only",
+    "evidence_state": "unknown",
+    "freshness_state": "unknown",
+    "observed_execution": false,
+    "buyer_label": "possible static reachability; not observed execution"
+  },
+  "next_step": {
+    "action": "Resolve pacr-9f06573b17b074df before requesting a Gait activation decision.",
+    "reason": "authority:affected_system_owner remains unknown",
+    "owner": "contract owner"
+  },
+  "truncations": [
+    {
+      "field": "approval_requirement.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-2f36b02f74422b27.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-71faa6274b936e1b.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-72ffe78854c97e4e.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-9301c432e05c77fd.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-97afc6905762276c.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-9f06573b17b074df.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-b8062fb1c21650a8.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-c313bd0c78d83db3.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-c5872611a2264a82.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "compensation_requirement.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "confirmation_requirement.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-001ebe549bd920c7.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-29846cf020ae2b30.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-42982e218369daa4.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-5ec86b18589ad4d5.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-732b92bbc81d456c.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-86633f4d449b8bfb.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-94dd87a8c94e1149.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-ac0637a1c33aa740.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-b461d184960386b7.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-b4c3f8068bd0a543.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-c6cd3ef0e88960fd.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-f4f95d66c641f251.evidence_refs",
+      "omitted_count": 22,
+      "reason": "item_cap"
+    }
+  ],
+  "authority_boundary": "Wrkr proposes and reports this contract; Gait alone decides activation and runtime enforcement, and Axym verifies downstream evidence.",
+  "report_only": true
+}

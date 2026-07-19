@@ -1,6 +1,7 @@
 package actioncontracts
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,6 +44,40 @@ func TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent(t *tes
 	}
 	if first.Artifacts[0].ArtifactID == third.Artifacts[0].ArtifactID {
 		t.Fatalf("material evidence change must create a new artifact identity: %+v", third.Artifacts[0])
+	}
+}
+
+func TestVerifyActionContractArtifactRejectsTamperedBytes(t *testing.T) {
+	t.Parallel()
+	collection, err := Build(testSnapshot(), BuildOptions{ShareProfile: report.ShareProfileInternal})
+	if err != nil {
+		t.Fatalf("build artifact: %v", err)
+	}
+	artifact := collection.Artifacts[0]
+	if err := VerifyArtifact(artifact); err != nil {
+		t.Fatalf("valid artifact failed verification: %v", err)
+	}
+	artifact.Contract.ExpectedOutcomeClass = "tampered_effect"
+	if err := VerifyArtifact(artifact); err == nil {
+		t.Fatal("tampered embedded contract must fail canonical verification")
+	}
+}
+
+func TestVerifyActionContractArtifactRejectsProducerAndSchemaMismatch(t *testing.T) {
+	t.Parallel()
+	collection, err := Build(testSnapshot(), BuildOptions{ShareProfile: report.ShareProfileInternal})
+	if err != nil {
+		t.Fatalf("build artifact: %v", err)
+	}
+	artifact := collection.Artifacts[0]
+	artifact.Producer.Name = "not-wrkr"
+	if err := VerifyArtifact(artifact); err == nil {
+		t.Fatal("producer mismatch must fail artifact verification")
+	}
+	artifact = collection.Artifacts[0]
+	artifact.Producer.ContractSchemaVersion = "2"
+	if err := VerifyArtifact(artifact); err == nil {
+		t.Fatal("contract schema mismatch must fail artifact verification")
 	}
 }
 
@@ -166,6 +201,38 @@ func TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity(t *te
 	}
 	if strings.Contains(redacted.Artifacts[0].ResolutionKey, "acme/private") || strings.Contains(redacted.Artifacts[0].Contract.CompositionRef, "acme/private") {
 		t.Fatalf("redacted artifact leaked private composition material: %+v", redacted.Artifacts[0])
+	}
+}
+
+func TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively(t *testing.T) {
+	t.Parallel()
+	snapshot := testSnapshot()
+	snapshot.RiskReport.ComposedActionPaths[0].ResolutionKey = "acme/private|release.yml"
+	snapshot.RiskReport.ComposedActionPaths[0].TargetIdentity = "acme/private"
+	snapshot.RiskReport.ComposedActionPaths[0].AffectedAsset = "customer-private-service"
+	snapshot.RiskReport.ComposedActionPaths[0].EvidenceRefs = append(snapshot.RiskReport.ComposedActionPaths[0].EvidenceRefs, "owner:business:customer-private-owner")
+	snapshot.RiskReport.ComposedActionPaths[0].ProposedActionContract = risk.BuildProposedActionContract(snapshot.RiskReport.ComposedActionPaths[0])
+	selector := snapshot.RiskReport.ComposedActionPaths[0].ProposedActionContract.ContractID
+
+	internal, err := BuildPacket(snapshot, BuildOptions{ShareProfile: report.ShareProfileInternal, ContractID: selector})
+	if err != nil {
+		t.Fatalf("build internal packet: %v", err)
+	}
+	redacted, err := BuildPacket(snapshot, BuildOptions{ShareProfile: report.ShareProfileCustomerRedacted, ContractID: selector})
+	if err != nil {
+		t.Fatalf("build redacted packet: %v", err)
+	}
+	if internal.PacketID == redacted.PacketID || internal.Identity.ArtifactID == redacted.Identity.ArtifactID || !redacted.Identity.Redacted {
+		t.Fatalf("redacted packet requires a distinct artifact-derived identity: internal=%+v redacted=%+v", internal.Identity, redacted.Identity)
+	}
+	payload, err := json.Marshal(redacted)
+	if err != nil {
+		t.Fatalf("marshal redacted packet: %v", err)
+	}
+	for _, privateValue := range []string{"acme/private", "customer-private-service", "customer-private-owner"} {
+		if strings.Contains(string(payload), privateValue) {
+			t.Fatalf("redacted packet leaked %q: %s", privateValue, payload)
+		}
 	}
 }
 

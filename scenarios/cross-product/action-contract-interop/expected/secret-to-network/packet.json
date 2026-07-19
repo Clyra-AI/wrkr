@@ -1,0 +1,1038 @@
+{
+  "schema_id": "https://wrkr.dev/schemas/v1/report/action-contract-packet.schema.json",
+  "schema_version": "1",
+  "packet_id": "pacpkt-0d5a36b9cadbd355",
+  "template": "action-contract-packet",
+  "section_order": [
+    "identity",
+    "path",
+    "authority_requirements",
+    "credential_posture",
+    "readiness_checks",
+    "effects",
+    "confirmation_approval",
+    "compensation",
+    "evidence_gaps",
+    "lifecycle_observations",
+    "next_step"
+  ],
+  "identity": {
+    "artifact_id": "paca-603a73492e7a2f5e",
+    "contract_id": "pac-9f69559f67f9c080",
+    "contract_family_id": "pacf-f1ebb01ae13ce9bf",
+    "contract_content_digest": "sha256:9af69452c7227c8c6f527d8e0c27d56270c97cf2a1055a2f69721d22a49a38e4",
+    "canonical_content_digest": "sha256:603a73492e7a2f5e6b910879d12e781e34387340a3d4dc63ecec425757aec4dc",
+    "contract_version": "3",
+    "revision": 1,
+    "share_profile": "internal",
+    "redacted": false,
+    "source_scan_refs": [
+      "saved_scan:v1"
+    ],
+    "creation_evidence": [
+      "wch-91a21be2ceb5",
+      "wch-b24d4aaedc8e"
+    ]
+  },
+  "path": {
+    "composition_id": "cap-110b7a48410900f0",
+    "pattern_id": "secret_to_network",
+    "resolution_key": "rk-817d21a4f93ac53e+rk-f9a7eccd98ae7030",
+    "path_ids": [
+      "apc-2ae55d8266e8",
+      "apc-3f4bc303fa3d"
+    ],
+    "target": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+    "target_class": "production_impacting",
+    "outcome_class": "network_egress",
+    "stages": [
+      {
+        "stage_id": "cas-3fb346f96b15e310",
+        "role": "source",
+        "tool_type": "codex",
+        "location": "AGENTS.md",
+        "action_classes": [
+          "read"
+        ],
+        "target_class": "test_demo_sandbox",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown"
+      },
+      {
+        "stage_id": "cas-5b17487c1de956a8",
+        "role": "external_sink",
+        "tool_type": "claude",
+        "location": ".mcp.json",
+        "action_classes": [
+          "deploy",
+          "egress",
+          "read",
+          "write"
+        ],
+        "target_class": "production_impacting",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown"
+      }
+    ]
+  },
+  "affected_asset": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+  "authority_requirements": [
+    {
+      "requirement_id": "pacr-df1a9edce4333f58",
+      "kind": "affected_system_owner",
+      "required_constraint": "affected_system_owner:required",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:affected_system_owner:missing",
+        "authority:affected_system_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-eb142f1e80dbf354",
+      "kind": "business_owner",
+      "required_constraint": "business_owner:required",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:business_owner:missing",
+        "authority:business_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-bfca75df506b6442",
+      "kind": "credential_subject_constraint",
+      "required_constraint": "subject:built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+      "observed_value": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:credential_subject_constraint:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-77a91a5d884609db",
+      "kind": "delegation_root",
+      "required_constraint": "delegation_root:required",
+      "observed_value": "authority-b29daa99b287a631",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:delegation_root:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-9930dad60e58de07",
+      "kind": "originating_intent",
+      "required_constraint": "composition:cap-110b7a48410900f0",
+      "observed_value": "secret_to_network",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:originating_intent:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-196a0029ff06ba3b",
+      "kind": "permitted_agent_role",
+      "required_constraint": "roles:external_sink,source",
+      "observed_value": "external_sink,source",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:permitted_agent_role:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-985a0005058f38e5",
+      "kind": "policy_authority",
+      "required_constraint": "policy_authority:required",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:policy_authority:missing",
+        "authority:policy_authority:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-37582334526ef3c5",
+      "kind": "requester_identity",
+      "required_constraint": "requester_identity:required",
+      "observed_value": "stage:cas-3fb346f96b15e310",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:requester_identity:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-9fbb747ec221020d",
+      "kind": "separation_of_duties",
+      "required_constraint": "requester_must_not_approve",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "authority:separation_of_duties:missing",
+        "authority:separation_of_duties:unknown"
+      ]
+    }
+  ],
+  "credential_posture": {
+    "required_mode": "ephemeral",
+    "requirement_ids": [
+      "pacp-c1e4062e25a98c76",
+      "pacr-37582334526ef3c5",
+      "pacr-bfca75df506b6442"
+    ],
+    "evidence_state": "unknown",
+    "freshness_state": "unknown",
+    "activation_grant": false
+  },
+  "readiness_checks": [
+    {
+      "requirement_id": "pacp-c1e4062e25a98c76",
+      "kind": "credential_mode",
+      "required_constraint": "credential_mode:ephemeral",
+      "observed_value": "ephemeral",
+      "observed_result": "ephemeral",
+      "acceptable_producers": [
+        "credential_authority"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:credential_mode:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-023911ca32ab295e",
+      "kind": "effect_contract",
+      "required_constraint": "effect_contract:required",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:effect_contract:missing",
+        "precondition:effect_contract:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-f80dd381e63e83b0",
+      "kind": "environment",
+      "required_constraint": "environment:declared",
+      "observed_value": "production",
+      "observed_result": "production",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:environment:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-ffdd4bb0e947a53d",
+      "kind": "expected_effect",
+      "required_constraint": "effect:network_egress",
+      "observed_value": "network_egress",
+      "observed_result": "network_egress",
+      "acceptable_producers": [
+        "action_path"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:expected_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-cea9561fb612c48d",
+      "kind": "forbidden_effect",
+      "required_constraint": "effect:not_unbounded",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:forbidden_effect:missing",
+        "precondition:forbidden_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-b28c78e6ec3ec93e",
+      "kind": "freshness",
+      "required_constraint": "fresh",
+      "observed_value": "unknown",
+      "observed_result": "unknown",
+      "acceptable_producers": [
+        "evidence_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:freshness:not_fresh",
+        "precondition:freshness:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-e8b88ec8fb850e44",
+      "kind": "policy_digest",
+      "required_constraint": "policy_digest:required",
+      "observed_value": "sha256:a5ddbab28d6035e1c3ab13d260c3f02bad65d30934da739fafc23048603e0dad",
+      "observed_result": "sha256:a5ddbab28d6035e1c3ab13d260c3f02bad65d30934da739fafc23048603e0dad",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:policy_digest:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-27a4bcfeae5f0ee0",
+      "kind": "producer",
+      "required_constraint": "producer:approved",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:producer:missing",
+        "precondition:producer:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-7dff3acf9ea3ad1b",
+      "kind": "required_check",
+      "required_constraint": "check:required",
+      "acceptable_producers": [
+        "ci",
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:required_check:missing",
+        "precondition:required_check:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-6377b2020e999ba5",
+      "kind": "sandbox",
+      "required_constraint": "sandbox:required",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:sandbox:missing",
+        "precondition:sandbox:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-84b68ba57822f176",
+      "kind": "target",
+      "required_constraint": "target:bounded",
+      "observed_value": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+      "observed_result": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+      "acceptable_producers": [
+        "action_path"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:target:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-8e55dfaf69f07a02",
+      "kind": "validation_contract",
+      "required_constraint": "validation_contract:required",
+      "acceptable_producers": [
+        "control_declaration",
+        "gait_policy"
+      ],
+      "max_age": "PT24H",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:mcp.access"
+      ],
+      "reason_codes": [
+        "precondition:validation_contract:missing",
+        "precondition:validation_contract:unknown"
+      ]
+    }
+  ],
+  "effects": {
+    "expected": [
+      "network_egress"
+    ],
+    "forbidden": [
+      "effect:not_unbounded"
+    ]
+  },
+  "confirmation_requirement": {
+    "mode": "not_required",
+    "required": false,
+    "evidence_state": "verified",
+    "freshness_state": "unknown",
+    "evidence_refs": [
+      ".gait/policy.yaml",
+      "approval_status=unapproved",
+      "baseline:discovered_surface",
+      "deploy-control",
+      "matched_target:built_in:deploy_workflow",
+      "mutable_endpoint_semantic:deploy",
+      "mutable_endpoint_semantic:production_mutation",
+      "permission:mcp.access"
+    ],
+    "reason_codes": [
+      "confirmation:not_required"
+    ]
+  },
+  "approval_requirement": {
+    "required": false,
+    "approver_roles": [
+      "control_owner",
+      "security_reviewer"
+    ],
+    "minimum_approvals": 0,
+    "separation_of_duties": [
+      "requester_must_not_approve"
+    ],
+    "scope_digest": "sha256:892da39ff4b2b90abffdc747691166a40f56601580c45128b88338fc52972be9",
+    "validity_window": "PT24H",
+    "reapproval_triggers": [
+      "contract_content_change",
+      "scope_digest_change"
+    ],
+    "evidence_state": "verified",
+    "freshness_state": "unknown",
+    "evidence_refs": [
+      ".gait/policy.yaml",
+      "approval_status=unapproved",
+      "baseline:discovered_surface",
+      "deploy-control",
+      "matched_target:built_in:deploy_workflow",
+      "mutable_endpoint_semantic:deploy",
+      "mutable_endpoint_semantic:production_mutation",
+      "permission:mcp.access"
+    ],
+    "reason_codes": [
+      "approval:not_required"
+    ]
+  },
+  "compensation_requirement": {
+    "required": false,
+    "kind": "not_required",
+    "target": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+    "execution_window": "PT24H",
+    "verification_required": false,
+    "acceptable_producers": [
+      "control_declaration",
+      "gait_policy"
+    ],
+    "evidence_state": "verified",
+    "freshness_state": "unknown",
+    "evidence_refs": [
+      ".gait/policy.yaml",
+      "approval_status=unapproved",
+      "baseline:discovered_surface",
+      "deploy-control",
+      "matched_target:built_in:deploy_workflow",
+      "mutable_endpoint_semantic:deploy",
+      "mutable_endpoint_semantic:production_mutation",
+      "permission:mcp.access"
+    ],
+    "reason_codes": [
+      "compensation:not_required"
+    ]
+  },
+  "evidence_gaps": [
+    {
+      "requirement_id": "pacr-df1a9edce4333f58",
+      "kind": "authority:affected_system_owner",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:affected_system_owner:missing",
+        "authority:affected_system_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-eb142f1e80dbf354",
+      "kind": "authority:business_owner",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:business_owner:missing",
+        "authority:business_owner:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-bfca75df506b6442",
+      "kind": "authority:credential_subject_constraint",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:credential_subject_constraint:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-77a91a5d884609db",
+      "kind": "authority:delegation_root",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:delegation_root:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-9930dad60e58de07",
+      "kind": "authority:originating_intent",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:originating_intent:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-196a0029ff06ba3b",
+      "kind": "authority:permitted_agent_role",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:permitted_agent_role:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-985a0005058f38e5",
+      "kind": "authority:policy_authority",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:policy_authority:missing",
+        "authority:policy_authority:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-37582334526ef3c5",
+      "kind": "authority:requester_identity",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:requester_identity:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacr-9fbb747ec221020d",
+      "kind": "authority:separation_of_duties",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "authority:separation_of_duties:missing",
+        "authority:separation_of_duties:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-c1e4062e25a98c76",
+      "kind": "precondition:credential_mode",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:credential_mode:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-023911ca32ab295e",
+      "kind": "precondition:effect_contract",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:effect_contract:missing",
+        "precondition:effect_contract:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-f80dd381e63e83b0",
+      "kind": "precondition:environment",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:environment:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-ffdd4bb0e947a53d",
+      "kind": "precondition:expected_effect",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:expected_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-cea9561fb612c48d",
+      "kind": "precondition:forbidden_effect",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:forbidden_effect:missing",
+        "precondition:forbidden_effect:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-b28c78e6ec3ec93e",
+      "kind": "precondition:freshness",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:freshness:not_fresh",
+        "precondition:freshness:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-e8b88ec8fb850e44",
+      "kind": "precondition:policy_digest",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:policy_digest:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-27a4bcfeae5f0ee0",
+      "kind": "precondition:producer",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:producer:missing",
+        "precondition:producer:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-7dff3acf9ea3ad1b",
+      "kind": "precondition:required_check",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:required_check:missing",
+        "precondition:required_check:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-6377b2020e999ba5",
+      "kind": "precondition:sandbox",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:sandbox:missing",
+        "precondition:sandbox:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-84b68ba57822f176",
+      "kind": "precondition:target",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:target:unknown"
+      ]
+    },
+    {
+      "requirement_id": "pacp-8e55dfaf69f07a02",
+      "kind": "precondition:validation_contract",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "precondition:validation_contract:missing",
+        "precondition:validation_contract:unknown"
+      ]
+    }
+  ],
+  "lifecycle_observations": [
+    {
+      "observation_id": "pacl-59aafb497f6e4421",
+      "kind": "proposal_creation",
+      "producer": "wrkr",
+      "evidence_state": "verified",
+      "freshness_state": "fresh",
+      "observed_at": "2026-07-19T00:00:00Z",
+      "evidence_refs": [
+        "interop:secret-to-network"
+      ],
+      "proof_refs": [
+        "proof:interop:secret-to-network"
+      ]
+    }
+  ],
+  "reachability": {
+    "claim_state": "declared_policy_only",
+    "evidence_state": "unknown",
+    "freshness_state": "unknown",
+    "observed_execution": false,
+    "buyer_label": "possible static reachability; not observed execution"
+  },
+  "next_step": {
+    "action": "Resolve pacr-df1a9edce4333f58 before requesting a Gait activation decision.",
+    "reason": "authority:affected_system_owner remains unknown",
+    "owner": "contract owner"
+  },
+  "truncations": [
+    {
+      "field": "approval_requirement.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-196a0029ff06ba3b.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-37582334526ef3c5.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-77a91a5d884609db.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-985a0005058f38e5.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-9930dad60e58de07.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-9fbb747ec221020d.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-bfca75df506b6442.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-df1a9edce4333f58.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-eb142f1e80dbf354.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "compensation_requirement.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "confirmation_requirement.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-023911ca32ab295e.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-27a4bcfeae5f0ee0.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-6377b2020e999ba5.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-7dff3acf9ea3ad1b.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-84b68ba57822f176.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-8e55dfaf69f07a02.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-b28c78e6ec3ec93e.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-c1e4062e25a98c76.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-cea9561fb612c48d.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-e8b88ec8fb850e44.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-f80dd381e63e83b0.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    },
+    {
+      "field": "readiness_checks.pacp-ffdd4bb0e947a53d.evidence_refs",
+      "omitted_count": 6,
+      "reason": "item_cap"
+    }
+  ],
+  "authority_boundary": "Wrkr proposes and reports this contract; Gait alone decides activation and runtime enforcement, and Axym verifies downstream evidence.",
+  "report_only": true
+}
