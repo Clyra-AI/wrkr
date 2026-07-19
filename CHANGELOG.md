@@ -39,6 +39,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - [semver:patch] Raised weaker equivalent-outcome routes to the deterministic peer control floor so approval-evasion alternatives cannot retain a less restrictive proposed Action Contract.
+- [semver:patch] Hardened redacted Action Contract artifact export so saved contract selectors are applied before redaction, report presentation caps do not suppress exported contracts, and output collisions are preflighted before any artifact file is written.
 
 ### Security
 

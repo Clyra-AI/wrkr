@@ -94,9 +94,13 @@ func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
 	if len(compositions) == 0 {
 		return Collection{}, fmt.Errorf("saved state does not contain proposed Action Contracts")
 	}
+	selector := strings.TrimSpace(options.ContractID)
+	if selector != "" {
+		compositions = selectCompositionsByContractID(compositions, selector)
+	}
 	if profile != report.ShareProfileInternal {
 		var err error
-		compositions, err = redactedCompositions(snapshot, profile)
+		compositions, err = redactedCompositions(snapshot, compositions, profile)
 		if err != nil {
 			return Collection{}, err
 		}
@@ -113,16 +117,12 @@ func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
 		return strings.TrimSpace(left.ContractID) < strings.TrimSpace(right.ContractID)
 	})
 	collection := Collection{SchemaID: SchemaID, SchemaVersion: SchemaVersion, ShareProfile: string(profile)}
-	selector := strings.TrimSpace(options.ContractID)
 	for _, composition := range compositions {
 		if composition.ProposedActionContract == nil {
 			continue
 		}
 		contract := risk.CloneProposedActionContract(composition.ProposedActionContract)
 		if strings.TrimSpace(contract.ContractVersion) != risk.ProposedActionContractVersionV3 {
-			continue
-		}
-		if selector != "" && strings.TrimSpace(contract.ContractID) != selector {
 			continue
 		}
 		artifact, err := buildArtifact(snapshot, composition, *contract, profile)
@@ -144,6 +144,19 @@ func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
 		return Collection{}, fmt.Errorf("saved state has no exportable proposed Action Contract v3 artifacts")
 	}
 	return collection, nil
+}
+
+func selectCompositionsByContractID(compositions []risk.ComposedActionPath, selector string) []risk.ComposedActionPath {
+	out := make([]risk.ComposedActionPath, 0, len(compositions))
+	for _, composition := range compositions {
+		if composition.ProposedActionContract == nil {
+			continue
+		}
+		if strings.TrimSpace(composition.ProposedActionContract.ContractID) == selector {
+			out = append(out, composition)
+		}
+	}
+	return out
 }
 
 func buildArtifact(snapshot state.Snapshot, composition risk.ComposedActionPath, contract risk.ProposedActionContract, profile report.ShareProfile) (Artifact, error) {
@@ -240,13 +253,18 @@ func Write(collection Collection, outputDir string) ([]string, error) {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, fmt.Errorf("create output directory: %w", err)
 	}
-	paths := make([]string, 0, len(collection.Artifacts)+1)
+	targets := make([]preparedArtifactTarget, 0, len(collection.Artifacts))
+	seenTargets := map[string]struct{}{}
 	for _, artifact := range collection.Artifacts {
 		filename := Filename(artifact)
 		if !safeContractID.MatchString(strings.TrimSuffix(filename, ".json")) || filepath.Base(filename) != filename {
 			return nil, fmt.Errorf("unsafe artifact filename %q", filename)
 		}
 		path := filepath.Join(dir, filename)
+		if _, ok := seenTargets[path]; ok {
+			return nil, fmt.Errorf("refusing duplicate artifact target at %s", path)
+		}
+		seenTargets[path] = struct{}{}
 		if _, err := os.Lstat(path); err == nil {
 			return nil, fmt.Errorf("refusing artifact collision at %s", path)
 		} else if !os.IsNotExist(err) {
@@ -257,12 +275,12 @@ func Write(collection Collection, outputDir string) ([]string, error) {
 			return nil, fmt.Errorf("marshal artifact %s: %w", artifact.ContractID, err)
 		}
 		encoded = append(encoded, '\n')
-		if err := atomicwrite.WriteFile(path, encoded, 0o600); err != nil {
-			return nil, fmt.Errorf("write artifact %s: %w", artifact.ContractID, err)
-		}
-		paths = append(paths, path)
+		targets = append(targets, preparedArtifactTarget{artifact: artifact, path: path, payload: encoded})
 	}
 	manifestPath := filepath.Join(dir, "manifest.json")
+	if _, ok := seenTargets[manifestPath]; ok {
+		return nil, fmt.Errorf("refusing duplicate artifact target at %s", manifestPath)
+	}
 	if _, err := os.Lstat(manifestPath); err == nil {
 		return nil, fmt.Errorf("refusing artifact collision at %s", manifestPath)
 	} else if !os.IsNotExist(err) {
@@ -278,25 +296,31 @@ func Write(collection Collection, outputDir string) ([]string, error) {
 		return nil, fmt.Errorf("marshal artifact manifest: %w", err)
 	}
 	encoded = append(encoded, '\n')
+	paths := make([]string, 0, len(targets)+1)
+	for _, target := range targets {
+		if err := atomicwrite.WriteFile(target.path, target.payload, 0o600); err != nil {
+			return nil, fmt.Errorf("write artifact %s: %w", target.artifact.ContractID, err)
+		}
+		paths = append(paths, target.path)
+	}
 	if err := atomicwrite.WriteFile(manifestPath, encoded, 0o600); err != nil {
 		return nil, fmt.Errorf("write artifact manifest: %w", err)
 	}
 	return append(paths, manifestPath), nil
 }
 
-func redactedCompositions(snapshot state.Snapshot, profile report.ShareProfile) ([]risk.ComposedActionPath, error) {
-	summary, err := report.BuildSummary(report.BuildInput{
-		Snapshot: snapshot, Template: report.TemplateAgentActionBOM, ShareProfile: profile, Top: 10,
-	})
+type preparedArtifactTarget struct {
+	artifact Artifact
+	path     string
+	payload  []byte
+}
+
+func redactedCompositions(snapshot state.Snapshot, compositions []risk.ComposedActionPath, profile report.ShareProfile) ([]risk.ComposedActionPath, error) {
+	compositions, err := report.ProjectComposedActionPathsForShareProfile(snapshot, compositions, profile)
 	if err != nil {
 		return nil, fmt.Errorf("build redacted Action Contract projection: %w", err)
 	}
-	summary = report.FinalizeSummaryForSerialization(summary)
-	summary, err = report.ApplyShareableResidualRedaction(snapshot, summary)
-	if err != nil {
-		return nil, fmt.Errorf("apply residual Action Contract redaction: %w", err)
-	}
-	return append([]risk.ComposedActionPath(nil), summary.ComposedActionPaths...), nil
+	return compositions, nil
 }
 
 func dedupeSorted(values []string) []string {
