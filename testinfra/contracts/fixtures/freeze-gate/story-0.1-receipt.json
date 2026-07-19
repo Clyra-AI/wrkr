@@ -1,20 +1,26 @@
 {
   "receipt_id": "story-0.1-sprint0-public-surface-freeze-gate",
   "plan_path": "product/plans/adhoc/PLAN_ADHOC_2026-07-13_143619_composed-action-path-contracts.md",
+  "refreshed_by_plan": "product/plans/adhoc/PLAN_ADHOC_2026-07-18_171356_action-contract-interop.md",
   "status": "green",
   "applies_to": [
     "composed_action_paths",
     "composed_action_path_to_control_first",
     "proposed_action_contract",
     "composition_ids",
-    "proposed_action_contract_refs"
+    "proposed_action_contract_refs",
+    "proposed_action_contract_v3",
+    "proposed_action_contract_artifact"
   ],
-  "validated_on": "2026-07-13",
+  "validated_on": "2026-07-18",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:4-repos",
     "scenarios/wrkr/first-offer-noise-pack",
-    "scenarios/wrkr/scan-diff-no-noise"
+    "scenarios/wrkr/scan-diff-no-noise",
+    "core/export/actioncontracts.TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent",
+    "core/export/actioncontracts.TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity",
+    "core/report.TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements"
   ],
   "artifact_size_deltas": [
     {
@@ -48,7 +54,8 @@
       "status": "pass",
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
-        "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1"
+        "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1",
+        "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
@@ -61,7 +68,9 @@
       "status": "pass",
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
-        "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureHardening -count=1"
+        "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureHardening -count=1",
+        "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity -count=1",
+        "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
@@ -73,7 +82,8 @@
       "name": "recursive_redaction",
       "status": "pass",
       "commands": [
-        "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1"
+        "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
+        "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos"

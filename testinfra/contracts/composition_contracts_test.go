@@ -16,10 +16,12 @@ func TestComposedActionPathSchemasValidateMinimalFixture(t *testing.T) {
 	repoRoot := mustFindRepoRoot(t)
 	composedPath := filepath.Join(repoRoot, "schemas", "v1", "composed-action-path.schema.json")
 	proposedPath := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract.schema.json")
+	proposedV3Path := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract-v3.schema.json")
 
 	compiler := jsonschema.NewCompiler()
 	mustAddCompositionSchemaResource(t, compiler, composedPath)
 	mustAddCompositionSchemaResourceAs(t, compiler, "https://wrkr.dev/schemas/v1/proposed-action-contract.schema.json", proposedPath)
+	mustAddCompositionSchemaResourceAs(t, compiler, "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json", proposedV3Path)
 
 	compiled, err := compiler.Compile(composedPath)
 	if err != nil {
@@ -86,11 +88,13 @@ func TestCompositionSchemaExamplesValidate(t *testing.T) {
 	repoRoot := mustFindRepoRoot(t)
 	composedPath := filepath.Join(repoRoot, "schemas", "v1", "composed-action-path.schema.json")
 	proposedPath := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract.schema.json")
+	proposedV3Path := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract-v3.schema.json")
 	testdataRoot := filepath.Join(repoRoot, "schemas", "v1", "testdata")
 
 	compiler := jsonschema.NewCompiler()
 	mustAddCompositionSchemaResource(t, compiler, composedPath)
 	mustAddCompositionSchemaResourceAs(t, compiler, "https://wrkr.dev/schemas/v1/proposed-action-contract.schema.json", proposedPath)
+	mustAddCompositionSchemaResourceAs(t, compiler, "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json", proposedV3Path)
 	composedSchema, err := compiler.Compile(composedPath)
 	if err != nil {
 		t.Fatalf("compile composed action path schema: %v", err)
@@ -106,6 +110,37 @@ func TestCompositionSchemaExamplesValidate(t *testing.T) {
 	}
 	validateCompositionFixtureFile(t, proposedSchema, filepath.Join(testdataRoot, "proposed-action-contract.valid.json"), true)
 	validateCompositionFixtureFile(t, proposedSchema, filepath.Join(testdataRoot, "proposed-action-contract.invalid.json"), false)
+}
+
+func TestProposedActionContractV3SchemaRejectsMixedVersionDocuments(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	path := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract-v3.schema.json")
+	compiler := jsonschema.NewCompiler()
+	mustAddCompositionSchemaResource(t, compiler, path)
+	compiled, err := compiler.Compile(path)
+	if err != nil {
+		t.Fatalf("compile proposed action contract v3 schema: %v", err)
+	}
+	fixture := map[string]any{
+		"contract_id": "pac-v3", "contract_family_id": "pacf-v3", "contract_content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"contract_version": "3", "contract_kind": "proposed_action_contract", "composition_ref": "cap-v3", "revision": 1,
+		"authority_requirements":    []any{map[string]any{"requirement_id": "pacr-owner", "kind": "business_owner", "required_constraint": "business_owner:required", "evidence_state": "unknown", "freshness_state": "unknown"}},
+		"authority_readiness_state": "needs_evidence",
+		"preconditions":             []any{map[string]any{"requirement_id": "pacp-target", "kind": "target", "required_constraint": "target:bounded", "evidence_state": "unknown", "freshness_state": "unknown"}},
+		"confirmation_requirement":  map[string]any{"mode": "not_required", "required": false, "evidence_state": "verified", "freshness_state": "unknown"},
+		"approval_requirement":      map[string]any{"required": false, "minimum_approvals": 0, "scope_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "evidence_state": "verified", "freshness_state": "unknown"},
+		"compensation_requirement":  map[string]any{"required": false, "kind": "not_required", "verification_required": false, "evidence_state": "verified", "freshness_state": "unknown"},
+		"maximum_delegation_depth":  1, "report_only": true,
+	}
+	if err := compiled.Validate(fixture); err != nil {
+		t.Fatalf("expected v3 fixture to validate: %v", err)
+	}
+	fixture["contract_version"] = "2"
+	if err := compiled.Validate(fixture); err == nil {
+		t.Fatal("expected mixed v2/v3 fixture to fail")
+	}
 }
 
 func TestCompositionSchemasExposeContractSpine(t *testing.T) {
@@ -124,6 +159,7 @@ func TestCompositionSchemasExposeContractSpine(t *testing.T) {
 		"claim_state",
 		"proposed_action_contract",
 		"proposed_action_contract_refs",
+		"equivalent_outcome_escalation_source",
 	} {
 		compositionRequireProperty(t, composedProps, field)
 	}

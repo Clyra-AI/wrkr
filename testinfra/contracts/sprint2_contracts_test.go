@@ -315,6 +315,7 @@ func validateFixtureAgainstDefinition(t *testing.T, schemaPath, definition, fixt
 	}
 
 	compiler := jsonschema.NewCompiler()
+	registerDefinitionFixtureSchemaResources(t, compiler, mustFindRepoRoot(t))
 	if err := compiler.AddResource("memory.json", strings.NewReader(string(wrapperPayload))); err != nil {
 		t.Fatalf("add wrapper schema resource: %v", err)
 	}
@@ -333,6 +334,23 @@ func validateFixtureAgainstDefinition(t *testing.T, schemaPath, definition, fixt
 	}
 	if err := compiled.Validate(decoded); err != nil {
 		t.Fatalf("fixture %s must validate against %s: %v", fixturePath, definition, err)
+	}
+}
+
+func registerDefinitionFixtureSchemaResources(t *testing.T, compiler *jsonschema.Compiler, repoRoot string) {
+	t.Helper()
+	for _, resource := range []struct {
+		id  string
+		rel string
+	}{
+		{"https://wrkr.dev/schemas/v1/composed-action-path.schema.json", "schemas/v1/composed-action-path.schema.json"},
+		{"composed-action-path.schema.json", "schemas/v1/composed-action-path.schema.json"},
+		{"https://wrkr.dev/schemas/v1/proposed-action-contract.schema.json", "schemas/v1/proposed-action-contract.schema.json"},
+		{"proposed-action-contract.schema.json", "schemas/v1/proposed-action-contract.schema.json"},
+		{"https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json", "schemas/v1/proposed-action-contract-v3.schema.json"},
+		{"proposed-action-contract-v3.schema.json", "schemas/v1/proposed-action-contract-v3.schema.json"},
+	} {
+		mustAddCompositionSchemaResourceAs(t, compiler, resource.id, filepath.Join(repoRoot, resource.rel))
 	}
 }
 

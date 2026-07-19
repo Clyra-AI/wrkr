@@ -584,6 +584,80 @@ func TestEquivalentOutcomeSignalsApprovalEvasionForWeakerRoute(t *testing.T) {
 	}
 }
 
+func TestEquivalentOutcomeControlParityRaisesWeakerRouteOnceAndRebuildsContract(t *testing.T) {
+	weaker := ComposedActionPath{
+		CompositionID:      "cap-weaker",
+		OutcomeKey:         "outcome:prod:checkout",
+		DurableOutcomeKey:  "outcome:prod:checkout",
+		OutcomeClass:       "production_deploy",
+		TargetIdentity:     "prod:checkout",
+		TargetClass:        TargetClassProductionImpacting,
+		RecommendedControl: RecommendedControlAllow,
+		Stages: []CompositionStage{
+			{StageID: "source", Role: CompositionStageRoleSource},
+			{StageID: "sink", Role: CompositionStageRolePrivilegedSink},
+		},
+	}
+	stronger := weaker
+	stronger.CompositionID = "cap-stronger"
+	stronger.RecommendedControl = RecommendedControlBlock
+	stronger.TargetClass = TargetClassProductionImpacting
+
+	compositions := []ComposedActionPath{weaker, stronger}
+	annotateEquivalentOutcomeSignals(compositions)
+
+	got := compositions[0]
+	if got.RecommendedControl != RecommendedControlBlock {
+		t.Fatalf("expected weaker equivalent route to raise to block, got %q", got.RecommendedControl)
+	}
+	if got.EquivalentOutcomeEscalationSource != "peer:cap-stronger" {
+		t.Fatalf("expected stable parity source, got %q", got.EquivalentOutcomeEscalationSource)
+	}
+	if !containsAnyPathClass(got.RecommendedControlReasons, "composition:equivalent_outcome_control_parity") {
+		t.Fatalf("expected exactly one canonical parity reason, got %v", got.RecommendedControlReasons)
+	}
+	if got.ProposedActionContract == nil || !containsAnyPathClass(got.ProposedActionContract.ReasonCodes, "composition:equivalent_outcome_control_parity") {
+		t.Fatalf("expected rebuilt proposed contract to identify parity, got %+v", got.ProposedActionContract)
+	}
+
+	// Reversing input must preserve the exact result and must not cause the
+	// raised route to feed a reciprocal second pass.
+	reversed := []ComposedActionPath{stronger, weaker}
+	annotateEquivalentOutcomeSignals(reversed)
+	for _, composition := range reversed {
+		if composition.CompositionID != "cap-weaker" {
+			continue
+		}
+		if composition.RecommendedControl != RecommendedControlBlock || composition.EquivalentOutcomeEscalationSource != "peer:cap-stronger" {
+			t.Fatalf("expected order-independent parity result, got %+v", composition)
+		}
+	}
+}
+
+func TestEquivalentOutcomeControlParityFailsClosedForUnknownControl(t *testing.T) {
+	unknown := ComposedActionPath{
+		CompositionID:      "cap-unknown",
+		OutcomeKey:         "outcome:prod:checkout",
+		DurableOutcomeKey:  "outcome:prod:checkout",
+		OutcomeClass:       "production_deploy",
+		TargetIdentity:     "prod:checkout",
+		TargetClass:        TargetClassProductionImpacting,
+		RecommendedControl: "future_unranked_control",
+	}
+	known := unknown
+	known.CompositionID = "cap-known"
+	known.RecommendedControl = RecommendedControlAllow
+
+	compositions := []ComposedActionPath{unknown, known}
+	annotateEquivalentOutcomeSignals(compositions)
+	if compositions[0].RecommendedControl != RecommendedControlBlock {
+		t.Fatalf("expected unknown control to fail closed to block, got %q", compositions[0].RecommendedControl)
+	}
+	if !containsAnyPathClass(compositions[0].RecommendedControlReasons, "composition:unknown_recommended_control") {
+		t.Fatalf("expected fail-closed reason, got %v", compositions[0].RecommendedControlReasons)
+	}
+}
+
 func TestProposedActionContractReadinessMapsSpecificGapsToNeedsEvidence(t *testing.T) {
 	base := ComposedActionPath{
 		CompositionID: "cap-1",

@@ -460,6 +460,33 @@ func sanitizeProposedActionContractPublic(in *risk.ProposedActionContract) *risk
 	out.TargetConstraints = nil
 	out.AcceptableCountersigners = nil
 	out.SourceDigests = nil
+	for idx := range out.AuthorityRequirements {
+		out.AuthorityRequirements[idx].RequiredConstraint = redactValue("constraint", out.AuthorityRequirements[idx].RequiredConstraint, 8)
+		out.AuthorityRequirements[idx].ObservedValue = redactValue("authority", out.AuthorityRequirements[idx].ObservedValue, 8)
+		out.AuthorityRequirements[idx].EvidenceRefs = redactStringSlice(out.AuthorityRequirements[idx].EvidenceRefs, "evidence")
+	}
+	for idx := range out.Preconditions {
+		out.Preconditions[idx].RequiredConstraint = redactValue("constraint", out.Preconditions[idx].RequiredConstraint, 8)
+		out.Preconditions[idx].ObservedValue = redactValue("precondition", out.Preconditions[idx].ObservedValue, 8)
+		out.Preconditions[idx].ObservedResult = redactValue("result", out.Preconditions[idx].ObservedResult, 8)
+		out.Preconditions[idx].EvidenceRefs = redactStringSlice(out.Preconditions[idx].EvidenceRefs, "evidence")
+	}
+	if out.ConfirmationRequirement != nil {
+		out.ConfirmationRequirement.EvidenceRefs = redactStringSlice(out.ConfirmationRequirement.EvidenceRefs, "evidence")
+	}
+	if out.ApprovalRequirement != nil {
+		out.ApprovalRequirement.ApproverRoles = redactStringSlice(out.ApprovalRequirement.ApproverRoles, "role")
+		out.ApprovalRequirement.EvidenceRefs = redactStringSlice(out.ApprovalRequirement.EvidenceRefs, "evidence")
+	}
+	if out.CompensationRequirement != nil {
+		out.CompensationRequirement.ProcedureRef = redactValue("procedure", out.CompensationRequirement.ProcedureRef, 8)
+		out.CompensationRequirement.Target = redactValue("target", out.CompensationRequirement.Target, 8)
+		out.CompensationRequirement.EvidenceRefs = redactStringSlice(out.CompensationRequirement.EvidenceRefs, "evidence")
+	}
+	for idx := range out.LifecycleObservations {
+		out.LifecycleObservations[idx].EvidenceRefs = redactStringSlice(out.LifecycleObservations[idx].EvidenceRefs, "evidence")
+		out.LifecycleObservations[idx].ProofRefs = redactStringSlice(out.LifecycleObservations[idx].ProofRefs, "proof")
+	}
 	risk.RefreshProposedActionContractIdentity(out)
 	return out
 }

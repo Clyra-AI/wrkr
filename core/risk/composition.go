@@ -110,46 +110,47 @@ type CompositionTransition struct {
 }
 
 type ComposedActionPath struct {
-	CompositionID                string                         `json:"composition_id"`
-	PatternID                    string                         `json:"pattern_id"`
-	Pattern                      CompositionPattern             `json:"pattern"`
-	ResolutionKey                string                         `json:"resolution_key,omitempty"`
-	PathIDs                      []string                       `json:"path_ids,omitempty"`
-	WorkflowChainRefs            []string                       `json:"workflow_chain_refs,omitempty"`
-	Stages                       []CompositionStage             `json:"stages"`
-	Transitions                  []CompositionTransition        `json:"transitions,omitempty"`
-	TargetIdentity               string                         `json:"target_identity,omitempty"`
-	DurableOutcomeKey            string                         `json:"durable_outcome_key,omitempty"`
-	OutcomeKey                   string                         `json:"outcome_key,omitempty"`
-	AffectedAsset                string                         `json:"affected_asset,omitempty"`
-	OutcomeClass                 string                         `json:"outcome_class,omitempty"`
-	Environment                  string                         `json:"environment,omitempty"`
-	TargetClass                  string                         `json:"target_class,omitempty"`
-	ClaimState                   string                         `json:"claim_state,omitempty"`
-	EvidenceState                string                         `json:"evidence_state,omitempty"`
-	FreshnessState               string                         `json:"freshness_state,omitempty"`
-	PolicyCoverageStatus         string                         `json:"policy_coverage_status,omitempty"`
-	GaitCoverage                 *GaitCoverage                  `json:"gait_coverage,omitempty"`
-	RuntimeEvidenceAbsenceStatus string                         `json:"runtime_evidence_absence_status,omitempty"`
-	Contradictions               []evidencepolicy.Contradiction `json:"contradictions,omitempty"`
-	EvidenceRefs                 []string                       `json:"evidence_refs,omitempty"`
-	ProofRefs                    []string                       `json:"proof_refs,omitempty"`
-	SourceDecisionRefs           []string                       `json:"source_decision_refs,omitempty"`
-	RiskTier                     string                         `json:"risk_tier,omitempty"`
-	RecommendedControl           string                         `json:"recommended_control,omitempty"`
-	RecommendedControlReasons    []string                       `json:"recommended_control_reasons,omitempty"`
-	EscalatingTransitionRefs     []string                       `json:"escalating_transition_refs,omitempty"`
-	MostRestrictiveSource        string                         `json:"most_restrictive_source,omitempty"`
-	ClosureRequirements          []ClosureRequirement           `json:"closure_requirements,omitempty"`
-	EvidenceCompleteness         *EvidenceCompleteness          `json:"evidence_completeness,omitempty"`
-	UnsupportedSurfaces          []string                       `json:"unsupported_surfaces,omitempty"`
-	TruncatedCandidates          []string                       `json:"truncated_candidates,omitempty"`
-	ProposedActionContract       *ProposedActionContract        `json:"proposed_action_contract,omitempty"`
-	ProposedActionContractRefs   []string                       `json:"proposed_action_contract_refs,omitempty"`
-	EquivalentOutcomeRefs        []string                       `json:"equivalent_outcome_refs,omitempty"`
-	ApprovalEvasionSignal        string                         `json:"approval_evasion_signal,omitempty"`
-	CoverageDeltaReasons         []string                       `json:"coverage_delta_reasons,omitempty"`
-	Materiality                  string                         `json:"materiality,omitempty"`
+	CompositionID                     string                         `json:"composition_id"`
+	PatternID                         string                         `json:"pattern_id"`
+	Pattern                           CompositionPattern             `json:"pattern"`
+	ResolutionKey                     string                         `json:"resolution_key,omitempty"`
+	PathIDs                           []string                       `json:"path_ids,omitempty"`
+	WorkflowChainRefs                 []string                       `json:"workflow_chain_refs,omitempty"`
+	Stages                            []CompositionStage             `json:"stages"`
+	Transitions                       []CompositionTransition        `json:"transitions,omitempty"`
+	TargetIdentity                    string                         `json:"target_identity,omitempty"`
+	DurableOutcomeKey                 string                         `json:"durable_outcome_key,omitempty"`
+	OutcomeKey                        string                         `json:"outcome_key,omitempty"`
+	AffectedAsset                     string                         `json:"affected_asset,omitempty"`
+	OutcomeClass                      string                         `json:"outcome_class,omitempty"`
+	Environment                       string                         `json:"environment,omitempty"`
+	TargetClass                       string                         `json:"target_class,omitempty"`
+	ClaimState                        string                         `json:"claim_state,omitempty"`
+	EvidenceState                     string                         `json:"evidence_state,omitempty"`
+	FreshnessState                    string                         `json:"freshness_state,omitempty"`
+	PolicyCoverageStatus              string                         `json:"policy_coverage_status,omitempty"`
+	GaitCoverage                      *GaitCoverage                  `json:"gait_coverage,omitempty"`
+	RuntimeEvidenceAbsenceStatus      string                         `json:"runtime_evidence_absence_status,omitempty"`
+	Contradictions                    []evidencepolicy.Contradiction `json:"contradictions,omitempty"`
+	EvidenceRefs                      []string                       `json:"evidence_refs,omitempty"`
+	ProofRefs                         []string                       `json:"proof_refs,omitempty"`
+	SourceDecisionRefs                []string                       `json:"source_decision_refs,omitempty"`
+	RiskTier                          string                         `json:"risk_tier,omitempty"`
+	RecommendedControl                string                         `json:"recommended_control,omitempty"`
+	RecommendedControlReasons         []string                       `json:"recommended_control_reasons,omitempty"`
+	EscalatingTransitionRefs          []string                       `json:"escalating_transition_refs,omitempty"`
+	MostRestrictiveSource             string                         `json:"most_restrictive_source,omitempty"`
+	ClosureRequirements               []ClosureRequirement           `json:"closure_requirements,omitempty"`
+	EvidenceCompleteness              *EvidenceCompleteness          `json:"evidence_completeness,omitempty"`
+	UnsupportedSurfaces               []string                       `json:"unsupported_surfaces,omitempty"`
+	TruncatedCandidates               []string                       `json:"truncated_candidates,omitempty"`
+	ProposedActionContract            *ProposedActionContract        `json:"proposed_action_contract,omitempty"`
+	ProposedActionContractRefs        []string                       `json:"proposed_action_contract_refs,omitempty"`
+	EquivalentOutcomeRefs             []string                       `json:"equivalent_outcome_refs,omitempty"`
+	EquivalentOutcomeEscalationSource string                         `json:"equivalent_outcome_escalation_source,omitempty"`
+	ApprovalEvasionSignal             string                         `json:"approval_evasion_signal,omitempty"`
+	CoverageDeltaReasons              []string                       `json:"coverage_delta_reasons,omitempty"`
+	Materiality                       string                         `json:"materiality,omitempty"`
 }
 
 type ComposedActionPathSummary struct {
@@ -1356,6 +1357,30 @@ func annotateEquivalentOutcomeSignals(compositions []ComposedActionPath) {
 	if len(compositions) < 2 {
 		return
 	}
+	// Take the control and peer snapshots before annotating any path. Parity is
+	// deliberately a single monotonic pass: a control raised for one route must
+	// not become an input that raises a reciprocal route in the same group.
+	type paritySnapshot struct {
+		control string
+		known   bool
+	}
+	snapshots := make([]paritySnapshot, len(compositions))
+	for idx := range compositions {
+		control := strings.TrimSpace(compositions[idx].RecommendedControl)
+		known := isKnownRecommendedControl(control)
+		snapshots[idx] = paritySnapshot{control: control, known: known}
+		if !known {
+			// The composition recommendation is a safety boundary. An unknown
+			// value cannot be ranked or propagated, so retain a fail-closed block
+			// instead of guessing where it belongs in the ordering.
+			compositions[idx].RecommendedControl = RecommendedControlBlock
+			compositions[idx].RecommendedControlReasons = dedupeSortedStrings(append(
+				compositions[idx].RecommendedControlReasons,
+				"composition:unknown_recommended_control",
+			))
+			compositions[idx].MostRestrictiveSource = "composition:unknown_recommended_control"
+		}
+	}
 	byOutcome := map[string][]int{}
 	for idx := range compositions {
 		compositions[idx].OutcomeKey = firstNonEmptyString(strings.TrimSpace(compositions[idx].OutcomeKey), strings.TrimSpace(compositions[idx].DurableOutcomeKey))
@@ -1373,16 +1398,25 @@ func annotateEquivalentOutcomeSignals(compositions []ComposedActionPath) {
 		if len(indexes) < 2 {
 			continue
 		}
+		sort.Slice(indexes, func(i, j int) bool {
+			return strings.TrimSpace(compositions[indexes[i]].CompositionID) < strings.TrimSpace(compositions[indexes[j]].CompositionID)
+		})
 		for _, idx := range indexes {
 			refs := []string{}
 			reasons := []string{}
 			material := false
 			possibleEvasion := false
+			mostRestrictivePeer := ""
+			mostRestrictiveControl := ""
 			for _, peerIdx := range indexes {
 				if peerIdx == idx {
 					continue
 				}
 				peer := compositions[peerIdx]
+				peerSnapshot := snapshots[peerIdx]
+				if !peerSnapshot.known {
+					continue
+				}
 				deltas := equivalentOutcomeDeltaReasons(compositions[idx], peer)
 				if len(deltas) == 0 {
 					continue
@@ -1390,8 +1424,13 @@ func annotateEquivalentOutcomeSignals(compositions []ComposedActionPath) {
 				refs = append(refs, strings.TrimSpace(peer.CompositionID))
 				reasons = append(reasons, deltas...)
 				material = true
-				if compositionWeakerThanPeer(compositions[idx], peer) {
+				if compositionWeakerThanPeerSnapshot(snapshots[idx].control, compositions[idx], peerSnapshot.control, peer) {
 					possibleEvasion = true
+				}
+				if mostRestrictiveControl == "" || recommendedControlRank(peerSnapshot.control) < recommendedControlRank(mostRestrictiveControl) ||
+					(recommendedControlRank(peerSnapshot.control) == recommendedControlRank(mostRestrictiveControl) && strings.TrimSpace(peer.CompositionID) < mostRestrictivePeer) {
+					mostRestrictiveControl = peerSnapshot.control
+					mostRestrictivePeer = strings.TrimSpace(peer.CompositionID)
 				}
 			}
 			refs = dedupeSortedStrings(refs)
@@ -1413,12 +1452,38 @@ func annotateEquivalentOutcomeSignals(compositions []ComposedActionPath) {
 			} else {
 				compositions[idx].Materiality = CompositionMaterialityNone
 			}
+			if snapshots[idx].known && mostRestrictiveControl != "" && recommendedControlRank(mostRestrictiveControl) < recommendedControlRank(snapshots[idx].control) {
+				compositions[idx].RecommendedControl = mostRestrictiveControl
+				compositions[idx].RecommendedControlReasons = dedupeSortedStrings(append(
+					compositions[idx].RecommendedControlReasons,
+					"composition:equivalent_outcome_control_parity",
+				))
+				compositions[idx].EquivalentOutcomeEscalationSource = "peer:" + mostRestrictivePeer
+				compositions[idx].MostRestrictiveSource = compositions[idx].EquivalentOutcomeEscalationSource
+			}
 			compositions[idx].ProposedActionContract = BuildProposedActionContract(compositions[idx])
 			if compositions[idx].ProposedActionContract != nil {
 				compositions[idx].ProposedActionContractRefs = []string{compositions[idx].ProposedActionContract.ContractID}
 			}
 		}
 	}
+}
+
+func isKnownRecommendedControl(value string) bool {
+	return recommendedControlRank(value) < 8
+}
+
+func compositionWeakerThanPeerSnapshot(currentControl string, current ComposedActionPath, peerControl string, peer ComposedActionPath) bool {
+	if !isKnownRecommendedControl(currentControl) || !isKnownRecommendedControl(peerControl) {
+		return false
+	}
+	if recommendedControlRank(currentControl) > recommendedControlRank(peerControl) {
+		return true
+	}
+	if compositionPolicyCoverageRank(current.PolicyCoverageStatus) > compositionPolicyCoverageRank(peer.PolicyCoverageStatus) {
+		return true
+	}
+	return evidenceStatePriority(current.EvidenceState) > evidenceStatePriority(peer.EvidenceState)
 }
 
 func compositionOutcomeEquivalenceEligible(composition ComposedActionPath) bool {
@@ -1505,16 +1570,7 @@ func compositionGaitCoverageSignature(coverage *GaitCoverage) string {
 }
 
 func compositionWeakerThanPeer(current, peer ComposedActionPath) bool {
-	if recommendedControlRank(current.RecommendedControl) > recommendedControlRank(peer.RecommendedControl) {
-		return true
-	}
-	if compositionPolicyCoverageRank(current.PolicyCoverageStatus) > compositionPolicyCoverageRank(peer.PolicyCoverageStatus) {
-		return true
-	}
-	if evidenceStatePriority(current.EvidenceState) > evidenceStatePriority(peer.EvidenceState) {
-		return true
-	}
-	return false
+	return compositionWeakerThanPeerSnapshot(current.RecommendedControl, current, peer.RecommendedControl, peer)
 }
 
 func compositionPolicyCoverageRank(value string) int {

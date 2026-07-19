@@ -79,6 +79,12 @@ Composition drift categories are also additive and use the same `drift_categorie
 - `alternate_route_appeared`
 - `composition_outcome_changed`
 
+Version 3 proposed Action Contract revisions remain immutable comparison
+material. A new revision must have explicit validated predecessor evidence;
+later imported Gait/Axym lifecycle receipts can change a portable artifact
+variant without rewriting the contract content digest or claiming that static
+reachability was executed.
+
 Composition comparison matches by `composition_family_key`, not volatile `path_id` or member-bearing `composition_id`. The key includes pattern, ordered stage roles, stable target identity, and stable route/source identity while excluding member resolution keys, outcome key, environment, and outcome class so member swaps and outcome changes produce material drift categories instead of removed-plus-introduced noise.
 Each `drift_categories[*]` row includes severity, priority, stable current/baseline path or composition refs, additive evidence refs, buyer-facing examples, and recommended next actions. Legacy `reasons[*]` remain present for lifecycle, approval-expiry, owner-change, permission-expansion, and critical attack-path contracts.
 Action-path drift review stays additive and deterministic: benign report ordering does not reopen resolved paths, while expiry, contradiction, disappeared imported controls, credential-family changes, and target-class escalation show up through the same stable path matching and evidence refs without forcing scan/report commands to fail as runtime errors.

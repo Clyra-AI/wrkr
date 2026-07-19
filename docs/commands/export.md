@@ -35,13 +35,32 @@ wrkr export --format appendix --csv-dir ./.tmp/appendix --json
 wrkr export tickets --top 10 --format jira --dry-run --state ./.wrkr/last-scan.json --json
 wrkr export declarations --state ./.wrkr/last-scan.json --resolution-key rk-release --action accept_risk_with_expiry --json
 wrkr export declarations --state ./.wrkr/last-scan.json --resolution-key rk-release --action declare_repo_owner --mode governance_repo --patch-path ./declaration-patch.yaml --json
+wrkr export action-contracts --state ./.wrkr/last-scan.json --contract-id pac-0123456789abcdef --output-dir ./.tmp/action-contracts --share-profile customer-redacted --json
 ```
 
 Inventory format JSON keys: `export_version`, `exported_at`, `org`, `agents`, `tools`.
 Appendix format JSON keys: `status`, `appendix`, optional `csv_files`.
 Ticket export JSON keys: `ticket_export_version`, `format`, `dry_run`, `tickets`.
 
-Saved scan state must be complete. If `--state` carries `partial_result`, `source_errors`, or `source_degraded`, inventory, appendix, and ticket exports return `invalid_input` (exit `6`) before writing derived output.
+### Portable Action Contract artifacts
+
+`wrkr export action-contracts` exports only version `3` report-only proposed
+Action Contracts from complete saved state. With no `--contract-id`, selection
+is stable by contract ID. Without `--output-dir`, the JSON collection is sent
+to stdout; with one, Wrkr atomically writes stable `<contract-id>.json` files
+and `manifest.json`, refusing collisions and symlink output directories (exit
+`8`). `--contract-id` misses and invalid profile values return exit `6`.
+
+Each standalone envelope uses schema version `1` and an RFC 8785 JCS
+`canonical_content_digest`. Its identity covers normalized contract content,
+durable scan/composition/creation references, and the selected variant, but
+excludes volatile presentation time. Non-internal share profiles use the
+existing recursive report redaction projection before digesting, so a redacted
+artifact receives its own valid identity and never claims to be the internal
+artifact. Export stays local and does not activate, approve, execute, or send a
+contract to Gait or Axym.
+
+Saved scan state must be complete. If `--state` carries `partial_result`, `source_errors`, or `source_degraded`, inventory, appendix, ticket, declaration, and Action Contract exports return `invalid_input` (exit `6`) before writing derived output.
 
 Compatibility note:
 

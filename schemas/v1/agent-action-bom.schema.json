@@ -448,7 +448,12 @@
         "current_coverage": {"type": "string"},
         "proposed_control": {"$ref": "#/$defs/recommendedControl"},
         "expected_outcome": {"type": "string"},
-        "proposed_action_contract": {"$ref": "#/$defs/proposedActionContract"},
+        "proposed_action_contract": {
+          "oneOf": [
+            {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract.schema.json"},
+            {"$ref": "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json"}
+          ]
+        },
         "closure_requirements": {"type": "array", "items": {"$ref": "#/$defs/closureRequirement"}},
         "agentic_delivery_system_change": {"$ref": "#/$defs/agenticDeliverySystemChange"},
         "runtime_provider": {"type": "string"},
