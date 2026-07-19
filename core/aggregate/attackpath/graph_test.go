@@ -422,6 +422,7 @@ func TestBuildControlPathGraphUsesBoundedEndpointProjection(t *testing.T) {
 	}
 	if grouped == nil {
 		t.Fatalf("expected at least one grouped endpoint node, got %+v", graph.Nodes)
+		return
 	}
 	if grouped.EndpointRefGroupID == "" || len(grouped.EndpointRouteGroups) == 0 || len(grouped.EndpointOperationCounts) == 0 {
 		t.Fatalf("expected grouped endpoint metadata, got %+v", grouped)

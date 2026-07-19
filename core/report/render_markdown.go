@@ -530,7 +530,7 @@ func RenderActionContractPacketMarkdown(packet ActionContractPacket) string {
 }
 
 func packetMarkdownBullet(builder *strings.Builder, label, value string) {
-	builder.WriteString(fmt.Sprintf("- %s: %s\n", packetMarkdownValue(label), packetMarkdownValue(firstPacketValue(value, "not_recorded"))))
+	fmt.Fprintf(builder, "- %s: %s\n", packetMarkdownValue(label), packetMarkdownValue(firstPacketValue(value, "not_recorded")))
 }
 
 func packetMarkdownList(values []string) string {

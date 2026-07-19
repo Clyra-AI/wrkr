@@ -518,6 +518,7 @@ func TestBacklogClosureCopyByPathType(t *testing.T) {
 	}
 	if openAPIItem == nil || instructionItem == nil {
 		t.Fatalf("expected keyed backlog items, got %+v", backlog.Items)
+		return
 	}
 	if !strings.Contains(openAPIItem.ClosureCriteria, "API specification surface") || strings.Contains(openAPIItem.ClosureCriteria, "approval evidence") {
 		t.Fatalf("expected openapi backlog closure wording to stay target-context specific, got %+v", openAPIItem)

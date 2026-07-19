@@ -30,6 +30,7 @@ func TestBuildArtifactMetadataIncludesSourceArtifactDigests(t *testing.T) {
 	metadata := BuildArtifactMetadata(summary, []string{statePath}, ArtifactVariantInternal, "pair-1", filepath.Join(tmp, "join.json"))
 	if metadata == nil {
 		t.Fatal("expected artifact metadata")
+		return
 	}
 	if len(metadata.SourceArtifactDigests) != 1 || metadata.SourceArtifactDigests[0] != expectedDigest {
 		t.Fatalf("expected source digest %s, got %+v", expectedDigest, metadata.SourceArtifactDigests)
@@ -43,6 +44,7 @@ func TestBuildArtifactMetadataIncludesSourceArtifactDigests(t *testing.T) {
 	redacted := BuildArtifactMetadata(redactedSummary, []string{statePath}, ArtifactVariantCustomerRedacted, "pair-1", filepath.Join(tmp, "join.json"))
 	if redacted == nil {
 		t.Fatal("expected redacted artifact metadata")
+		return
 	}
 	if len(redacted.SourceArtifactDigests) != 1 || redacted.SourceArtifactDigests[0] != expectedDigest {
 		t.Fatalf("expected redacted metadata to preserve digest %s, got %+v", expectedDigest, redacted.SourceArtifactDigests)
