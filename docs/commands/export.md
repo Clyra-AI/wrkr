@@ -46,19 +46,23 @@ Ticket export JSON keys: `ticket_export_version`, `format`, `dry_run`, `tickets`
 
 `wrkr export action-contracts` exports only version `3` report-only proposed
 Action Contracts from complete saved state. With no `--contract-id`, selection
-is stable by contract ID. Without `--output-dir`, the JSON collection is sent
-to stdout; with one, Wrkr atomically writes stable `<contract-id>.json` files
-and `manifest.json`, refusing collisions and symlink output directories (exit
-`8`). `--contract-id` misses and invalid profile values return exit `6`.
+is stable by saved contract ID. With redacted share profiles, `--contract-id`
+matches the saved/internal contract ID before redaction and the emitted artifact
+receives a redacted contract ID. Without `--output-dir`, the JSON collection is
+sent to stdout; with one, Wrkr atomically writes stable `<contract-id>.json`
+files and `manifest.json`, preflighting every target before the first write and
+refusing collisions and symlink output directories (exit `8`). `--contract-id`
+misses and invalid profile values return exit `6`.
 
 Each standalone envelope uses schema version `1` and an RFC 8785 JCS
 `canonical_content_digest`. Its identity covers normalized contract content,
 durable scan/composition/creation references, and the selected variant, but
 excludes volatile presentation time. Non-internal share profiles use the
-existing recursive report redaction projection before digesting, so a redacted
-artifact receives its own valid identity and never claims to be the internal
-artifact. Export stays local and does not activate, approve, execute, or send a
-contract to Gait or Axym.
+existing recursive redaction projection before digesting without applying
+buyer-report presentation caps, so redacted artifact collections preserve the
+complete saved set while each redacted artifact receives its own valid identity
+and never claims to be the internal artifact. Export stays local and does not
+activate, approve, execute, or send a contract to Gait or Axym.
 
 Saved scan state must be complete. If `--state` carries `partial_result`, `source_errors`, or `source_degraded`, inventory, appendix, ticket, declaration, and Action Contract exports return `invalid_input` (exit `6`) before writing derived output.
 
