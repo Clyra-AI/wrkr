@@ -48,6 +48,7 @@ const (
 	TemplateCustomerDraft        Template = "customer-draft"
 	TemplateAgentActionBOM       Template = "agent-action-bom"
 	TemplateDesignPartnerSummary Template = "design-partner-summary"
+	TemplateActionContractPacket Template = ActionContractPacketTemplate
 )
 
 type ShareProfile string
@@ -505,7 +506,7 @@ type ActivationItem struct {
 
 func ParseTemplate(raw string) (Template, bool) {
 	switch Template(raw) {
-	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft, TemplateAgentActionBOM, TemplateDesignPartnerSummary:
+	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft, TemplateAgentActionBOM, TemplateDesignPartnerSummary, TemplateActionContractPacket:
 		return Template(raw), true
 	default:
 		return "", false

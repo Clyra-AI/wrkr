@@ -384,6 +384,175 @@ func RenderMarkdown(summary Summary) string {
 	return markdown
 }
 
+// RenderActionContractPacketMarkdown renders only the normalized packet model.
+// It does not read saved state or derive additional evidence, so JSON and
+// Markdown cannot diverge into separate contract truths.
+func RenderActionContractPacketMarkdown(packet ActionContractPacket) string {
+	var builder strings.Builder
+	builder.WriteString("# Wrkr Action Contract Packet\n\n")
+	builder.WriteString("Wrkr proposes and reports this contract. Gait alone decides activation and runtime enforcement; Axym verifies downstream evidence.\n\n")
+
+	builder.WriteString("## Contract and Artifact Identity\n\n")
+	packetMarkdownBullet(&builder, "Packet", packet.PacketID)
+	packetMarkdownBullet(&builder, "Artifact", packet.Identity.ArtifactID)
+	packetMarkdownBullet(&builder, "Contract", packet.Identity.ContractID)
+	packetMarkdownBullet(&builder, "Family", packet.Identity.ContractFamilyID)
+	packetMarkdownBullet(&builder, "Revision", fmt.Sprintf("%d", packet.Identity.Revision))
+	packetMarkdownBullet(&builder, "Supersedes", firstPacketValue(packet.Identity.SupersedesRef, "none"))
+	packetMarkdownBullet(&builder, "Contract digest", packet.Identity.ContractContentDigest)
+	packetMarkdownBullet(&builder, "Artifact digest", packet.Identity.CanonicalContentDigest)
+	packetMarkdownBullet(&builder, "Share profile", packet.Identity.ShareProfile)
+	packetMarkdownBullet(&builder, "Source scan refs", packetMarkdownList(packet.Identity.SourceScanRefs))
+	packetMarkdownBullet(&builder, "Creation evidence", packetMarkdownList(packet.Identity.CreationEvidence))
+	packetMarkdownBullet(&builder, "Report only", fmt.Sprintf("%t", packet.ReportOnly))
+	builder.WriteString("\n")
+
+	builder.WriteString("## Composed Path\n\n")
+	packetMarkdownBullet(&builder, "Composition", packet.Path.CompositionID)
+	packetMarkdownBullet(&builder, "Pattern", packet.Path.PatternID)
+	packetMarkdownBullet(&builder, "Target", firstPacketValue(packet.Path.Target, "unknown"))
+	packetMarkdownBullet(&builder, "Target class", firstPacketValue(packet.Path.TargetClass, "unknown"))
+	packetMarkdownBullet(&builder, "Affected asset", firstPacketValue(packet.AffectedAsset, "unknown"))
+	packetMarkdownBullet(&builder, "Outcome", firstPacketValue(packet.Path.OutcomeClass, "unknown"))
+	packetMarkdownBullet(&builder, "Reachability", packet.Reachability.BuyerLabel)
+	for _, stage := range packet.Path.Stages {
+		builder.WriteString(fmt.Sprintf("- Stage `%s`: role=%s tool=%s location=%s actions=%s evidence=%s freshness=%s\n",
+			packetMarkdownValue(stage.StageID), packetMarkdownValue(stage.Role), packetMarkdownValue(firstPacketValue(stage.ToolType, "unknown")),
+			packetMarkdownValue(firstPacketValue(stage.Location, "not_recorded")), packetMarkdownList(stage.ActionClasses),
+			packetMarkdownValue(firstPacketValue(stage.EvidenceState, "unknown")), packetMarkdownValue(firstPacketValue(stage.Freshness, "unknown"))))
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("## Authority Requirements\n\n")
+	if len(packet.AuthorityRequirements) == 0 {
+		builder.WriteString("- Gap: no authority requirements were recorded.\n")
+	}
+	for _, requirement := range packet.AuthorityRequirements {
+		builder.WriteString(fmt.Sprintf("- `%s` %s: required=%s observed=%s evidence=%s freshness=%s refs=%s\n",
+			packetMarkdownValue(requirement.RequirementID), packetMarkdownValue(requirement.Kind), packetMarkdownValue(requirement.RequiredConstraint),
+			packetMarkdownValue(firstPacketValue(requirement.ObservedValue, "not_observed")), packetMarkdownValue(requirement.EvidenceState),
+			packetMarkdownValue(requirement.FreshnessState), packetMarkdownList(requirement.EvidenceRefs)))
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("## Credential Posture\n\n")
+	packetMarkdownBullet(&builder, "Required mode", firstPacketValue(packet.CredentialPosture.RequiredMode, "unknown"))
+	packetMarkdownBullet(&builder, "Evidence", firstPacketValue(packet.CredentialPosture.EvidenceState, "unknown"))
+	packetMarkdownBullet(&builder, "Freshness", firstPacketValue(packet.CredentialPosture.FreshnessState, "unknown"))
+	packetMarkdownBullet(&builder, "Requirement refs", packetMarkdownList(packet.CredentialPosture.RequirementIDs))
+	packetMarkdownBullet(&builder, "Wrkr activation grant", "false")
+	builder.WriteString("\n")
+
+	builder.WriteString("## Readiness Checks\n\n")
+	if len(packet.ReadinessChecks) == 0 {
+		builder.WriteString("- Gap: no typed readiness checks were recorded.\n")
+	}
+	for _, check := range packet.ReadinessChecks {
+		builder.WriteString(fmt.Sprintf("- `%s` %s: required=%s observed=%s result=%s evidence=%s freshness=%s producers=%s\n",
+			packetMarkdownValue(check.RequirementID), packetMarkdownValue(check.Kind), packetMarkdownValue(check.RequiredConstraint),
+			packetMarkdownValue(firstPacketValue(check.ObservedValue, "not_observed")), packetMarkdownValue(firstPacketValue(check.ObservedResult, "not_observed")),
+			packetMarkdownValue(check.EvidenceState), packetMarkdownValue(check.FreshnessState), packetMarkdownList(check.AcceptableProducers)))
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("## Expected and Forbidden Effects\n\n")
+	packetMarkdownBullet(&builder, "Expected", packetMarkdownList(packet.Effects.Expected))
+	packetMarkdownBullet(&builder, "Forbidden", packetMarkdownList(packet.Effects.Forbidden))
+	builder.WriteString("\n")
+
+	builder.WriteString("## Confirmation and Approval\n\n")
+	if packet.Confirmation == nil {
+		builder.WriteString("- Confirmation: gap; requirement not recorded.\n")
+	} else {
+		builder.WriteString(fmt.Sprintf("- Confirmation: required=%t mode=%s evidence=%s freshness=%s\n", packet.Confirmation.Required, packetMarkdownValue(packet.Confirmation.Mode), packetMarkdownValue(packet.Confirmation.EvidenceState), packetMarkdownValue(packet.Confirmation.FreshnessState)))
+	}
+	if packet.Approval == nil {
+		builder.WriteString("- Approval: gap; requirement not recorded.\n")
+	} else {
+		builder.WriteString(fmt.Sprintf("- Approval: required=%t minimum=%d roles=%s separation=%s validity=%s evidence=%s freshness=%s\n",
+			packet.Approval.Required, packet.Approval.MinimumApprovals, packetMarkdownList(packet.Approval.ApproverRoles), packetMarkdownList(packet.Approval.SeparationOfDuties),
+			packetMarkdownValue(firstPacketValue(packet.Approval.ValidityWindow, "not_recorded")), packetMarkdownValue(packet.Approval.EvidenceState), packetMarkdownValue(packet.Approval.FreshnessState)))
+		packetMarkdownBullet(&builder, "Reapproval triggers", packetMarkdownList(packet.Approval.ReapprovalTriggers))
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("## Compensation\n\n")
+	if packet.Compensation == nil {
+		builder.WriteString("- Gap: compensation requirement not recorded.\n")
+	} else {
+		builder.WriteString(fmt.Sprintf("- Required=%t kind=%s procedure=%s target=%s window=%s verification_required=%t evidence=%s freshness=%s\n",
+			packet.Compensation.Required, packetMarkdownValue(packet.Compensation.Kind), packetMarkdownValue(firstPacketValue(packet.Compensation.ProcedureRef, "not_recorded")),
+			packetMarkdownValue(firstPacketValue(packet.Compensation.Target, "not_recorded")), packetMarkdownValue(firstPacketValue(packet.Compensation.ExecutionWindow, "not_recorded")),
+			packet.Compensation.VerificationRequired, packetMarkdownValue(packet.Compensation.EvidenceState), packetMarkdownValue(packet.Compensation.FreshnessState)))
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("## Evidence Gaps\n\n")
+	if len(packet.EvidenceGaps) == 0 {
+		builder.WriteString("- No unresolved typed requirement gaps were found in the selected proposal. This is not an activation grant.\n")
+	}
+	for _, gap := range packet.EvidenceGaps {
+		builder.WriteString(fmt.Sprintf("- `%s` %s: evidence=%s freshness=%s reasons=%s\n", packetMarkdownValue(gap.RequirementID), packetMarkdownValue(gap.Kind), packetMarkdownValue(gap.EvidenceState), packetMarkdownValue(gap.Freshness), packetMarkdownList(gap.ReasonCodes)))
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("## Imported Gait and Axym Evidence\n\n")
+	if len(packet.LifecycleObservations) == 0 {
+		builder.WriteString("- No downstream lifecycle observations were imported.\n")
+	}
+	for _, observation := range packet.LifecycleObservations {
+		builder.WriteString(fmt.Sprintf("- `%s` %s from %s: evidence=%s freshness=%s refs=%s proof=%s\n",
+			packetMarkdownValue(observation.ObservationID), packetMarkdownValue(observation.Kind), packetMarkdownValue(observation.Producer),
+			packetMarkdownValue(observation.EvidenceState), packetMarkdownValue(observation.FreshnessState), packetMarkdownList(observation.EvidenceRefs), packetMarkdownList(observation.ProofRefs)))
+	}
+	builder.WriteString("\n")
+
+	if len(packet.Truncations) > 0 {
+		builder.WriteString("## Presentation Limits\n\n")
+		limit := len(packet.Truncations)
+		if limit > 12 {
+			limit = 12
+		}
+		for _, truncation := range packet.Truncations[:limit] {
+			builder.WriteString(fmt.Sprintf("- %s: reason=%s omitted=%d\n", packetMarkdownValue(truncation.Field), packetMarkdownValue(truncation.Reason), truncation.OmittedCount))
+		}
+		if len(packet.Truncations) > limit {
+			builder.WriteString(fmt.Sprintf("- truncations: %d additional presentation-limit records omitted\n", len(packet.Truncations)-limit))
+		}
+		builder.WriteString("\n")
+	}
+
+	builder.WriteString("## Next Action\n\n")
+	packetMarkdownBullet(&builder, "Action", packet.NextStep.Action)
+	packetMarkdownBullet(&builder, "Reason", packet.NextStep.Reason)
+	packetMarkdownBullet(&builder, "Owner", packet.NextStep.Owner)
+	return builder.String()
+}
+
+func packetMarkdownBullet(builder *strings.Builder, label, value string) {
+	builder.WriteString(fmt.Sprintf("- %s: %s\n", packetMarkdownValue(label), packetMarkdownValue(firstPacketValue(value, "not_recorded"))))
+}
+
+func packetMarkdownList(values []string) string {
+	if len(values) == 0 {
+		return "none"
+	}
+	escaped := make([]string, 0, len(values))
+	for _, value := range values {
+		escaped = append(escaped, packetMarkdownValue(value))
+	}
+	return strings.Join(escaped, ", ")
+}
+
+func packetMarkdownValue(value string) string {
+	value = strings.ReplaceAll(strings.TrimSpace(value), "\\", "\\\\")
+	value = strings.ReplaceAll(value, "`", "\\`")
+	value = strings.ReplaceAll(value, "|", "\\|")
+	value = strings.ReplaceAll(value, "\r", " ")
+	value = strings.ReplaceAll(value, "\n", " ")
+	return value
+}
+
 func markdownContradictions(items []evidencepolicy.Contradiction) string {
 	parts := make([]string, 0, len(items))
 	for _, item := range items {

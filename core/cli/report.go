@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
+	"github.com/Clyra-AI/wrkr/core/export/actioncontracts"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/outputsignal"
@@ -22,6 +24,7 @@ import (
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 type reportPayload struct {
@@ -94,7 +97,8 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	evidenceJSONScope := fs.String("evidence-json-scope", "lead", "Agent Action BOM evidence bundle scope [lead|full]")
 	csvBacklog := fs.Bool("csv-backlog", false, "write a deterministic CSV control backlog")
 	csvBacklogPath := fs.String("csv-backlog-path", "wrkr-control-backlog.csv", "CSV control backlog output path")
-	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
+	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary|action-contract-packet]")
+	contractID := fs.String("contract-id", "", "explicit proposed Action Contract id for action-contract-packet")
 	shareProfileRaw := fs.String("share-profile", "", "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
 	pairedShareProfileRaw := fs.String("paired-share-profile", "", "optional second share profile for paired internal/external artifacts [customer-redacted|design-partner|external-redacted|investor-safe]")
 	redactRaw := fs.String("redact", "", "comma-separated additive redaction fields [owners|repos|paths|credential-subjects|authors|filesystem|providers|proof-refs|graph-refs]")
@@ -158,6 +162,19 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	if scope := strings.TrimSpace(*evidenceJSONScope); scope != "" && scope != "lead" && scope != "full" {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--evidence-json-scope must be lead or full", exitInvalidInput)
 	}
+	if template == reportcore.TemplateActionContractPacket {
+		if strings.TrimSpace(*contractID) == "" {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--template action-contract-packet requires --contract-id", exitInvalidInput)
+		}
+		if strings.TrimSpace(*pairedShareProfileRaw) != "" || len(redactionFields) > 0 {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "action-contract-packet accepts one --share-profile and does not accept paired or additive redaction", exitInvalidInput)
+		}
+		if *pdf || *evidenceJSON || *csvBacklog {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "action-contract-packet supports JSON, stdout Markdown, or --md output only", exitInvalidInput)
+		}
+	} else if strings.TrimSpace(*contractID) != "" {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--contract-id requires --template action-contract-packet", exitInvalidInput)
+	}
 	redactionConfig := reportcore.ResolveRedactionConfig(shareProfile, redactionFields)
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
@@ -170,6 +187,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
 		return code
+	}
+	if template == reportcore.TemplateActionContractPacket {
+		return runActionContractPacketReport(snapshot, shareProfile, strings.TrimSpace(*contractID), *jsonOut, *md, *mdPath, stdout, stderr)
 	}
 
 	var previousSnapshot *state.Snapshot
@@ -372,6 +392,43 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		return exitSuccess
 	}
 	_, _ = fmt.Fprintln(stdout, "wrkr report complete")
+	return exitSuccess
+}
+
+func runActionContractPacketReport(snapshot state.Snapshot, shareProfile reportcore.ShareProfile, contractID string, jsonOut bool, writeMarkdown bool, markdownPath string, stdout io.Writer, stderr io.Writer) int {
+	packet, err := actioncontracts.BuildPacket(snapshot, actioncontracts.BuildOptions{ShareProfile: shareProfile, ContractID: contractID})
+	if err != nil {
+		return emitError(stderr, jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	}
+	markdown := reportcore.RenderActionContractPacketMarkdown(packet)
+	if strings.Count(markdown, "\n") > reportcore.ActionContractPacketMarkdownLineCap {
+		return emitError(stderr, jsonOut, "runtime_failure", "Action Contract packet exceeded its Markdown line budget", exitRuntime)
+	}
+	if writeMarkdown {
+		path, pathErr := resolveArtifactOutputPath(markdownPath)
+		if pathErr != nil {
+			return emitError(stderr, jsonOut, "invalid_input", pathErr.Error(), exitInvalidInput)
+		}
+		if pathErr := rejectUnsafeExistingManagedFile(path, "Action Contract packet Markdown"); pathErr != nil {
+			return emitError(stderr, jsonOut, "unsafe_operation_blocked", pathErr.Error(), exitUnsafeBlocked)
+		}
+		if writeErr := atomicwrite.WriteFile(path, []byte(markdown), 0o600); writeErr != nil {
+			return emitError(stderr, jsonOut, "runtime_failure", writeErr.Error(), exitRuntime)
+		}
+	}
+	if jsonOut {
+		encoder := json.NewEncoder(stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(packet); err != nil {
+			return emitError(stderr, true, "runtime_failure", err.Error(), exitRuntime)
+		}
+		return exitSuccess
+	}
+	if writeMarkdown {
+		_, _ = fmt.Fprintf(stdout, "wrkr report complete\nmd: %s\n", filepath.Clean(markdownPath))
+		return exitSuccess
+	}
+	_, _ = io.WriteString(stdout, markdown)
 	return exitSuccess
 }
 

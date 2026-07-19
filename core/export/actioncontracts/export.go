@@ -79,20 +79,71 @@ type BuildOptions struct {
 }
 
 func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
+	selections, profile, err := buildArtifactSelections(snapshot, options)
+	if err != nil {
+		return Collection{}, err
+	}
+	collection := Collection{SchemaID: SchemaID, SchemaVersion: SchemaVersion, ShareProfile: string(profile)}
+	for _, selection := range selections {
+		artifact := selection.artifact
+		collection.Artifacts = append(collection.Artifacts, artifact)
+		collection.Manifest = append(collection.Manifest, ManifestItem{
+			ArtifactID:             artifact.ArtifactID,
+			ContractID:             artifact.ContractID,
+			CanonicalContentDigest: artifact.CanonicalContentDigest,
+			Filename:               Filename(artifact),
+		})
+	}
+	return collection, nil
+}
+
+// BuildPacket builds the buyer projection from the exact normalized portable
+// artifact selected for export. Packet rendering never rebuilds or rescans the
+// proposed contract independently from the artifact path.
+func BuildPacket(snapshot state.Snapshot, options BuildOptions) (report.ActionContractPacket, error) {
+	if strings.TrimSpace(options.ContractID) == "" {
+		return report.ActionContractPacket{}, fmt.Errorf("Action Contract packet requires an explicit contract id")
+	}
+	selections, _, err := buildArtifactSelections(snapshot, options)
+	if err != nil {
+		return report.ActionContractPacket{}, err
+	}
+	if len(selections) != 1 {
+		return report.ActionContractPacket{}, fmt.Errorf("Action Contract packet selector resolved to %d contracts", len(selections))
+	}
+	selection := selections[0]
+	return report.BuildActionContractPacket(report.ActionContractPacketInput{
+		ArtifactID:             selection.artifact.ArtifactID,
+		CanonicalContentDigest: selection.artifact.CanonicalContentDigest,
+		ShareProfile:           selection.artifact.Variant.ShareProfile,
+		ArtifactRedacted:       selection.artifact.Variant.Redacted,
+		SourceScanRefs:         append([]string(nil), selection.artifact.SourceScanRefs...),
+		CreationEvidence:       append([]string(nil), selection.artifact.CreationEvidence...),
+		Contract:               selection.artifact.Contract,
+		Composition:            selection.composition,
+	})
+}
+
+type artifactSelection struct {
+	artifact    Artifact
+	composition risk.ComposedActionPath
+}
+
+func buildArtifactSelections(snapshot state.Snapshot, options BuildOptions) ([]artifactSelection, report.ShareProfile, error) {
 	profile := options.ShareProfile
 	if profile == "" {
 		profile = report.ShareProfileInternal
 	}
 	if _, ok := report.ParseShareProfile(string(profile)); !ok {
-		return Collection{}, fmt.Errorf("unsupported share profile %q", profile)
+		return nil, "", fmt.Errorf("unsupported share profile %q", profile)
 	}
 	if snapshot.RiskReport == nil {
-		return Collection{}, fmt.Errorf("saved state does not contain risk_report composed action contracts")
+		return nil, "", fmt.Errorf("saved state does not contain risk_report composed action contracts")
 	}
 
 	compositions := append([]risk.ComposedActionPath(nil), snapshot.RiskReport.ComposedActionPaths...)
 	if len(compositions) == 0 {
-		return Collection{}, fmt.Errorf("saved state does not contain proposed Action Contracts")
+		return nil, "", fmt.Errorf("saved state does not contain proposed Action Contracts")
 	}
 	selector := strings.TrimSpace(options.ContractID)
 	if selector != "" {
@@ -102,7 +153,7 @@ func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
 		var err error
 		compositions, err = redactedCompositions(snapshot, compositions, profile)
 		if err != nil {
-			return Collection{}, err
+			return nil, "", err
 		}
 	}
 
@@ -116,7 +167,7 @@ func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
 		}
 		return strings.TrimSpace(left.ContractID) < strings.TrimSpace(right.ContractID)
 	})
-	collection := Collection{SchemaID: SchemaID, SchemaVersion: SchemaVersion, ShareProfile: string(profile)}
+	selections := make([]artifactSelection, 0, len(compositions))
 	for _, composition := range compositions {
 		if composition.ProposedActionContract == nil {
 			continue
@@ -127,23 +178,17 @@ func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
 		}
 		artifact, err := buildArtifact(snapshot, composition, *contract, profile)
 		if err != nil {
-			return Collection{}, err
+			return nil, "", err
 		}
-		collection.Artifacts = append(collection.Artifacts, artifact)
-		collection.Manifest = append(collection.Manifest, ManifestItem{
-			ArtifactID:             artifact.ArtifactID,
-			ContractID:             artifact.ContractID,
-			CanonicalContentDigest: artifact.CanonicalContentDigest,
-			Filename:               Filename(artifact),
-		})
+		selections = append(selections, artifactSelection{artifact: artifact, composition: composition})
 	}
-	if selector != "" && len(collection.Artifacts) == 0 {
-		return Collection{}, fmt.Errorf("proposed Action Contract %q was not found", selector)
+	if selector != "" && len(selections) == 0 {
+		return nil, "", fmt.Errorf("proposed Action Contract %q was not found", selector)
 	}
-	if len(collection.Artifacts) == 0 {
-		return Collection{}, fmt.Errorf("saved state has no exportable proposed Action Contract v3 artifacts")
+	if len(selections) == 0 {
+		return nil, "", fmt.Errorf("saved state has no exportable proposed Action Contract v3 artifacts")
 	}
-	return collection, nil
+	return selections, profile, nil
 }
 
 func selectCompositionsByContractID(compositions []risk.ComposedActionPath, selector string) []risk.ComposedActionPath {
@@ -231,6 +276,38 @@ func canonicalContentDigest(artifact Artifact) (string, error) {
 
 func Filename(artifact Artifact) string {
 	return strings.TrimSpace(artifact.ContractID) + ".json"
+}
+
+// VerifyArtifact validates the portable identity and embedded immutable
+// contract before cross-product consumers receive the bytes.
+func VerifyArtifact(artifact Artifact) error {
+	if artifact.SchemaID != SchemaID || artifact.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("unsupported Action Contract artifact schema %q version %q", artifact.SchemaID, artifact.SchemaVersion)
+	}
+	if artifact.Producer.Name != Producer || artifact.Producer.ArtifactSchemaVersion != SchemaVersion || artifact.Producer.ContractSchemaVersion != risk.ProposedActionContractVersionV3 {
+		return fmt.Errorf("unsupported Action Contract artifact producer metadata")
+	}
+	if !artifact.ReportOnly || !artifact.Contract.ReportOnly {
+		return fmt.Errorf("Action Contract artifact must remain report_only")
+	}
+	if artifact.Contract.ContractVersion != risk.ProposedActionContractVersionV3 {
+		return fmt.Errorf("Action Contract artifact requires contract version 3")
+	}
+	if artifact.ContractID != artifact.Contract.ContractID || artifact.ContractFamilyID != artifact.Contract.ContractFamilyID || artifact.Revision != artifact.Contract.Revision {
+		return fmt.Errorf("Action Contract artifact envelope identity does not match embedded contract")
+	}
+	digest, err := canonicalContentDigest(artifact)
+	if err != nil {
+		return err
+	}
+	if digest != strings.TrimSpace(artifact.CanonicalContentDigest) {
+		return fmt.Errorf("Action Contract artifact canonical digest mismatch")
+	}
+	wantID := "paca-" + strings.TrimPrefix(digest, "sha256:")[:16]
+	if strings.TrimSpace(artifact.ArtifactID) != wantID {
+		return fmt.Errorf("Action Contract artifact id mismatch")
+	}
+	return nil
 }
 
 // Write writes new artifact files and a collection manifest atomically. It

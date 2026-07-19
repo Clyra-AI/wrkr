@@ -1,0 +1,966 @@
+{
+  "schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json",
+  "schema_version": "1",
+  "artifact_id": "paca-bbaba1fc508e21ae",
+  "contract_id": "pac-df3e7ad71c8ff97b",
+  "contract_family_id": "pacf-e23713ce8893f35c",
+  "revision": 1,
+  "producer": {
+    "name": "wrkr",
+    "artifact_schema_version": "1",
+    "contract_schema_version": "3"
+  },
+  "source_scan_refs": [
+    "saved_scan:v1"
+  ],
+  "composition_refs": [
+    "cap-0b34926aa0a8d7d1"
+  ],
+  "resolution_key": "rk-817d21a4f93ac53e+rk-8c12664380749dcc",
+  "creation_evidence": [
+    "wch-91a21be2ceb5",
+    "wch-b994b4ec715e"
+  ],
+  "canonical_content_digest": "sha256:bbaba1fc508e21ae4cff1e4668cf97b63367e6f08e059c38e1acfcd528490b7c",
+  "variant": {
+    "share_profile": "internal",
+    "redacted": false
+  },
+  "report_only": true,
+  "contract": {
+    "contract_id": "pac-df3e7ad71c8ff97b",
+    "contract_family_id": "pacf-e23713ce8893f35c",
+    "contract_content_digest": "sha256:f6334b210b3086f7f3d7e104fb3b84543c4c66c99fce0a8f2759926c1ff024e1",
+    "contract_version": "3",
+    "contract_kind": "proposed_action_contract",
+    "composition_ref": "cap-0b34926aa0a8d7d1",
+    "resolution_key": "rk-817d21a4f93ac53e+rk-8c12664380749dcc",
+    "prohibited_transitions": [
+      {
+        "transition_id": "cat-2232559226ceb575",
+        "from_stage_id": "cas-6f18acfc4d46a22c",
+        "to_stage_id": "cas-5f33b6f63f24d412",
+        "from_role": "source",
+        "to_role": "external_sink",
+        "reason": "composition_transition"
+      }
+    ],
+    "target_constraints": [
+      {
+        "key": "composition_id",
+        "value": "cap-0b34926aa0a8d7d1"
+      },
+      {
+        "key": "environment",
+        "value": "production"
+      },
+      {
+        "key": "outcome_class",
+        "value": "data_egress"
+      },
+      {
+        "key": "target_class",
+        "value": "production_impacting"
+      },
+      {
+        "key": "target_identity",
+        "value": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a"
+      }
+    ],
+    "required_credential_mode": "ephemeral",
+    "maximum_delegation_depth": 1,
+    "evidence_requirements": [
+      "action_outcome",
+      "approval",
+      "approval_path_parity",
+      "equivalent_outcome_review",
+      "jit_credential",
+      "policy_decision",
+      "proof_verification"
+    ],
+    "acceptable_countersigners": [
+      "control_owner",
+      "security_reviewer"
+    ],
+    "expected_outcome_class": "data_egress",
+    "source_digests": [
+      "sha256:0cc8fccb07377946636ef6a08731103e648422e5884acc4c4619026f2183df41"
+    ],
+    "report_only": true,
+    "readiness_state": "needs_evidence",
+    "reason_codes": [
+      "authority:unresolved:affected_system_owner",
+      "authority:unresolved:business_owner",
+      "authority:unresolved:credential_subject_constraint",
+      "authority:unresolved:delegation_root",
+      "authority:unresolved:originating_intent",
+      "authority:unresolved:permitted_agent_role",
+      "authority:unresolved:policy_authority",
+      "authority:unresolved:requester_identity",
+      "authority:unresolved:separation_of_duties",
+      "composition:equivalent_outcome_control_parity",
+      "composition:evidence_incomplete",
+      "expiry:deterministic_source_absent",
+      "precondition:unresolved:credential_mode",
+      "precondition:unresolved:effect_contract",
+      "precondition:unresolved:environment",
+      "precondition:unresolved:expected_effect",
+      "precondition:unresolved:forbidden_effect",
+      "precondition:unresolved:freshness",
+      "precondition:unresolved:policy_digest",
+      "precondition:unresolved:producer",
+      "precondition:unresolved:required_check",
+      "precondition:unresolved:sandbox",
+      "precondition:unresolved:target",
+      "precondition:unresolved:validation_contract",
+      "readiness:needs_equivalent_outcome_control_parity",
+      "readiness:needs_proof_evidence",
+      "recommended_control:security_review",
+      "report_only:true"
+    ],
+    "revision": 1,
+    "authority_requirements": [
+      {
+        "requirement_id": "pacr-26619ec37de99aec",
+        "kind": "separation_of_duties",
+        "required_constraint": "requester_must_not_approve",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:separation_of_duties:missing",
+          "authority:separation_of_duties:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-3166070f4672b095",
+        "kind": "business_owner",
+        "required_constraint": "business_owner:required",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:business_owner:missing",
+          "authority:business_owner:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-623233d18274f3d0",
+        "kind": "originating_intent",
+        "required_constraint": "composition:cap-0b34926aa0a8d7d1",
+        "observed_value": "sensitive_read_to_egress",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:originating_intent:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-8d6aed260bc01053",
+        "kind": "policy_authority",
+        "required_constraint": "policy_authority:required",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:policy_authority:missing",
+          "authority:policy_authority:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-8d80e37c9abc01b9",
+        "kind": "requester_identity",
+        "required_constraint": "requester_identity:required",
+        "observed_value": "stage:cas-6f18acfc4d46a22c",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:requester_identity:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-8e48fa96f1ed5293",
+        "kind": "credential_subject_constraint",
+        "required_constraint": "subject:built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+        "observed_value": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:credential_subject_constraint:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-96ff1d0e53c55655",
+        "kind": "delegation_root",
+        "required_constraint": "delegation_root:required",
+        "observed_value": "authority-b29daa99b287a631",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:delegation_root:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-a4bdc949eaad9c4c",
+        "kind": "affected_system_owner",
+        "required_constraint": "affected_system_owner:required",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:affected_system_owner:missing",
+          "authority:affected_system_owner:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacr-e9aa5c9846905ea3",
+        "kind": "permitted_agent_role",
+        "required_constraint": "roles:external_sink,source",
+        "observed_value": "external_sink,source",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "authority:permitted_agent_role:unknown"
+        ]
+      }
+    ],
+    "authority_readiness_state": "needs_evidence",
+    "preconditions": [
+      {
+        "requirement_id": "pacp-09eb6ad8fd5ca2e9",
+        "kind": "validation_contract",
+        "required_constraint": "validation_contract:required",
+        "acceptable_producers": [
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:validation_contract:missing",
+          "precondition:validation_contract:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-1191a2f2fb249216",
+        "kind": "target",
+        "required_constraint": "target:bounded",
+        "observed_value": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+        "observed_result": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+        "acceptable_producers": [
+          "action_path"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:target:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-13dbf78718fdaa5f",
+        "kind": "credential_mode",
+        "required_constraint": "credential_mode:ephemeral",
+        "observed_value": "ephemeral",
+        "observed_result": "ephemeral",
+        "acceptable_producers": [
+          "credential_authority"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:credential_mode:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-1cbc019327bf1354",
+        "kind": "expected_effect",
+        "required_constraint": "effect:data_egress",
+        "observed_value": "data_egress",
+        "observed_result": "data_egress",
+        "acceptable_producers": [
+          "action_path"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:expected_effect:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-2287b403a530fc9b",
+        "kind": "producer",
+        "required_constraint": "producer:approved",
+        "acceptable_producers": [
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:producer:missing",
+          "precondition:producer:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-4690e9900499f4a5",
+        "kind": "forbidden_effect",
+        "required_constraint": "effect:not_unbounded",
+        "acceptable_producers": [
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:forbidden_effect:missing",
+          "precondition:forbidden_effect:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-50ee2b6957cae33b",
+        "kind": "environment",
+        "required_constraint": "environment:declared",
+        "observed_value": "production",
+        "observed_result": "production",
+        "acceptable_producers": [
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:environment:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-5afb4bb9dad2c634",
+        "kind": "policy_digest",
+        "required_constraint": "policy_digest:required",
+        "observed_value": "sha256:0cc8fccb07377946636ef6a08731103e648422e5884acc4c4619026f2183df41",
+        "observed_result": "sha256:0cc8fccb07377946636ef6a08731103e648422e5884acc4c4619026f2183df41",
+        "acceptable_producers": [
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:policy_digest:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-a93d1426ceaa825c",
+        "kind": "effect_contract",
+        "required_constraint": "effect_contract:required",
+        "acceptable_producers": [
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:effect_contract:missing",
+          "precondition:effect_contract:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-e0d2df8d59c09de8",
+        "kind": "required_check",
+        "required_constraint": "check:required",
+        "acceptable_producers": [
+          "ci",
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:required_check:missing",
+          "precondition:required_check:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-ed70870b3ac4a843",
+        "kind": "freshness",
+        "required_constraint": "fresh",
+        "observed_value": "unknown",
+        "observed_result": "unknown",
+        "acceptable_producers": [
+          "evidence_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:freshness:not_fresh",
+          "precondition:freshness:unknown"
+        ]
+      },
+      {
+        "requirement_id": "pacp-f93a7c7e8e061325",
+        "kind": "sandbox",
+        "required_constraint": "sandbox:required",
+        "acceptable_producers": [
+          "control_declaration",
+          "gait_policy"
+        ],
+        "max_age": "PT24H",
+        "evidence_state": "unknown",
+        "freshness_state": "unknown",
+        "evidence_refs": [
+          ".gait/policy.yaml",
+          "approval_status=unapproved",
+          "baseline:discovered_surface",
+          "deploy-control",
+          "matched_target:built_in:deploy_workflow",
+          "mutable_endpoint_semantic:deploy",
+          "mutable_endpoint_semantic:production_mutation",
+          "permission:deploy.write",
+          "permission:mcp.access",
+          "permission:production.write",
+          "tool_type:mcp",
+          "wch-91a21be2ceb5",
+          "wch-b994b4ec715e",
+          "write_path:deploy",
+          "write_path:write_capable",
+          "write_path_class:deploy_write",
+          "write_path_class:production_adjacent_write",
+          "write_path_class:write"
+        ],
+        "reason_codes": [
+          "precondition:sandbox:missing",
+          "precondition:sandbox:unknown"
+        ]
+      }
+    ],
+    "confirmation_requirement": {
+      "mode": "not_required",
+      "required": false,
+      "evidence_state": "verified",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:deploy.write",
+        "permission:mcp.access",
+        "permission:production.write",
+        "tool_type:mcp",
+        "wch-91a21be2ceb5",
+        "wch-b994b4ec715e",
+        "write_path:deploy",
+        "write_path:write_capable",
+        "write_path_class:deploy_write",
+        "write_path_class:production_adjacent_write",
+        "write_path_class:write"
+      ],
+      "reason_codes": [
+        "confirmation:not_required"
+      ]
+    },
+    "approval_requirement": {
+      "required": false,
+      "approver_roles": [
+        "control_owner",
+        "security_reviewer"
+      ],
+      "minimum_approvals": 0,
+      "separation_of_duties": [
+        "requester_must_not_approve"
+      ],
+      "scope_digest": "sha256:895af51e62263ed974aec509a2ac1c38549531b884a31da8fa74d1d29046eb0a",
+      "validity_window": "PT24H",
+      "reapproval_triggers": [
+        "contract_content_change",
+        "scope_digest_change"
+      ],
+      "evidence_state": "verified",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:deploy.write",
+        "permission:mcp.access",
+        "permission:production.write",
+        "tool_type:mcp",
+        "wch-91a21be2ceb5",
+        "wch-b994b4ec715e",
+        "write_path:deploy",
+        "write_path:write_capable",
+        "write_path_class:deploy_write",
+        "write_path_class:production_adjacent_write",
+        "write_path_class:write"
+      ],
+      "reason_codes": [
+        "approval:not_required"
+      ]
+    },
+    "compensation_requirement": {
+      "required": false,
+      "kind": "not_required",
+      "target": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+      "execution_window": "PT24H",
+      "verification_required": false,
+      "acceptable_producers": [
+        "gait_policy",
+        "control_declaration"
+      ],
+      "evidence_state": "verified",
+      "freshness_state": "unknown",
+      "evidence_refs": [
+        ".gait/policy.yaml",
+        "approval_status=unapproved",
+        "baseline:discovered_surface",
+        "deploy-control",
+        "matched_target:built_in:deploy_workflow",
+        "mutable_endpoint_semantic:deploy",
+        "mutable_endpoint_semantic:production_mutation",
+        "permission:deploy.write",
+        "permission:mcp.access",
+        "permission:production.write",
+        "tool_type:mcp",
+        "wch-91a21be2ceb5",
+        "wch-b994b4ec715e",
+        "write_path:deploy",
+        "write_path:write_capable",
+        "write_path_class:deploy_write",
+        "write_path_class:production_adjacent_write",
+        "write_path_class:write"
+      ],
+      "reason_codes": [
+        "compensation:not_required"
+      ]
+    },
+    "lifecycle_observations": [
+      {
+        "observation_id": "pacl-6bde8ed5d5994de4",
+        "kind": "proposal_creation",
+        "producer": "wrkr",
+        "evidence_state": "verified",
+        "freshness_state": "fresh",
+        "observed_at": "2026-07-19T00:00:00Z",
+        "evidence_refs": [
+          "interop:customer-data-to-egress"
+        ],
+        "proof_refs": [
+          "proof:interop:customer-data-to-egress"
+        ]
+      }
+    ]
+  }
+}

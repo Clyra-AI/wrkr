@@ -18,6 +18,7 @@ wrkr init --non-interactive --org acme --github-api https://api.github.com
 wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.wrkr/agent-action-bom.md --evidence-json --evidence-json-path ./.wrkr/agent-action-bom-evidence.json
 wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.wrkr/ciso.md --pdf --pdf-path ./.wrkr/ciso.pdf --evidence-json --evidence-json-path ./.wrkr/report-evidence.json --csv-backlog --csv-backlog-path ./.wrkr/control-backlog.csv
+wrkr report --state ./.wrkr/last-scan.json --template action-contract-packet --contract-id pac-0123456789abcdef --share-profile customer-redacted --md --md-path ./.wrkr/action-contract-packet.md --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence
 wrkr verify --chain --state ./.wrkr/last-scan.json
 ```
@@ -60,6 +61,7 @@ wrkr report --top 5 --template appsec --json
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
 - `report`: `status`, `generated_at`, additive `next_steps`, additive `agent_action_bom`, additive `runtime_evidence` when a managed runtime evidence sidecar exists, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
   - `agent_action_bom.items[*]`: buyer-facing `control_state`, `risk_zone`, `review_burden`, path-level `gait_coverage`, workflow-token-vs-PAT credential posture, and deterministic `introduced_by` provenance when repo-local provenance metadata is present
+- `action-contract-packet`: direct packet-schema v1 JSON with `identity`, `path`, `authority_requirements`, `credential_posture`, `readiness_checks`, `effects`, `confirmation_requirement`, `approval_requirement`, `compensation_requirement`, `evidence_gaps`, `lifecycle_observations`, `reachability`, and `next_step`
 
 ## How to frame the results
 
@@ -69,6 +71,7 @@ wrkr report --top 5 --template appsec --json
 - `report --template agent-action-bom` is the canonical joined operator artifact for risky action-path inventory, graph refs, proof refs, runtime evidence correlation, and next-action priority.
 - `scripts/run_agent_action_bom_demo.sh after` provides a deterministic demo handoff that reproduces the same BOM plus runtime evidence bundle path locally.
 - `report` can also emit customer-ready CISO/AppSec/platform/audit/customer-draft artifacts led by the control backlog.
+- `report --template action-contract-packet --contract-id <id>` emits one opt-in buyer packet from the same normalized portable contract artifact. The selector is explicit, weak evidence remains visible, and static reachability is not upgraded to observed execution.
 - `report` is a saved-state renderer for static posture and offline proof artifacts; it is not a live observation surface.
 - `report.next_steps` and `evidence.next_steps` are additive machine-readable sequencing hints for the operator-to-auditor handoff path; use them when you want automation or agents to follow the same artifact workflow the docs describe, using the referenced artifact fields in the same payload.
 - `evidence` packages the saved posture into portable proof artifacts only when the saved proof chain is intact, and `verify` remains the explicit machine gate for proof integrity.
@@ -80,6 +83,7 @@ Operator runs:
 
 - `wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json ... --json`
 - `wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.wrkr/ciso.md --pdf --pdf-path ./.wrkr/ciso.pdf --evidence-json --evidence-json-path ./.wrkr/report-evidence.json --csv-backlog --csv-backlog-path ./.wrkr/control-backlog.csv --json`
+- `wrkr report --state ./.wrkr/last-scan.json --template action-contract-packet --contract-id pac-0123456789abcdef --share-profile customer-redacted --md --md-path ./.wrkr/action-contract-packet.md --json`
 - `wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json`
 - `wrkr verify --chain --state ./.wrkr/last-scan.json --json`
 
@@ -88,6 +92,7 @@ Buyer, GRC, or audit consumer reads:
 - `./.wrkr/ciso.md` or `./.wrkr/ciso.pdf` for the narrative summary
 - `./.wrkr/report-evidence.json` for machine-readable report evidence
 - `./.wrkr/control-backlog.csv` for owner/SLA/closure tracking
+- `./.wrkr/action-contract-packet.md` for one selected proposal's authority, readiness, effect, approval, compensation, and downstream-evidence review
 - `./wrkr-evidence/` for the portable bundle, manifest, framework mappings, and proof artifacts
 - the `verify --chain --json` result for explicit integrity confirmation
 

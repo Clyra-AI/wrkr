@@ -4,4 +4,4 @@ Wrkr scenarios are deterministic repo-local fixtures for scan, report, evidence,
 
 Composition fixtures live under `scenarios/wrkr/composed-action-paths/` and define the canonical Wrkr-side outputs for composed action paths, proposed Action Contracts, decision trace refs, evidence refs, Agent Action BOM primary-view refs, and regress snapshot refs.
 
-Cross-product composition fixtures live under `scenarios/cross-product/composed-action-contracts/`. They document expected Gait validation inputs and Axym correlation refs without implementing Gait or Axym product behavior in this repository.
+Exact-byte cross-product Action Contract fixtures live under `scenarios/cross-product/action-contract-interop/`. They are generated through the production Wrkr scan, saved-state, export, and packet paths; the manifest pins their schemas and digests. Wrkr passes those unchanged bytes to separately configured Gait and Axym consumers and never substitutes local downstream behavior. The former `scenarios/cross-product/composed-action-contracts/` directory is only a legacy pointer and contains no authoritative hand-authored projections.

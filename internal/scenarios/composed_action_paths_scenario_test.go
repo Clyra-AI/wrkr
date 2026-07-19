@@ -33,7 +33,6 @@ func TestComposedActionPathContractFixtures(t *testing.T) {
 		"controlled-transition":                  {},
 		"uncontrolled-transition":                {},
 	}
-	seenCompositionIDs := map[string]struct{}{}
 	for _, raw := range items {
 		item, ok := raw.(map[string]any)
 		if !ok {
@@ -46,7 +45,6 @@ func TestComposedActionPathContractFixtures(t *testing.T) {
 		if compositionID == "" {
 			t.Fatalf("%s missing composition_id", scenarioID)
 		}
-		seenCompositionIDs[compositionID] = struct{}{}
 		pathIDs := stringSliceField(t, composition, "path_ids")
 		if len(pathIDs) == 0 {
 			t.Fatalf("%s missing path_ids", scenarioID)
@@ -85,40 +83,34 @@ func TestComposedActionPathContractFixtures(t *testing.T) {
 		t.Fatalf("missing canonical composition scenarios: %v", wantScenarioIDs)
 	}
 
-	assertCrossProductCompositionRefs(t, repoRoot, seenCompositionIDs)
+	assertCrossProductActionContractManifest(t, repoRoot)
 }
 
-func assertCrossProductCompositionRefs(t *testing.T, repoRoot string, seenCompositionIDs map[string]struct{}) {
+func assertCrossProductActionContractManifest(t *testing.T, repoRoot string) {
 	t.Helper()
-	for _, rel := range []string{
-		filepath.Join("scenarios", "cross-product", "composed-action-contracts", "expected", "gait-validation-input.json"),
-		filepath.Join("scenarios", "cross-product", "composed-action-contracts", "expected", "axym-correlation-refs.json"),
-	} {
-		payload := readScenarioJSONMap(t, filepath.Join(repoRoot, rel))
-		assertNoUnsafeFixtureStrings(t, payload)
-		var rows []any
-		if values, ok := payload["validation_inputs"].([]any); ok {
-			rows = values
-		} else if values, ok := payload["correlation_refs"].([]any); ok {
-			rows = values
-		} else {
-			t.Fatalf("%s missing expected cross-product rows", rel)
+	rel := filepath.Join("scenarios", "cross-product", "action-contract-interop", "expected", "fixture-manifest.json")
+	payload := readScenarioJSONMap(t, filepath.Join(repoRoot, rel))
+	assertNoUnsafeFixtureStrings(t, payload)
+	rows, ok := payload["scenarios"].([]any)
+	if !ok || len(rows) != 9 {
+		t.Fatalf("%s must contain nine production fixture rows: %+v", rel, payload["scenarios"])
+	}
+	for _, raw := range rows {
+		row, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("%s row has wrong shape: %#v", rel, raw)
 		}
-		if len(rows) == 0 {
-			t.Fatalf("%s must contain at least one cross-product row", rel)
+		for _, field := range []string{"scenario_id", "artifact_path", "artifact_sha256", "contract_id", "contract_family_id", "canonical_content_digest"} {
+			if stringField(t, row, field) == "" {
+				t.Fatalf("%s row missing %s: %+v", rel, field, row)
+			}
 		}
-		for _, raw := range rows {
-			row, ok := raw.(map[string]any)
-			if !ok {
-				t.Fatalf("%s row has wrong shape: %#v", rel, raw)
-			}
-			compositionID := stringField(t, row, "composition_id")
-			if _, ok := seenCompositionIDs[compositionID]; !ok {
-				t.Fatalf("%s references unknown composition_id %q", rel, compositionID)
-			}
-			if stringField(t, row, "resolution_key") == "" {
-				t.Fatalf("%s row missing resolution_key: %+v", rel, row)
-			}
+		artifactPath := stringField(t, row, "artifact_path")
+		if filepath.IsAbs(artifactPath) || strings.Contains(filepath.ToSlash(artifactPath), "..") {
+			t.Fatalf("%s row has unsafe artifact path: %+v", rel, row)
+		}
+		if _, err := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(artifactPath))); err != nil {
+			t.Fatalf("%s row artifact is missing: %v", rel, err)
 		}
 	}
 }
