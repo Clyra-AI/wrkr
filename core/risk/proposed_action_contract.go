@@ -3,16 +3,20 @@ package risk
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"sort"
 	"strconv"
 	"strings"
 
+	proofcanon "github.com/Clyra-AI/proof/core/canon"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 )
 
 const (
-	ProposedActionContractVersion = "2"
-	ProposedActionContractKind    = "proposed_action_contract"
+	ProposedActionContractVersionV2 = "2"
+	ProposedActionContractVersionV3 = "3"
+	ProposedActionContractVersion   = ProposedActionContractVersionV3
+	ProposedActionContractKind      = "proposed_action_contract"
 
 	proposedActionContractReadinessNeedsEvidence = "needs_evidence"
 	proposedCredentialModeEphemeral              = "ephemeral"
@@ -20,28 +24,118 @@ const (
 )
 
 type ProposedActionContract struct {
-	ContractID                  string                           `json:"contract_id"`
-	ContractFamilyID            string                           `json:"contract_family_id"`
-	ContractContentDigest       string                           `json:"contract_content_digest"`
-	ContractVersion             string                           `json:"contract_version"`
-	ContractKind                string                           `json:"contract_kind"`
-	CompositionRef              string                           `json:"composition_ref"`
-	ResolutionKey               string                           `json:"resolution_key,omitempty"`
-	AllowedTransitions          []ProposedActionTransition       `json:"allowed_transitions,omitempty"`
-	ProhibitedTransitions       []ProposedActionTransition       `json:"prohibited_transitions,omitempty"`
-	ApprovalRequiredTransitions []ProposedActionTransition       `json:"approval_required_transitions,omitempty"`
-	TargetConstraints           []ProposedActionTargetConstraint `json:"target_constraints,omitempty"`
-	RequiredCredentialMode      string                           `json:"required_credential_mode,omitempty"`
-	MaximumDelegationDepth      int                              `json:"maximum_delegation_depth"`
-	EvidenceRequirements        []string                         `json:"evidence_requirements,omitempty"`
-	AcceptableCountersigners    []string                         `json:"acceptable_countersigners,omitempty"`
-	ExpectedOutcomeClass        string                           `json:"expected_outcome_class,omitempty"`
-	CompensationRequired        bool                             `json:"compensation_required,omitempty"`
-	ExpiresAt                   string                           `json:"expires_at,omitempty"`
-	SourceDigests               []string                         `json:"source_digests,omitempty"`
-	ReportOnly                  bool                             `json:"report_only"`
-	ReadinessState              string                           `json:"readiness_state,omitempty"`
-	ReasonCodes                 []string                         `json:"reason_codes,omitempty"`
+	ContractID                  string                               `json:"contract_id"`
+	ContractFamilyID            string                               `json:"contract_family_id"`
+	ContractContentDigest       string                               `json:"contract_content_digest"`
+	ContractVersion             string                               `json:"contract_version"`
+	ContractKind                string                               `json:"contract_kind"`
+	CompositionRef              string                               `json:"composition_ref"`
+	ResolutionKey               string                               `json:"resolution_key,omitempty"`
+	AllowedTransitions          []ProposedActionTransition           `json:"allowed_transitions,omitempty"`
+	ProhibitedTransitions       []ProposedActionTransition           `json:"prohibited_transitions,omitempty"`
+	ApprovalRequiredTransitions []ProposedActionTransition           `json:"approval_required_transitions,omitempty"`
+	TargetConstraints           []ProposedActionTargetConstraint     `json:"target_constraints,omitempty"`
+	RequiredCredentialMode      string                               `json:"required_credential_mode,omitempty"`
+	MaximumDelegationDepth      int                                  `json:"maximum_delegation_depth"`
+	EvidenceRequirements        []string                             `json:"evidence_requirements,omitempty"`
+	AcceptableCountersigners    []string                             `json:"acceptable_countersigners,omitempty"`
+	ExpectedOutcomeClass        string                               `json:"expected_outcome_class,omitempty"`
+	CompensationRequired        bool                                 `json:"compensation_required,omitempty"`
+	ExpiresAt                   string                               `json:"expires_at,omitempty"`
+	SourceDigests               []string                             `json:"source_digests,omitempty"`
+	ReportOnly                  bool                                 `json:"report_only"`
+	ReadinessState              string                               `json:"readiness_state,omitempty"`
+	ReasonCodes                 []string                             `json:"reason_codes,omitempty"`
+	Revision                    int                                  `json:"revision,omitempty"`
+	AuthorityRequirements       []ProposedActionRequirement          `json:"authority_requirements,omitempty"`
+	AuthorityReadinessState     string                               `json:"authority_readiness_state,omitempty"`
+	Preconditions               []ProposedActionPrecondition         `json:"preconditions,omitempty"`
+	ConfirmationRequirement     *ProposedActionConfirmation          `json:"confirmation_requirement,omitempty"`
+	ApprovalRequirement         *ProposedActionApproval              `json:"approval_requirement,omitempty"`
+	CompensationRequirement     *ProposedActionCompensation          `json:"compensation_requirement,omitempty"`
+	SupersedesRef               string                               `json:"supersedes_ref,omitempty"`
+	LifecycleObservations       []ProposedActionLifecycleObservation `json:"lifecycle_observations,omitempty"`
+}
+
+// ProposedActionRequirement is a report-only description of required
+// authority. Evidence state records what Wrkr found; it is never a grant.
+type ProposedActionRequirement struct {
+	RequirementID      string   `json:"requirement_id"`
+	Kind               string   `json:"kind"`
+	RequiredConstraint string   `json:"required_constraint"`
+	ObservedValue      string   `json:"observed_value,omitempty"`
+	EvidenceState      string   `json:"evidence_state"`
+	FreshnessState     string   `json:"freshness_state"`
+	EvidenceRefs       []string `json:"evidence_refs,omitempty"`
+	ReasonCodes        []string `json:"reason_codes,omitempty"`
+}
+
+// ProposedActionPrecondition keeps the required constraint separate from an
+// observed result so serialization cannot turn a declared requirement into a
+// satisfied runtime claim.
+type ProposedActionPrecondition struct {
+	RequirementID       string   `json:"requirement_id"`
+	Kind                string   `json:"kind"`
+	RequiredConstraint  string   `json:"required_constraint"`
+	ObservedValue       string   `json:"observed_value,omitempty"`
+	ObservedResult      string   `json:"observed_result,omitempty"`
+	AcceptableProducers []string `json:"acceptable_producers,omitempty"`
+	MaxAge              string   `json:"max_age,omitempty"`
+	EvidenceState       string   `json:"evidence_state"`
+	FreshnessState      string   `json:"freshness_state"`
+	EvidenceRefs        []string `json:"evidence_refs,omitempty"`
+	ReasonCodes         []string `json:"reason_codes,omitempty"`
+}
+
+type ProposedActionConfirmation struct {
+	Mode           string   `json:"mode"`
+	Required       bool     `json:"required"`
+	EvidenceState  string   `json:"evidence_state"`
+	FreshnessState string   `json:"freshness_state"`
+	EvidenceRefs   []string `json:"evidence_refs,omitempty"`
+	ReasonCodes    []string `json:"reason_codes,omitempty"`
+}
+
+type ProposedActionApproval struct {
+	Required           bool     `json:"required"`
+	ApproverRoles      []string `json:"approver_roles,omitempty"`
+	MinimumApprovals   int      `json:"minimum_approvals"`
+	SeparationOfDuties []string `json:"separation_of_duties,omitempty"`
+	ScopeDigest        string   `json:"scope_digest"`
+	ValidityWindow     string   `json:"validity_window,omitempty"`
+	ReapprovalTriggers []string `json:"reapproval_triggers,omitempty"`
+	EvidenceState      string   `json:"evidence_state"`
+	FreshnessState     string   `json:"freshness_state"`
+	EvidenceRefs       []string `json:"evidence_refs,omitempty"`
+	ReasonCodes        []string `json:"reason_codes,omitempty"`
+}
+
+type ProposedActionCompensation struct {
+	Required             bool     `json:"required"`
+	Kind                 string   `json:"kind"`
+	ProcedureRef         string   `json:"procedure_ref,omitempty"`
+	Target               string   `json:"target,omitempty"`
+	ExecutionWindow      string   `json:"execution_window,omitempty"`
+	VerificationRequired bool     `json:"verification_required"`
+	AcceptableProducers  []string `json:"acceptable_producers,omitempty"`
+	EvidenceState        string   `json:"evidence_state"`
+	FreshnessState       string   `json:"freshness_state"`
+	EvidenceRefs         []string `json:"evidence_refs,omitempty"`
+	ReasonCodes          []string `json:"reason_codes,omitempty"`
+}
+
+// ProposedActionLifecycleObservation records evidence imported from Gait or
+// Axym. It is evidence about a downstream event, never a Wrkr transition.
+type ProposedActionLifecycleObservation struct {
+	ObservationID  string   `json:"observation_id"`
+	Kind           string   `json:"kind"`
+	Producer       string   `json:"producer"`
+	EvidenceState  string   `json:"evidence_state"`
+	FreshnessState string   `json:"freshness_state"`
+	ObservedAt     string   `json:"observed_at,omitempty"`
+	EvidenceRefs   []string `json:"evidence_refs,omitempty"`
+	ProofRefs      []string `json:"proof_refs,omitempty"`
+	ReasonCodes    []string `json:"reason_codes,omitempty"`
 }
 
 type ProposedActionTransition struct {
@@ -82,8 +176,16 @@ func BuildProposedActionContract(composition ComposedActionPath) *ProposedAction
 		SourceDigests:               proposedSourceDigests(composition),
 		ReportOnly:                  true,
 		ReadinessState:              readiness,
-		ReasonCodes:                 dedupeSortedStrings(append(reasons, "report_only:true")),
+		ReasonCodes:                 dedupeSortedStrings(append(append(reasons, composition.RecommendedControlReasons...), "report_only:true")),
+		Revision:                    1,
 	}
+	contract.AuthorityRequirements = proposedAuthorityRequirements(composition)
+	contract.Preconditions = proposedActionPreconditions(composition)
+	contract.ConfirmationRequirement = proposedConfirmationRequirement(composition)
+	contract.ApprovalRequirement = proposedApprovalRequirement(composition)
+	contract.CompensationRequirement = proposedCompensationRequirement(composition)
+	contract.AuthorityReadinessState, contract.ReasonCodes = proposedAuthorityReadiness(contract.AuthorityRequirements, contract.ReasonCodes)
+	contract.ReadinessState, contract.ReasonCodes = proposedActionContractV3Readiness(contract, readiness, contract.ReasonCodes)
 	if strings.TrimSpace(contract.ExpiresAt) == "" {
 		contract.ReasonCodes = dedupeSortedStrings(append(contract.ReasonCodes, "expiry:deterministic_source_absent"))
 	}
@@ -104,6 +206,31 @@ func CloneProposedActionContract(in *ProposedActionContract) *ProposedActionCont
 	out.AcceptableCountersigners = append([]string(nil), in.AcceptableCountersigners...)
 	out.SourceDigests = append([]string(nil), in.SourceDigests...)
 	out.ReasonCodes = append([]string(nil), in.ReasonCodes...)
+	out.LifecycleObservations = cloneProposedActionLifecycleObservations(in.LifecycleObservations)
+	out.AuthorityRequirements = cloneProposedActionRequirements(in.AuthorityRequirements)
+	out.Preconditions = cloneProposedActionPreconditions(in.Preconditions)
+	if in.ConfirmationRequirement != nil {
+		copyConfirmation := *in.ConfirmationRequirement
+		copyConfirmation.EvidenceRefs = append([]string(nil), in.ConfirmationRequirement.EvidenceRefs...)
+		copyConfirmation.ReasonCodes = append([]string(nil), in.ConfirmationRequirement.ReasonCodes...)
+		out.ConfirmationRequirement = &copyConfirmation
+	}
+	if in.ApprovalRequirement != nil {
+		copyApproval := *in.ApprovalRequirement
+		copyApproval.ApproverRoles = append([]string(nil), in.ApprovalRequirement.ApproverRoles...)
+		copyApproval.SeparationOfDuties = append([]string(nil), in.ApprovalRequirement.SeparationOfDuties...)
+		copyApproval.ReapprovalTriggers = append([]string(nil), in.ApprovalRequirement.ReapprovalTriggers...)
+		copyApproval.EvidenceRefs = append([]string(nil), in.ApprovalRequirement.EvidenceRefs...)
+		copyApproval.ReasonCodes = append([]string(nil), in.ApprovalRequirement.ReasonCodes...)
+		out.ApprovalRequirement = &copyApproval
+	}
+	if in.CompensationRequirement != nil {
+		copyCompensation := *in.CompensationRequirement
+		copyCompensation.AcceptableProducers = append([]string(nil), in.CompensationRequirement.AcceptableProducers...)
+		copyCompensation.EvidenceRefs = append([]string(nil), in.CompensationRequirement.EvidenceRefs...)
+		copyCompensation.ReasonCodes = append([]string(nil), in.CompensationRequirement.ReasonCodes...)
+		out.CompensationRequirement = &copyCompensation
+	}
 	return &out
 }
 
@@ -323,6 +450,9 @@ func RefreshProposedActionContractIdentity(contract *ProposedActionContract) {
 		return
 	}
 	contract.ContractFamilyID = proposedContractFamilyID(contract)
+	if strings.TrimSpace(contract.ContractVersion) == ProposedActionContractVersionV3 && contract.ApprovalRequirement != nil {
+		contract.ApprovalRequirement.ScopeDigest = proposedApprovalScopeDigest(contract)
+	}
 	contract.ContractContentDigest = proposedContractContentDigest(contract)
 	contract.ContractID = "pac-" + stableProposedContractHash(strings.Join([]string{
 		contract.ContractFamilyID,
@@ -365,6 +495,9 @@ func proposedContractContentDigest(contract *ProposedActionContract) string {
 		"expires_at=" + strings.TrimSpace(contract.ExpiresAt),
 		"report_only=" + strconv.FormatBool(contract.ReportOnly),
 		"readiness=" + strings.TrimSpace(contract.ReadinessState),
+		"revision=" + strconv.Itoa(contract.Revision),
+		"supersedes=" + strings.TrimSpace(contract.SupersedesRef),
+		"authority_readiness=" + strings.TrimSpace(contract.AuthorityReadinessState),
 	}
 	for _, transition := range contract.AllowedTransitions {
 		parts = append(parts, "allow="+proposedTransitionKey(transition))
@@ -390,9 +523,84 @@ func proposedContractContentDigest(contract *ProposedActionContract) string {
 	for _, value := range contract.ReasonCodes {
 		parts = append(parts, "reason="+strings.TrimSpace(value))
 	}
+	for _, requirement := range contract.AuthorityRequirements {
+		parts = append(parts, "authority="+proposedActionRequirementKey(requirement))
+	}
+	for _, precondition := range contract.Preconditions {
+		parts = append(parts, "precondition="+proposedActionPreconditionKey(precondition))
+	}
+	if contract.ConfirmationRequirement != nil {
+		parts = append(parts, "confirmation="+strings.Join([]string{
+			contract.ConfirmationRequirement.Mode,
+			strconv.FormatBool(contract.ConfirmationRequirement.Required),
+			contract.ConfirmationRequirement.EvidenceState,
+			contract.ConfirmationRequirement.FreshnessState,
+			strings.Join(contract.ConfirmationRequirement.EvidenceRefs, ","),
+			strings.Join(contract.ConfirmationRequirement.ReasonCodes, ","),
+		}, "|"))
+	}
+	if contract.ApprovalRequirement != nil {
+		parts = append(parts, "approval="+strings.Join([]string{
+			strconv.FormatBool(contract.ApprovalRequirement.Required),
+			strings.Join(contract.ApprovalRequirement.ApproverRoles, ","),
+			strconv.Itoa(contract.ApprovalRequirement.MinimumApprovals),
+			strings.Join(contract.ApprovalRequirement.SeparationOfDuties, ","),
+			contract.ApprovalRequirement.ScopeDigest,
+			contract.ApprovalRequirement.ValidityWindow,
+			strings.Join(contract.ApprovalRequirement.ReapprovalTriggers, ","),
+			contract.ApprovalRequirement.EvidenceState,
+			contract.ApprovalRequirement.FreshnessState,
+			strings.Join(contract.ApprovalRequirement.EvidenceRefs, ","),
+			strings.Join(contract.ApprovalRequirement.ReasonCodes, ","),
+		}, "|"))
+	}
+	if contract.CompensationRequirement != nil {
+		parts = append(parts, "compensation="+strings.Join([]string{
+			strconv.FormatBool(contract.CompensationRequirement.Required),
+			contract.CompensationRequirement.Kind,
+			contract.CompensationRequirement.ProcedureRef,
+			contract.CompensationRequirement.Target,
+			contract.CompensationRequirement.ExecutionWindow,
+			strconv.FormatBool(contract.CompensationRequirement.VerificationRequired),
+			strings.Join(contract.CompensationRequirement.AcceptableProducers, ","),
+			contract.CompensationRequirement.EvidenceState,
+			contract.CompensationRequirement.FreshnessState,
+			strings.Join(contract.CompensationRequirement.EvidenceRefs, ","),
+			strings.Join(contract.CompensationRequirement.ReasonCodes, ","),
+		}, "|"))
+	}
 	sort.Strings(parts)
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\x1f")))
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func proposedApprovalScopeDigest(contract *ProposedActionContract) string {
+	if contract == nil {
+		return ""
+	}
+	payload := map[string]any{
+		"contract_family_id":       strings.TrimSpace(contract.ContractFamilyID),
+		"revision":                 contract.Revision,
+		"composition_ref":          strings.TrimSpace(contract.CompositionRef),
+		"resolution_key":           strings.TrimSpace(contract.ResolutionKey),
+		"target_constraints":       contract.TargetConstraints,
+		"authority_requirements":   contract.AuthorityRequirements,
+		"preconditions":            contract.Preconditions,
+		"allowed_transitions":      contract.AllowedTransitions,
+		"prohibited_transitions":   contract.ProhibitedTransitions,
+		"approval_transitions":     contract.ApprovalRequiredTransitions,
+		"expected_outcome_class":   strings.TrimSpace(contract.ExpectedOutcomeClass),
+		"required_credential_mode": strings.TrimSpace(contract.RequiredCredentialMode),
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	digest, err := proofcanon.DigestHex(encoded, proofcanon.DomainJSON)
+	if err != nil {
+		return ""
+	}
+	return "sha256:" + digest
 }
 
 func proposedTransitionKey(transition ProposedActionTransition) string {

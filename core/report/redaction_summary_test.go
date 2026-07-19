@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -98,6 +99,42 @@ func TestSanitizeComposedActionPathsWithRepoRedactionHidesDerivedTargetsAndResol
 	}
 	if len(got.TruncatedCandidates) != 1 || strings.Contains(got.TruncatedCandidates[0], "acme/private") {
 		t.Fatalf("expected truncated candidates to be redacted under repo redaction, got %+v", got.TruncatedCandidates)
+	}
+}
+
+func TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements(t *testing.T) {
+	t.Parallel()
+
+	contract := &risk.ProposedActionContract{
+		ContractVersion: risk.ProposedActionContractVersionV3,
+		ContractKind:    risk.ProposedActionContractKind,
+		CompositionRef:  "cap-private",
+		Revision:        1,
+		ReportOnly:      true,
+		AuthorityRequirements: []risk.ProposedActionRequirement{{
+			RequirementID: "pacr-owner", Kind: "business_owner", RequiredConstraint: "owner:acme/private", ObservedValue: "alice@acme", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: "fresh", EvidenceRefs: []string{"evidence://private/owner"},
+		}},
+		Preconditions: []risk.ProposedActionPrecondition{{
+			RequirementID: "pacp-effect", Kind: "effect_contract", RequiredConstraint: "target:acme/private", ObservedValue: "release:acme/private", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: "fresh", EvidenceRefs: []string{"evidence://private/effect"},
+		}},
+		ConfirmationRequirement: &risk.ProposedActionConfirmation{Mode: "explicit_confirmation", Required: true, EvidenceState: risk.EvidenceStateDeclared, FreshnessState: "fresh", EvidenceRefs: []string{"evidence://private/confirm"}},
+		ApprovalRequirement:     &risk.ProposedActionApproval{Required: true, ScopeDigest: "sha256:abc", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: "fresh", ApproverRoles: []string{"acme-approver"}, EvidenceRefs: []string{"evidence://private/approval"}},
+		CompensationRequirement: &risk.ProposedActionCompensation{Required: true, Kind: "documented_recovery", ProcedureRef: "runbook://acme/private", Target: "acme/private", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: "fresh", EvidenceRefs: []string{"evidence://private/recovery"}},
+		LifecycleObservations:   []risk.ProposedActionLifecycleObservation{{ObservationID: "pacl-a", Kind: risk.LifecycleObservationAxymVerification, Producer: "axym", EvidenceState: risk.EvidenceStateDeclared, FreshnessState: "fresh", EvidenceRefs: []string{"evidence://private/verify"}, ProofRefs: []string{"proof://private/verify"}}},
+	}
+	risk.RefreshProposedActionContractIdentity(contract)
+	redacted := sanitizeProposedActionContractPublic(contract)
+	payload, err := json.Marshal(redacted)
+	if err != nil {
+		t.Fatalf("marshal redacted contract: %v", err)
+	}
+	for _, sensitive := range []string{"acme/private", "alice@acme", "evidence://private", "proof://private", "acme-approver"} {
+		if strings.Contains(string(payload), sensitive) {
+			t.Fatalf("expected v3 nested contract field to be redacted for %q: %s", sensitive, payload)
+		}
+	}
+	if redacted.ContractID == contract.ContractID || redacted.ContractContentDigest == contract.ContractContentDigest {
+		t.Fatalf("expected redacted v3 contract to receive a distinct identity: %+v", redacted)
 	}
 }
 

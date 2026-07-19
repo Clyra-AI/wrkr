@@ -9,6 +9,7 @@ import (
 	"time"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	exportactioncontracts "github.com/Clyra-AI/wrkr/core/export/actioncontracts"
 	exportappendix "github.com/Clyra-AI/wrkr/core/export/appendix"
 	exportinventory "github.com/Clyra-AI/wrkr/core/export/inventory"
 	exporttickets "github.com/Clyra-AI/wrkr/core/export/tickets"
@@ -19,6 +20,9 @@ import (
 )
 
 func runExport(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "action-contracts" {
+		return runExportActionContracts(args[1:], stdout, stderr)
+	}
 	if len(args) > 0 && args[0] == "tickets" {
 		return runExportTickets(args[1:], stdout, stderr)
 	}
@@ -96,6 +100,75 @@ func runExport(args []string, stdout io.Writer, stderr io.Writer) int {
 	default:
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "unsupported export format", exitInvalidInput)
 	}
+}
+
+func runExportActionContracts(args []string, stdout io.Writer, stderr io.Writer) int {
+	jsonRequested := wantsJSONOutput(args)
+	fs := flag.NewFlagSet("export action-contracts", flag.ContinueOnError)
+	if jsonRequested {
+		fs.SetOutput(io.Discard)
+	} else {
+		fs.SetOutput(stderr)
+	}
+	jsonOut := fs.Bool("json", false, "emit machine-readable export collection")
+	statePathFlag := fs.String("state", "", "state file path override")
+	contractID := fs.String("contract-id", "", "proposed Action Contract ID selector")
+	outputDir := fs.String("output-dir", "", "optional directory for atomic artifact files")
+	shareProfileRaw := fs.String("share-profile", string(reportcore.ShareProfileInternal), "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
+	}
+	if fs.NArg() != 0 {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "export action-contracts does not accept positional arguments", exitInvalidInput)
+	}
+	profile, ok := reportcore.ParseShareProfile(strings.TrimSpace(*shareProfileRaw))
+	if !ok {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--share-profile must be one of internal|public|customer-redacted|design-partner|external-redacted|investor-safe", exitInvalidInput)
+	}
+	resolvedStatePath, err := preflightTrustedStatePath(state.ResolvePath(*statePathFlag))
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+	}
+	if err := preflightManagedArtifactRead(resolvedStatePath); err != nil {
+		if isUnsafeManagedArtifactPathError(err) {
+			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+		}
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	snapshot, err := state.Load(resolvedStatePath)
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
+		return code
+	}
+	collection, err := exportactioncontracts.Build(snapshot, exportactioncontracts.BuildOptions{
+		ShareProfile: profile,
+		ContractID:   strings.TrimSpace(*contractID),
+	})
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	}
+	written := []string(nil)
+	if strings.TrimSpace(*outputDir) != "" {
+		written, err = exportactioncontracts.Write(collection, strings.TrimSpace(*outputDir))
+		if err != nil {
+			if strings.Contains(err.Error(), "symlink") || strings.Contains(err.Error(), "collision") || strings.Contains(err.Error(), "unsafe") {
+				return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+			}
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
+	}
+	if *jsonOut {
+		_ = json.NewEncoder(stdout).Encode(struct {
+			Status      string                           `json:"status"`
+			Collection  exportactioncontracts.Collection `json:"collection"`
+			OutputFiles []string                         `json:"output_files,omitempty"`
+		}{Status: "ok", Collection: collection, OutputFiles: written})
+		return exitSuccess
+	}
+	_, _ = fmt.Fprintf(stdout, "wrkr export action-contracts complete (%d artifacts)\n", len(collection.Artifacts))
+	return exitSuccess
 }
 
 func runExportTickets(args []string, stdout io.Writer, stderr io.Writer) int {

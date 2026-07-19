@@ -78,7 +78,12 @@
       "type": "array",
       "items": {"type": "string"}
     },
-    "proposed_action_contract": {"$ref": "proposed-action-contract.schema.json"},
+    "proposed_action_contract": {
+      "oneOf": [
+        {"$ref": "proposed-action-contract.schema.json"},
+        {"$ref": "proposed-action-contract-v3.schema.json"}
+      ]
+    },
     "proposed_action_contract_refs": {
       "type": "array",
       "items": {"type": "string"}
@@ -87,6 +92,7 @@
       "type": "array",
       "items": {"type": "string"}
     },
+    "equivalent_outcome_escalation_source": {"type": "string"},
     "approval_evasion_signal": {
       "type": "string",
       "enum": ["none", "possible", "unknown"]

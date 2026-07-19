@@ -15,6 +15,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added delegated authority relationship projection for composed action paths so reports can identify narrowed, equal, broadened, unknown, and contradictory authority transitions.
 - [semver:minor] Added bounded equivalent-outcome signals for composed paths that can reach the same deploy, egress, privileged mutation, or release outcome with weaker controls.
 - [semver:minor] Added composition drift detection for introduced, changed, newly ungoverned, evidence-degraded, coverage-degraded, and alternate-route composed authority paths.
+- [semver:minor] Added proposed Action Contract version 3 with typed, evidence-backed authority requirements while retaining version 2 compatibility.
+- [semver:minor] Added typed readiness and effect preconditions to proposed Action Contract version 3, including producer, freshness, environment, credential, and effect constraints.
+- [semver:minor] Added structured confirmation, approval validity, separation-of-duties, reapproval, and compensation requirements to proposed Action Contract version 3.
+- [semver:minor] Added `wrkr export action-contracts` for standalone, RFC 8785 JCS-digested proposed Action Contract artifacts with deterministic selection, redaction, and proof references.
+- [semver:minor] Added immutable proposed Action Contract revision chains and evidence-backed Gait activation, rejection, execution, effect, and Axym verification references.
 
 ### Changed
 
@@ -33,7 +38,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Raised weaker equivalent-outcome routes to the deterministic peer control floor so approval-evasion alternatives cannot retain a less restrictive proposed Action Contract.
 
 ### Security
 

@@ -7,6 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/risk"
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func TestExportInventoryAnonymize(t *testing.T) {
@@ -107,6 +111,50 @@ func TestExportInventoryRejectsCSVDir(t *testing.T) {
 	var errOut bytes.Buffer
 	if code := Run([]string{"export", "--format", "inventory", "--csv-dir", filepath.Join(tmp, "csv"), "--state", statePath, "--json"}, &out, &errOut); code != 6 {
 		t.Fatalf("expected exit 6, got %d (%s)", code, errOut.String())
+	}
+}
+
+func TestExportActionContractsJSONAndSelector(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-export-action", OutcomeClass: "release_publish", TargetIdentity: "release:stable", TargetClass: risk.TargetClassReleaseAdjacent,
+		EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh, RecommendedControl: risk.RecommendedControlApprovalRequired,
+		EvidenceRefs:       []string{"validation:release", "effect:publish", "check:tests", "producer:gait_policy", "sandbox:release", "compensation:rollback"},
+		SourceDecisionRefs: []string{"policy:release"},
+		Stages:             []risk.CompositionStage{{StageID: "source", Role: risk.CompositionStageRoleSource, ParentAuthorityRef: "authority:root"}, {StageID: "sink", Role: risk.CompositionStageRoleDestructiveSink}},
+	}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
+	if err := state.Save(statePath, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{composition}}}); err != nil {
+		t.Fatalf("save action contract state: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"export", "action-contracts", "--state", statePath, "--contract-id", composition.ProposedActionContract.ContractID, "--json"}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("action contract export failed: %d %s", code, errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse action contract export: %v", err)
+	}
+	collection, ok := payload["collection"].(map[string]any)
+	if !ok || collection["schema_version"] != "1" {
+		t.Fatalf("unexpected action contract collection: %v", payload)
+	}
+	artifacts, ok := collection["artifacts"].([]any)
+	if !ok || len(artifacts) != 1 {
+		t.Fatalf("expected one selected artifact, got %v", collection)
+	}
+
+	out.Reset()
+	errOut.Reset()
+	code = Run([]string{"export", "action-contracts", "--state", statePath, "--contract-id", "pac-not-found", "--json"}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected missing selector exit 6, got %d (%s)", code, errOut.String())
 	}
 }
 
