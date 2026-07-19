@@ -1569,10 +1569,6 @@ func compositionGaitCoverageSignature(coverage *GaitCoverage) string {
 	}, "|")
 }
 
-func compositionWeakerThanPeer(current, peer ComposedActionPath) bool {
-	return compositionWeakerThanPeerSnapshot(current.RecommendedControl, current, peer.RecommendedControl, peer)
-}
-
 func compositionPolicyCoverageRank(value string) int {
 	switch strings.TrimSpace(value) {
 	case PolicyCoverageStatusRuntimeProven:
