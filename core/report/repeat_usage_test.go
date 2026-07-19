@@ -220,6 +220,7 @@ func TestBuildRepeatUsageSignalsSkipsNonArtifactRepoDirs(t *testing.T) {
 	signals := BuildRepeatUsageSignals(statePath)
 	if signals == nil {
 		t.Fatal("expected repeat usage signals")
+		return
 	}
 	if signals.ActionContractExports != 0 || signals.DriftArtifacts != 0 {
 		t.Fatalf("expected non-artifact repo dirs to be ignored, got %+v", signals)

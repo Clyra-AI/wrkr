@@ -146,13 +146,13 @@ type ActionContractPacketTruncation struct {
 func BuildActionContractPacket(input ActionContractPacketInput) (ActionContractPacket, error) {
 	contract := risk.CloneProposedActionContract(&input.Contract)
 	if contract == nil || strings.TrimSpace(contract.ContractVersion) != risk.ProposedActionContractVersionV3 {
-		return ActionContractPacket{}, fmt.Errorf("Action Contract packet requires one proposed Action Contract v3")
+		return ActionContractPacket{}, fmt.Errorf("action contract packet requires one proposed action contract v3")
 	}
 	if strings.TrimSpace(input.ArtifactID) == "" || strings.TrimSpace(input.CanonicalContentDigest) == "" {
-		return ActionContractPacket{}, fmt.Errorf("Action Contract packet requires portable artifact identity")
+		return ActionContractPacket{}, fmt.Errorf("action contract packet requires portable artifact identity")
 	}
 	if strings.TrimSpace(input.Composition.CompositionID) == "" || strings.TrimSpace(input.Composition.CompositionID) != strings.TrimSpace(contract.CompositionRef) {
-		return ActionContractPacket{}, fmt.Errorf("Action Contract packet composition does not match selected artifact")
+		return ActionContractPacket{}, fmt.Errorf("action contract packet composition does not match selected artifact")
 	}
 
 	truncations := make([]ActionContractPacketTruncation, 0)

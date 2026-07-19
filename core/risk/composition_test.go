@@ -45,6 +45,7 @@ func TestBuildComposedActionPathsSensitiveReadToEgress(t *testing.T) {
 	got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
 	if got == nil {
 		t.Fatalf("expected sensitive-read-to-egress composition, got %+v", compositions)
+		return
 	}
 	if got.ClaimState != CompositionClaimDeclaredPolicyOnly {
 		t.Fatalf("declared policy should not become runtime control, got %q", got.ClaimState)
@@ -75,6 +76,7 @@ func TestBuildComposedActionPathsCodeToDeployChangesOutcomeContext(t *testing.T)
 	productionCodeDeploy := findCompositionByPattern(productionCompositions, CompositionPatternCodeToDeploy)
 	if stagingCodeDeploy == nil || productionCodeDeploy == nil {
 		t.Fatalf("expected code-to-deploy compositions, staging=%+v production=%+v", stagingCompositions, productionCompositions)
+		return
 	}
 	if stagingCodeDeploy.CompositionID == productionCodeDeploy.CompositionID {
 		t.Fatalf("expected outcome context to affect composition_id: %s", stagingCodeDeploy.CompositionID)
@@ -90,6 +92,7 @@ func TestCompositionCoverageDoesNotTreatDeclaredPolicyAsRuntimeControl(t *testin
 	got := findCompositionByPattern(compositions, CompositionPatternSecretToNetwork)
 	if got == nil {
 		t.Fatalf("expected secret-to-network composition, got %+v", compositions)
+		return
 	}
 	if got.ClaimState == CompositionClaimRuntimeControlled || got.ClaimState == CompositionClaimObservedExecution {
 		t.Fatalf("declared policy and missing runtime coverage must not imply control, got %q", got.ClaimState)
@@ -110,6 +113,7 @@ func TestBuildComposedActionPathsObservedExecutionRequiresRuntimeEvidenceForEver
 	got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
 	if got == nil {
 		t.Fatalf("expected sensitive-read-to-egress composition, got %+v", compositions)
+		return
 	}
 	if got.ClaimState == CompositionClaimObservedExecution {
 		t.Fatalf("expected missing sink runtime evidence to keep composed path below observed execution, got %+v", got)
@@ -134,6 +138,7 @@ func TestBuildComposedActionPathsObservedExecutionWhenEveryStageHasRuntimeEviden
 	got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
 	if got == nil {
 		t.Fatalf("expected sensitive-read-to-egress composition, got %+v", compositions)
+		return
 	}
 	if got.ClaimState != CompositionClaimObservedExecution {
 		t.Fatalf("expected full stage runtime evidence to upgrade composed path to observed execution, got %+v", got)
@@ -269,6 +274,7 @@ func TestBuildComposedActionPathsAggregatesEvidenceCompletenessAcrossStages(t *t
 	got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
 	if got == nil || got.EvidenceCompleteness == nil {
 		t.Fatalf("expected composition evidence completeness, got %+v", got)
+		return
 	}
 	if got.EvidenceCompleteness.TotalScore != 54 || got.EvidenceCompleteness.Label != EvidenceCompletenessInsufficient {
 		t.Fatalf("expected composition completeness to conservatively reflect the weaker stage, got %+v", got.EvidenceCompleteness)
@@ -347,6 +353,7 @@ func TestProposedActionContractIncludesCompositionTransitionsAndReportOnly(t *te
 	got := findCompositionByPattern(compositions, CompositionPatternCodeToDeploy)
 	if got == nil || got.ProposedActionContract == nil {
 		t.Fatalf("expected proposed contract on code-to-deploy composition, got %+v", got)
+		return
 	}
 	contract := got.ProposedActionContract
 	if !contract.ReportOnly {
@@ -407,6 +414,7 @@ func TestCompositionDelegationRelationshipDetectsBroadenedChildAuthority(t *test
 	got := findCompositionByPattern(compositions, CompositionPatternCodeToDeploy)
 	if got == nil || len(got.Transitions) == 0 {
 		t.Fatalf("expected code-to-deploy composition with transition, got %+v", got)
+		return
 	}
 	transition := got.Transitions[0]
 	if transition.Relationship != CompositionDelegationBroadened {
@@ -440,6 +448,7 @@ func TestCompositionRecommendationUsesMostRestrictiveTransition(t *testing.T) {
 	got := findCompositionByPattern(compositions, CompositionPatternCodeToDeploy)
 	if got == nil {
 		t.Fatalf("expected composition, got %+v", compositions)
+		return
 	}
 	if got.RecommendedControl != RecommendedControlJITCredentialRequired {
 		t.Fatalf("expected broadened transition to select JIT credential control, got %+v", got)

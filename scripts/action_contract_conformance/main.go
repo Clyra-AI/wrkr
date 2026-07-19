@@ -321,7 +321,9 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if err != nil {
 		return manifestScenario{}, fmt.Errorf("open generated fixture root: %w", err)
 	}
-	defer generatedRoot.Close()
+	defer func() {
+		_ = generatedRoot.Close()
+	}()
 
 	scenarioDir := scenario.ScenarioID
 	artifactManifestPayload, err := generatedRoot.ReadFile(filepath.Join(scenarioDir, "manifest.json"))
@@ -395,7 +397,9 @@ func validateSchemas(repoRoot string, artifactPayload, packetPayload []byte) err
 	if err != nil {
 		return fmt.Errorf("open repo root: %w", err)
 	}
-	defer repo.Close()
+	defer func() {
+		_ = repo.Close()
+	}()
 	v3Path := filepath.Join("schemas", "v1", "proposed-action-contract-v3.schema.json")
 	artifactPath := filepath.Join("schemas", "v1", "proposed-action-contract-artifact.schema.json")
 	packetPath := filepath.Join("schemas", "v1", "report", "action-contract-packet.schema.json")
@@ -435,7 +439,9 @@ func loadSpec(path string) (fixtureSpec, error) {
 	if err != nil {
 		return fixtureSpec{}, fmt.Errorf("open fixture spec root: %w", err)
 	}
-	defer specRoot.Close()
+	defer func() {
+		_ = specRoot.Close()
+	}()
 	payload, err := specRoot.ReadFile(filepath.Base(cleanPath))
 	if err != nil {
 		return fixtureSpec{}, fmt.Errorf("read fixture spec: %w", err)

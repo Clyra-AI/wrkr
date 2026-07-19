@@ -35,6 +35,7 @@ func TestBuildAgentActionBOMCountsTargetAndInstructionContext(t *testing.T) {
 	})
 	if bom == nil {
 		t.Fatal("expected agent action bom")
+		return
 	}
 	if bom.Summary.EligibleActionPathItems != 1 || bom.Summary.TargetSurfaceContextItems != 1 || bom.Summary.InstructionControlItems != 0 {
 		t.Fatalf("unexpected eligibility counts: %+v", bom.Summary)

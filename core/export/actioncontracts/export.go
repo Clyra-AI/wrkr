@@ -102,14 +102,14 @@ func Build(snapshot state.Snapshot, options BuildOptions) (Collection, error) {
 // proposed contract independently from the artifact path.
 func BuildPacket(snapshot state.Snapshot, options BuildOptions) (report.ActionContractPacket, error) {
 	if strings.TrimSpace(options.ContractID) == "" {
-		return report.ActionContractPacket{}, fmt.Errorf("Action Contract packet requires an explicit contract id")
+		return report.ActionContractPacket{}, fmt.Errorf("action contract packet requires an explicit contract id")
 	}
 	selections, _, err := buildArtifactSelections(snapshot, options)
 	if err != nil {
 		return report.ActionContractPacket{}, err
 	}
 	if len(selections) != 1 {
-		return report.ActionContractPacket{}, fmt.Errorf("Action Contract packet selector resolved to %d contracts", len(selections))
+		return report.ActionContractPacket{}, fmt.Errorf("action contract packet selector resolved to %d contracts", len(selections))
 	}
 	selection := selections[0]
 	return report.BuildActionContractPacket(report.ActionContractPacketInput{
@@ -288,24 +288,24 @@ func VerifyArtifact(artifact Artifact) error {
 		return fmt.Errorf("unsupported Action Contract artifact producer metadata")
 	}
 	if !artifact.ReportOnly || !artifact.Contract.ReportOnly {
-		return fmt.Errorf("Action Contract artifact must remain report_only")
+		return fmt.Errorf("action contract artifact must remain report_only")
 	}
 	if artifact.Contract.ContractVersion != risk.ProposedActionContractVersionV3 {
-		return fmt.Errorf("Action Contract artifact requires contract version 3")
+		return fmt.Errorf("action contract artifact requires contract version 3")
 	}
 	if artifact.ContractID != artifact.Contract.ContractID || artifact.ContractFamilyID != artifact.Contract.ContractFamilyID || artifact.Revision != artifact.Contract.Revision {
-		return fmt.Errorf("Action Contract artifact envelope identity does not match embedded contract")
+		return fmt.Errorf("action contract artifact envelope identity does not match embedded contract")
 	}
 	digest, err := canonicalContentDigest(artifact)
 	if err != nil {
 		return err
 	}
 	if digest != strings.TrimSpace(artifact.CanonicalContentDigest) {
-		return fmt.Errorf("Action Contract artifact canonical digest mismatch")
+		return fmt.Errorf("action contract artifact canonical digest mismatch")
 	}
 	wantID := "paca-" + strings.TrimPrefix(digest, "sha256:")[:16]
 	if strings.TrimSpace(artifact.ArtifactID) != wantID {
-		return fmt.Errorf("Action Contract artifact id mismatch")
+		return fmt.Errorf("action contract artifact id mismatch")
 	}
 	return nil
 }
