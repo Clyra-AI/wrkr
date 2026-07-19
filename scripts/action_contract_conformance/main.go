@@ -317,8 +317,14 @@ func scenarioLifecycleObservations(scenarioID string) []risk.ProposedActionLifec
 }
 
 func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scenarioSpec, consumers map[string]consumerSpec) (manifestScenario, error) {
-	scenarioDir := filepath.Join(generatedDir, scenario.ScenarioID)
-	artifactManifestPayload, err := os.ReadFile(filepath.Join(scenarioDir, "manifest.json"))
+	generatedRoot, err := os.OpenRoot(generatedDir)
+	if err != nil {
+		return manifestScenario{}, fmt.Errorf("open generated fixture root: %w", err)
+	}
+	defer generatedRoot.Close()
+
+	scenarioDir := scenario.ScenarioID
+	artifactManifestPayload, err := generatedRoot.ReadFile(filepath.Join(scenarioDir, "manifest.json"))
 	if err != nil {
 		return manifestScenario{}, fmt.Errorf("read exporter manifest: %w", err)
 	}
@@ -332,8 +338,7 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if strings.TrimSpace(artifactFilename) == "" || filepath.IsAbs(artifactFilename) || filepath.Base(artifactFilename) != artifactFilename || strings.Contains(artifactFilename, `\`) {
 		return manifestScenario{}, fmt.Errorf("unsafe exporter artifact filename %q", artifactFilename)
 	}
-	artifactPath := filepath.Join(scenarioDir, artifactFilename)
-	artifactPayload, err := os.ReadFile(artifactPath)
+	artifactPayload, err := generatedRoot.ReadFile(filepath.Join(scenarioDir, artifactFilename))
 	if err != nil {
 		return manifestScenario{}, fmt.Errorf("read artifact: %w", err)
 	}
@@ -348,8 +353,7 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if exporterItem.ArtifactID != artifact.ArtifactID || exporterItem.ContractID != artifact.ContractID || exporterItem.CanonicalContentDigest != artifact.CanonicalContentDigest {
 		return manifestScenario{}, errors.New("exporter manifest identity does not match artifact bytes")
 	}
-	packetJSONPath := filepath.Join(scenarioDir, "packet.json")
-	packetJSONPayload, err := os.ReadFile(packetJSONPath)
+	packetJSONPayload, err := generatedRoot.ReadFile(filepath.Join(scenarioDir, "packet.json"))
 	if err != nil {
 		return manifestScenario{}, fmt.Errorf("read packet JSON: %w", err)
 	}
@@ -360,8 +364,7 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if packet.Identity.ArtifactID != artifact.ArtifactID || packet.Identity.ContractID != artifact.ContractID || packet.Identity.CanonicalContentDigest != artifact.CanonicalContentDigest {
 		return manifestScenario{}, errors.New("packet identity does not match exact artifact bytes")
 	}
-	packetMarkdownPath := filepath.Join(scenarioDir, "packet.md")
-	packetMarkdownPayload, err := os.ReadFile(packetMarkdownPath)
+	packetMarkdownPayload, err := generatedRoot.ReadFile(filepath.Join(scenarioDir, "packet.md"))
 	if err != nil {
 		return manifestScenario{}, fmt.Errorf("read packet Markdown: %w", err)
 	}
@@ -388,16 +391,21 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 }
 
 func validateSchemas(repoRoot string, artifactPayload, packetPayload []byte) error {
-	v3Path := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract-v3.schema.json")
-	artifactPath := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract-artifact.schema.json")
-	packetPath := filepath.Join(repoRoot, "schemas", "v1", "report", "action-contract-packet.schema.json")
+	repo, err := os.OpenRoot(repoRoot)
+	if err != nil {
+		return fmt.Errorf("open repo root: %w", err)
+	}
+	defer repo.Close()
+	v3Path := filepath.Join("schemas", "v1", "proposed-action-contract-v3.schema.json")
+	artifactPath := filepath.Join("schemas", "v1", "proposed-action-contract-artifact.schema.json")
+	packetPath := filepath.Join("schemas", "v1", "report", "action-contract-packet.schema.json")
 	compiler := jsonschema.NewCompiler()
 	for uri, path := range map[string]string{
 		"https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json": v3Path,
 		artifactPath: artifactPath,
 		packetPath:   packetPath,
 	} {
-		payload, err := os.ReadFile(path)
+		payload, err := repo.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("open schema %s: %w", path, err)
 		}
@@ -422,7 +430,13 @@ func validateSchemas(repoRoot string, artifactPayload, packetPayload []byte) err
 }
 
 func loadSpec(path string) (fixtureSpec, error) {
-	payload, err := os.ReadFile(path)
+	cleanPath := filepath.Clean(path)
+	specRoot, err := os.OpenRoot(filepath.Dir(cleanPath))
+	if err != nil {
+		return fixtureSpec{}, fmt.Errorf("open fixture spec root: %w", err)
+	}
+	defer specRoot.Close()
+	payload, err := specRoot.ReadFile(filepath.Base(cleanPath))
 	if err != nil {
 		return fixtureSpec{}, fmt.Errorf("read fixture spec: %w", err)
 	}
