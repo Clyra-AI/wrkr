@@ -32,7 +32,6 @@ trap 'rm -f "${scenario_index}"' EXIT
 fixture_metadata="$(python3 - "${manifest_path}" <<'PY'
 import hashlib
 import json
-import hashlib
 import pathlib
 import sys
 
@@ -53,6 +52,7 @@ PY
 IFS=$'\t' read -r fixture_version fixture_manifest_sha256 producer_version artifact_schema_version contract_schema_version packet_schema_version <<<"${fixture_metadata}"
 
 python3 - "${manifest_path}" "${repo_root}" >"${scenario_index}" <<'PY'
+import hashlib
 import json
 import pathlib
 import sys
