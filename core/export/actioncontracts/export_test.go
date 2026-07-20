@@ -256,6 +256,42 @@ func TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively(t *tes
 	}
 }
 
+func TestBuildActionContractPacketVerifiesSelectedArtifact(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*risk.ProposedActionContract)
+	}{
+		{
+			name: "stale embedded contract identity",
+			mutate: func(contract *risk.ProposedActionContract) {
+				contract.ExpectedOutcomeClass = "tampered_effect"
+			},
+		},
+		{
+			name: "non report only embedded contract",
+			mutate: func(contract *risk.ProposedActionContract) {
+				contract.ReportOnly = false
+			},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			snapshot := testSnapshot()
+			contract := snapshot.RiskReport.ComposedActionPaths[0].ProposedActionContract
+			selector := contract.ContractID
+			test.mutate(contract)
+			if _, err := BuildPacket(snapshot, BuildOptions{ShareProfile: report.ShareProfileInternal, ContractID: selector}); err == nil {
+				t.Fatal("packet build must verify and reject the selected artifact")
+			}
+		})
+	}
+}
+
 func testSnapshot() state.Snapshot {
 	composition := risk.ComposedActionPath{
 		CompositionID:        "cap-1a2b3c4d",
