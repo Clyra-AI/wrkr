@@ -296,6 +296,13 @@ func VerifyArtifact(artifact Artifact) error {
 	if artifact.ContractID != artifact.Contract.ContractID || artifact.ContractFamilyID != artifact.Contract.ContractFamilyID || artifact.Revision != artifact.Contract.Revision {
 		return fmt.Errorf("action contract artifact envelope identity does not match embedded contract")
 	}
+	refreshed := risk.CloneProposedActionContract(&artifact.Contract)
+	risk.RefreshProposedActionContractIdentity(refreshed)
+	if strings.TrimSpace(refreshed.ContractFamilyID) != strings.TrimSpace(artifact.Contract.ContractFamilyID) ||
+		strings.TrimSpace(refreshed.ContractContentDigest) != strings.TrimSpace(artifact.Contract.ContractContentDigest) ||
+		strings.TrimSpace(refreshed.ContractID) != strings.TrimSpace(artifact.Contract.ContractID) {
+		return fmt.Errorf("action contract artifact embedded contract identity mismatch")
+	}
 	digest, err := canonicalContentDigest(artifact)
 	if err != nil {
 		return err

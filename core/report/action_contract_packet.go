@@ -161,13 +161,16 @@ func BuildActionContractPacket(input ActionContractPacketInput) (ActionContractP
 	preconditions := normalizePacketPreconditions(contract.Preconditions, &truncations)
 	lifecycle := normalizePacketLifecycle(contract.LifecycleObservations, &truncations)
 	stages := normalizePacketStages(input.Composition.Stages, &truncations)
+	authoritySummary := packetAuthoritySummarySource(contract.AuthorityRequirements)
+	preconditionSummary := packetPreconditionSummarySource(contract.Preconditions)
+	lifecycleSummary := packetLifecycleSummarySource(contract.LifecycleObservations)
 	gaps := packetEvidenceGaps(
-		packetAuthorityGapSource(contract.AuthorityRequirements),
-		packetPreconditionGapSource(contract.Preconditions),
+		authoritySummary,
+		preconditionSummary,
 		contract.ConfirmationRequirement,
 		contract.ApprovalRequirement,
 		contract.CompensationRequirement,
-		packetLifecycleGapSource(contract.LifecycleObservations),
+		lifecycleSummary,
 	)
 	if len(gaps) > actionContractPacketGapCap {
 		truncations = append(truncations, ActionContractPacketTruncation{Field: "evidence_gaps", OmittedCount: len(gaps) - actionContractPacketGapCap, Reason: "item_cap"})
@@ -200,9 +203,9 @@ func BuildActionContractPacket(input ActionContractPacketInput) (ActionContractP
 		Path:                  buildActionContractPacketPath(input.Composition, stages, &truncations),
 		AffectedAsset:         truncatePacketValue("affected_asset", input.Composition.AffectedAsset, &truncations),
 		AuthorityRequirements: authority,
-		CredentialPosture:     packetCredentialPosture(contract, authority, preconditions),
+		CredentialPosture:     packetCredentialPosture(contract, authoritySummary, preconditionSummary, &truncations),
 		ReadinessChecks:       preconditions,
-		Effects:               packetEffects(contract, preconditions),
+		Effects:               packetEffects(contract, preconditionSummary, &truncations),
 		Confirmation:          clonePacketConfirmation(contract.ConfirmationRequirement, &truncations),
 		Approval:              clonePacketApproval(contract.ApprovalRequirement, &truncations),
 		Compensation:          clonePacketCompensation(contract.CompensationRequirement, &truncations),
@@ -399,31 +402,46 @@ func packetEvidenceGaps(authority []risk.ProposedActionRequirement, precondition
 	return gaps
 }
 
-func packetAuthorityGapSource(values []risk.ProposedActionRequirement) []risk.ProposedActionRequirement {
+func packetAuthoritySummarySource(values []risk.ProposedActionRequirement) []risk.ProposedActionRequirement {
 	out := append([]risk.ProposedActionRequirement(nil), values...)
 	for index := range out {
 		out[index].RequirementID = strings.TrimSpace(out[index].RequirementID)
 		out[index].Kind = strings.TrimSpace(out[index].Kind)
+		out[index].RequiredConstraint = strings.TrimSpace(out[index].RequiredConstraint)
+		out[index].ObservedValue = strings.TrimSpace(out[index].ObservedValue)
 		out[index].EvidenceState = strings.TrimSpace(out[index].EvidenceState)
 		out[index].FreshnessState = strings.TrimSpace(out[index].FreshnessState)
 		out[index].ReasonCodes = uniquePacketStrings(out[index].ReasonCodes)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		left := strings.TrimSpace(out[i].Kind) + "|" + strings.TrimSpace(out[i].RequirementID)
+		right := strings.TrimSpace(out[j].Kind) + "|" + strings.TrimSpace(out[j].RequirementID)
+		return left < right
+	})
 	return out
 }
 
-func packetPreconditionGapSource(values []risk.ProposedActionPrecondition) []risk.ProposedActionPrecondition {
+func packetPreconditionSummarySource(values []risk.ProposedActionPrecondition) []risk.ProposedActionPrecondition {
 	out := append([]risk.ProposedActionPrecondition(nil), values...)
 	for index := range out {
 		out[index].RequirementID = strings.TrimSpace(out[index].RequirementID)
 		out[index].Kind = strings.TrimSpace(out[index].Kind)
+		out[index].RequiredConstraint = strings.TrimSpace(out[index].RequiredConstraint)
+		out[index].ObservedValue = strings.TrimSpace(out[index].ObservedValue)
+		out[index].ObservedResult = strings.TrimSpace(out[index].ObservedResult)
 		out[index].EvidenceState = strings.TrimSpace(out[index].EvidenceState)
 		out[index].FreshnessState = strings.TrimSpace(out[index].FreshnessState)
 		out[index].ReasonCodes = uniquePacketStrings(out[index].ReasonCodes)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		left := strings.TrimSpace(out[i].Kind) + "|" + strings.TrimSpace(out[i].RequirementID)
+		right := strings.TrimSpace(out[j].Kind) + "|" + strings.TrimSpace(out[j].RequirementID)
+		return left < right
+	})
 	return out
 }
 
-func packetLifecycleGapSource(values []risk.ProposedActionLifecycleObservation) []risk.ProposedActionLifecycleObservation {
+func packetLifecycleSummarySource(values []risk.ProposedActionLifecycleObservation) []risk.ProposedActionLifecycleObservation {
 	out := append([]risk.ProposedActionLifecycleObservation(nil), values...)
 	for index := range out {
 		out[index].ObservationID = strings.TrimSpace(out[index].ObservationID)
@@ -432,10 +450,13 @@ func packetLifecycleGapSource(values []risk.ProposedActionLifecycleObservation) 
 		out[index].FreshnessState = strings.TrimSpace(out[index].FreshnessState)
 		out[index].ReasonCodes = uniquePacketStrings(out[index].ReasonCodes)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		return strings.TrimSpace(out[i].Kind)+"|"+strings.TrimSpace(out[i].ObservationID) < strings.TrimSpace(out[j].Kind)+"|"+strings.TrimSpace(out[j].ObservationID)
+	})
 	return out
 }
 
-func packetCredentialPosture(contract *risk.ProposedActionContract, authority []risk.ProposedActionRequirement, preconditions []risk.ProposedActionPrecondition) ActionContractPacketCredentialPosture {
+func packetCredentialPosture(contract *risk.ProposedActionContract, authority []risk.ProposedActionRequirement, preconditions []risk.ProposedActionPrecondition, truncations *[]ActionContractPacketTruncation) ActionContractPacketCredentialPosture {
 	ids := make([]string, 0)
 	state := risk.EvidenceStateUnknown
 	freshness := evidencepolicy.FreshnessStateUnknown
@@ -458,10 +479,16 @@ func packetCredentialPosture(contract *risk.ProposedActionContract, authority []
 			consider(item.RequirementID, item.EvidenceState, item.FreshnessState)
 		}
 	}
-	return ActionContractPacketCredentialPosture{RequiredMode: strings.TrimSpace(contract.RequiredCredentialMode), RequirementIDs: uniquePacketStrings(ids), EvidenceState: state, FreshnessState: freshness, ActivationGrant: false}
+	return ActionContractPacketCredentialPosture{
+		RequiredMode:    strings.TrimSpace(contract.RequiredCredentialMode),
+		RequirementIDs:  capPacketStrings("credential_posture.requirement_ids", ids, actionContractPacketReferenceCap, truncations),
+		EvidenceState:   state,
+		FreshnessState:  freshness,
+		ActivationGrant: false,
+	}
 }
 
-func packetEffects(contract *risk.ProposedActionContract, preconditions []risk.ProposedActionPrecondition) ActionContractPacketEffects {
+func packetEffects(contract *risk.ProposedActionContract, preconditions []risk.ProposedActionPrecondition, truncations *[]ActionContractPacketTruncation) ActionContractPacketEffects {
 	expected := []string{strings.TrimSpace(contract.ExpectedOutcomeClass)}
 	forbidden := make([]string, 0)
 	for _, item := range preconditions {
@@ -472,7 +499,10 @@ func packetEffects(contract *risk.ProposedActionContract, preconditions []risk.P
 			forbidden = append(forbidden, firstPacketValue(item.ObservedValue, item.RequiredConstraint))
 		}
 	}
-	return ActionContractPacketEffects{Expected: uniquePacketStrings(expected), Forbidden: uniquePacketStrings(forbidden)}
+	return ActionContractPacketEffects{
+		Expected:  capPacketStrings("effects.expected", expected, actionContractPacketReferenceCap, truncations),
+		Forbidden: capPacketStrings("effects.forbidden", forbidden, actionContractPacketReferenceCap, truncations),
+	}
 }
 
 func packetReachability(composition risk.ComposedActionPath) ActionContractPacketReachability {
