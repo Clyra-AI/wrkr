@@ -24,6 +24,24 @@ base_scan_root="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1],
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/wrkr-action-contract-interop-XXXXXX")"
 trap 'rm -rf "${tmp_root}"' EXIT
 
+normalize_fixture_tree() {
+  local root="$1"
+  python3 - "${root}" <<'PY'
+import pathlib
+import sys
+
+text_suffixes = {".json", ".md"}
+root = pathlib.Path(sys.argv[1])
+for path in sorted(root.rglob("*")):
+    if not path.is_file() or path.suffix not in text_suffixes:
+        continue
+    payload = path.read_bytes()
+    normalized = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    if normalized != payload:
+        path.write_bytes(normalized)
+PY
+}
+
 wrkr_bin="${tmp_root}/wrkr"
 base_state="${tmp_root}/base-state.json"
 scenario_states="${tmp_root}/states"
@@ -51,6 +69,8 @@ while IFS=$'\t' read -r scenario_id state_path contract_id; do
   "${wrkr_bin}" report --state "${state_path}" --template action-contract-packet --contract-id "${contract_id}" --share-profile internal >"${scenario_dir}/packet.md"
 done <"${scenario_index}"
 
+normalize_fixture_tree "${generated_root}"
+
 (cd "${repo_root}" && go run ./scripts/action_contract_conformance finalize \
   --repo-root "${repo_root}" \
   --spec "${spec_path}" \
@@ -58,6 +78,7 @@ done <"${scenario_index}"
   --manifest-root "${manifest_root}" \
   --producer-version "${WRKR_FIXTURE_PRODUCER_VERSION:-devel}" \
   --output "${generated_root}/fixture-manifest.json")
+normalize_fixture_tree "${generated_root}"
 
 if [[ "${mode}" == "--update" ]]; then
   required_target="${repo_root}/scenarios/cross-product/action-contract-interop/expected"

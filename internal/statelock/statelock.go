@@ -15,7 +15,7 @@ import (
 
 const (
 	fileName       = ".wrkr-managed.lock"
-	defaultTimeout = 30 * time.Second
+	defaultTimeout = 10 * time.Minute
 	retryDelay     = 25 * time.Millisecond
 )
 
