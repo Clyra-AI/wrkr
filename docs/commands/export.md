@@ -4,6 +4,7 @@
 
 ```bash
 wrkr export [--format inventory|appendix] [--anonymize] [--csv-dir <path>] [--state <path>] [--json]
+wrkr export action-contracts --state <path> [--contract-id <id>] [--share-profile <profile>] (--json|--output-dir <dir>)
 wrkr export tickets --top <n> --format jira|github|servicenow --dry-run --state <path> --json
 wrkr export declarations --state <path> (--resolution-key <rk>|--path-id <id>|--backlog-id <id>) [--action <closure_action>] [--mode repo_local|governance_repo] [--share-profile <profile>] [--patch-path <path>] [--json]
 ```
@@ -15,6 +16,9 @@ wrkr export declarations --state <path> (--resolution-key <rk>|--path-id <id>|--
 - `--anonymize`
 - `--csv-dir` (appendix only)
 - `--state`
+- `action-contracts --contract-id`
+- `action-contracts --share-profile`
+- `action-contracts --output-dir`
 - `tickets --top`
 - `tickets --format`
 - `tickets --dry-run`
@@ -48,11 +52,13 @@ Ticket export JSON keys: `ticket_export_version`, `format`, `dry_run`, `tickets`
 Action Contracts from complete saved state. With no `--contract-id`, selection
 is stable by saved contract ID. With redacted share profiles, `--contract-id`
 matches the saved/internal contract ID before redaction and the emitted artifact
-receives a redacted contract ID. Without `--output-dir`, the JSON collection is
-sent to stdout; with one, Wrkr atomically writes stable `<contract-id>.json`
-files and `manifest.json`, preflighting every target before the first write and
-refusing collisions and symlink output directories (exit `8`). `--contract-id`
-misses and invalid profile values return exit `6`.
+receives a redacted contract ID. The command requires either `--json` or
+`--output-dir` so a successful run always emits or writes the portable
+collection. With `--json`, the JSON collection is sent to stdout; with
+`--output-dir`, Wrkr atomically writes stable `<contract-id>.json` files and
+`manifest.json`, preflighting every target before the first write and refusing
+collisions and symlink output directories (exit `8`). `--contract-id` misses,
+invalid profile values, and missing output sinks return exit `6`.
 
 Each standalone envelope uses schema version `1` and an RFC 8785 JCS
 `canonical_content_digest`. Its identity covers normalized contract content,
