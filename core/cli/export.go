@@ -125,6 +125,9 @@ func runExportActionContracts(args []string, stdout io.Writer, stderr io.Writer)
 	if !ok {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--share-profile must be one of internal|public|customer-redacted|design-partner|external-redacted|investor-safe", exitInvalidInput)
 	}
+	if !*jsonOut && strings.TrimSpace(*outputDir) == "" {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "export action-contracts requires --json or --output-dir", exitInvalidInput)
+	}
 	resolvedStatePath, err := preflightTrustedStatePath(state.ResolvePath(*statePathFlag))
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)

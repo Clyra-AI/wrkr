@@ -133,7 +133,17 @@ func TestExportActionContractsJSONAndSelector(t *testing.T) {
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	code := Run([]string{"export", "action-contracts", "--state", statePath, "--contract-id", composition.ProposedActionContract.ContractID, "--json"}, &out, &errOut)
+	code := Run([]string{"export", "action-contracts", "--state", statePath, "--contract-id", composition.ProposedActionContract.ContractID}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected missing action contract sink exit 6, got %d (%s)", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "--json or --output-dir") {
+		t.Fatalf("expected missing sink guidance, got %q", errOut.String())
+	}
+
+	out.Reset()
+	errOut.Reset()
+	code = Run([]string{"export", "action-contracts", "--state", statePath, "--contract-id", composition.ProposedActionContract.ContractID, "--json"}, &out, &errOut)
 	if code != exitSuccess {
 		t.Fatalf("action contract export failed: %d %s", code, errOut.String())
 	}
