@@ -1,1 +1,4 @@
 docs/examples/site-assets/** text eol=lf
+
+# Action Contract conformance fixtures are hashed and compared byte-for-byte.
+scenarios/cross-product/action-contract-interop/expected/** text eol=lf
