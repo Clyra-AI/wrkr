@@ -24,6 +24,7 @@ const (
 	actionContractPacketPreconditionCap  = 32
 	actionContractPacketLifecycleCap     = 16
 	actionContractPacketGapCap           = 32
+	actionContractPacketStageCap         = 5
 )
 
 // ActionContractPacketInput is deliberately shaped like the durable portable
@@ -160,7 +161,14 @@ func BuildActionContractPacket(input ActionContractPacketInput) (ActionContractP
 	preconditions := normalizePacketPreconditions(contract.Preconditions, &truncations)
 	lifecycle := normalizePacketLifecycle(contract.LifecycleObservations, &truncations)
 	stages := normalizePacketStages(input.Composition.Stages, &truncations)
-	gaps := packetEvidenceGaps(authority, preconditions, contract.ConfirmationRequirement, contract.ApprovalRequirement, contract.CompensationRequirement, lifecycle)
+	gaps := packetEvidenceGaps(
+		packetAuthorityGapSource(contract.AuthorityRequirements),
+		packetPreconditionGapSource(contract.Preconditions),
+		contract.ConfirmationRequirement,
+		contract.ApprovalRequirement,
+		contract.CompensationRequirement,
+		packetLifecycleGapSource(contract.LifecycleObservations),
+	)
 	if len(gaps) > actionContractPacketGapCap {
 		truncations = append(truncations, ActionContractPacketTruncation{Field: "evidence_gaps", OmittedCount: len(gaps) - actionContractPacketGapCap, Reason: "item_cap"})
 		gaps = gaps[:actionContractPacketGapCap]
@@ -282,9 +290,55 @@ func normalizePacketStages(values []risk.CompositionStage, truncations *[]Action
 		right := fmt.Sprintf("%02d|%s", packetStageRoleRank(out[j].Role), out[j].StageID)
 		return left < right
 	})
-	if len(out) > 5 {
-		*truncations = append(*truncations, ActionContractPacketTruncation{Field: "path.stages", OmittedCount: len(out) - 5, Reason: "item_cap"})
-		out = out[:5]
+	if len(out) > actionContractPacketStageCap {
+		*truncations = append(*truncations, ActionContractPacketTruncation{Field: "path.stages", OmittedCount: len(out) - actionContractPacketStageCap, Reason: "item_cap"})
+		out = capPacketStages(out, actionContractPacketStageCap)
+	}
+	return out
+}
+
+func capPacketStages(stages []ActionContractPacketStage, capValue int) []ActionContractPacketStage {
+	if len(stages) <= capValue || capValue <= 0 {
+		return stages
+	}
+	selected := map[int]struct{}{}
+	add := func(index int) {
+		if len(selected) >= capValue || index < 0 || index >= len(stages) {
+			return
+		}
+		selected[index] = struct{}{}
+	}
+	add(0)
+	candidates := make([]int, 0, len(stages))
+	for index := range stages {
+		candidates = append(candidates, index)
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		left := stages[candidates[i]]
+		right := stages[candidates[j]]
+		leftImpact := packetStageImpactRank(left)
+		rightImpact := packetStageImpactRank(right)
+		if leftImpact != rightImpact {
+			return leftImpact > rightImpact
+		}
+		leftRank := packetStageRoleRank(left.Role)
+		rightRank := packetStageRoleRank(right.Role)
+		if leftRank != rightRank {
+			return leftRank > rightRank
+		}
+		return strings.TrimSpace(left.StageID) < strings.TrimSpace(right.StageID)
+	})
+	for _, index := range candidates {
+		add(index)
+		if len(selected) >= capValue {
+			break
+		}
+	}
+	out := make([]ActionContractPacketStage, 0, capValue)
+	for index, stage := range stages {
+		if _, ok := selected[index]; ok {
+			out = append(out, stage)
+		}
 	}
 	return out
 }
@@ -311,38 +365,74 @@ func packetEvidenceGaps(authority []risk.ProposedActionRequirement, precondition
 	gaps := make([]ActionContractPacketGap, 0)
 	for _, item := range authority {
 		if packetEvidenceNeedsAttention(item.EvidenceState, item.FreshnessState) {
-			gaps = append(gaps, ActionContractPacketGap{RequirementID: item.RequirementID, Kind: "authority:" + item.Kind, EvidenceState: item.EvidenceState, Freshness: item.FreshnessState, ReasonCodes: append([]string(nil), item.ReasonCodes...)})
+			gaps = append(gaps, ActionContractPacketGap{RequirementID: strings.TrimSpace(item.RequirementID), Kind: "authority:" + strings.TrimSpace(item.Kind), EvidenceState: strings.TrimSpace(item.EvidenceState), Freshness: strings.TrimSpace(item.FreshnessState), ReasonCodes: uniquePacketStrings(item.ReasonCodes)})
 		}
 	}
 	for _, item := range preconditions {
 		if packetEvidenceNeedsAttention(item.EvidenceState, item.FreshnessState) {
-			gaps = append(gaps, ActionContractPacketGap{RequirementID: item.RequirementID, Kind: "precondition:" + item.Kind, EvidenceState: item.EvidenceState, Freshness: item.FreshnessState, ReasonCodes: append([]string(nil), item.ReasonCodes...)})
+			gaps = append(gaps, ActionContractPacketGap{RequirementID: strings.TrimSpace(item.RequirementID), Kind: "precondition:" + strings.TrimSpace(item.Kind), EvidenceState: strings.TrimSpace(item.EvidenceState), Freshness: strings.TrimSpace(item.FreshnessState), ReasonCodes: uniquePacketStrings(item.ReasonCodes)})
 		}
 	}
 	if confirmation == nil {
 		gaps = append(gaps, ActionContractPacketGap{RequirementID: "confirmation", Kind: "confirmation", EvidenceState: risk.EvidenceStateUnknown, Freshness: evidencepolicy.FreshnessStateUnknown, ReasonCodes: []string{"confirmation:missing"}})
 	} else if confirmation.Required && packetEvidenceNeedsAttention(confirmation.EvidenceState, confirmation.FreshnessState) {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "confirmation", Kind: "confirmation", EvidenceState: confirmation.EvidenceState, Freshness: confirmation.FreshnessState, ReasonCodes: append([]string(nil), confirmation.ReasonCodes...)})
+		gaps = append(gaps, ActionContractPacketGap{RequirementID: "confirmation", Kind: "confirmation", EvidenceState: strings.TrimSpace(confirmation.EvidenceState), Freshness: strings.TrimSpace(confirmation.FreshnessState), ReasonCodes: uniquePacketStrings(confirmation.ReasonCodes)})
 	}
 	if approval == nil {
 		gaps = append(gaps, ActionContractPacketGap{RequirementID: "approval", Kind: "approval", EvidenceState: risk.EvidenceStateUnknown, Freshness: evidencepolicy.FreshnessStateUnknown, ReasonCodes: []string{"approval:missing"}})
 	} else if approval.Required && packetEvidenceNeedsAttention(approval.EvidenceState, approval.FreshnessState) {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "approval", Kind: "approval", EvidenceState: approval.EvidenceState, Freshness: approval.FreshnessState, ReasonCodes: append([]string(nil), approval.ReasonCodes...)})
+		gaps = append(gaps, ActionContractPacketGap{RequirementID: "approval", Kind: "approval", EvidenceState: strings.TrimSpace(approval.EvidenceState), Freshness: strings.TrimSpace(approval.FreshnessState), ReasonCodes: uniquePacketStrings(approval.ReasonCodes)})
 	}
 	if compensation == nil {
 		gaps = append(gaps, ActionContractPacketGap{RequirementID: "compensation", Kind: "compensation", EvidenceState: risk.EvidenceStateUnknown, Freshness: evidencepolicy.FreshnessStateUnknown, ReasonCodes: []string{"compensation:missing"}})
 	} else if compensation.Required && packetEvidenceNeedsAttention(compensation.EvidenceState, compensation.FreshnessState) {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "compensation", Kind: "compensation", EvidenceState: compensation.EvidenceState, Freshness: compensation.FreshnessState, ReasonCodes: append([]string(nil), compensation.ReasonCodes...)})
+		gaps = append(gaps, ActionContractPacketGap{RequirementID: "compensation", Kind: "compensation", EvidenceState: strings.TrimSpace(compensation.EvidenceState), Freshness: strings.TrimSpace(compensation.FreshnessState), ReasonCodes: uniquePacketStrings(compensation.ReasonCodes)})
 	}
 	for _, item := range lifecycle {
 		if strings.TrimSpace(item.EvidenceState) == risk.EvidenceStateContradictory {
-			gaps = append(gaps, ActionContractPacketGap{RequirementID: item.ObservationID, Kind: "lifecycle:" + item.Kind, EvidenceState: item.EvidenceState, Freshness: item.FreshnessState, ReasonCodes: append([]string(nil), item.ReasonCodes...)})
+			gaps = append(gaps, ActionContractPacketGap{RequirementID: strings.TrimSpace(item.ObservationID), Kind: "lifecycle:" + strings.TrimSpace(item.Kind), EvidenceState: strings.TrimSpace(item.EvidenceState), Freshness: strings.TrimSpace(item.FreshnessState), ReasonCodes: uniquePacketStrings(item.ReasonCodes)})
 		}
 	}
 	sort.Slice(gaps, func(i, j int) bool {
 		return gaps[i].Kind+"|"+gaps[i].RequirementID < gaps[j].Kind+"|"+gaps[j].RequirementID
 	})
 	return gaps
+}
+
+func packetAuthorityGapSource(values []risk.ProposedActionRequirement) []risk.ProposedActionRequirement {
+	out := append([]risk.ProposedActionRequirement(nil), values...)
+	for index := range out {
+		out[index].RequirementID = strings.TrimSpace(out[index].RequirementID)
+		out[index].Kind = strings.TrimSpace(out[index].Kind)
+		out[index].EvidenceState = strings.TrimSpace(out[index].EvidenceState)
+		out[index].FreshnessState = strings.TrimSpace(out[index].FreshnessState)
+		out[index].ReasonCodes = uniquePacketStrings(out[index].ReasonCodes)
+	}
+	return out
+}
+
+func packetPreconditionGapSource(values []risk.ProposedActionPrecondition) []risk.ProposedActionPrecondition {
+	out := append([]risk.ProposedActionPrecondition(nil), values...)
+	for index := range out {
+		out[index].RequirementID = strings.TrimSpace(out[index].RequirementID)
+		out[index].Kind = strings.TrimSpace(out[index].Kind)
+		out[index].EvidenceState = strings.TrimSpace(out[index].EvidenceState)
+		out[index].FreshnessState = strings.TrimSpace(out[index].FreshnessState)
+		out[index].ReasonCodes = uniquePacketStrings(out[index].ReasonCodes)
+	}
+	return out
+}
+
+func packetLifecycleGapSource(values []risk.ProposedActionLifecycleObservation) []risk.ProposedActionLifecycleObservation {
+	out := append([]risk.ProposedActionLifecycleObservation(nil), values...)
+	for index := range out {
+		out[index].ObservationID = strings.TrimSpace(out[index].ObservationID)
+		out[index].Kind = strings.TrimSpace(out[index].Kind)
+		out[index].EvidenceState = strings.TrimSpace(out[index].EvidenceState)
+		out[index].FreshnessState = strings.TrimSpace(out[index].FreshnessState)
+		out[index].ReasonCodes = uniquePacketStrings(out[index].ReasonCodes)
+	}
+	return out
 }
 
 func packetCredentialPosture(contract *risk.ProposedActionContract, authority []risk.ProposedActionRequirement, preconditions []risk.ProposedActionPrecondition) ActionContractPacketCredentialPosture {
@@ -557,6 +647,40 @@ func packetStageRoleRank(role string) int {
 		return 6
 	default:
 		return 7
+	}
+}
+
+func packetStageImpactRank(stage ActionContractPacketStage) int {
+	switch strings.TrimSpace(stage.Role) {
+	case risk.CompositionStageRoleDestructiveSink:
+		return 70 + packetStageTargetImpactRank(stage.TargetClass)
+	case risk.CompositionStageRolePrivilegedSink:
+		return 60 + packetStageTargetImpactRank(stage.TargetClass)
+	case risk.CompositionStageRoleExternalSink:
+		return 50 + packetStageTargetImpactRank(stage.TargetClass)
+	case risk.CompositionStageRoleSink:
+		return 45 + packetStageTargetImpactRank(stage.TargetClass)
+	case risk.CompositionStageRoleInternalSink:
+		return 40 + packetStageTargetImpactRank(stage.TargetClass)
+	case risk.CompositionStageRoleTransform:
+		return 20 + packetStageTargetImpactRank(stage.TargetClass)
+	case risk.CompositionStageRoleSource:
+		return 10 + packetStageTargetImpactRank(stage.TargetClass)
+	default:
+		return packetStageTargetImpactRank(stage.TargetClass)
+	}
+}
+
+func packetStageTargetImpactRank(targetClass string) int {
+	switch strings.TrimSpace(targetClass) {
+	case risk.TargetClassProductionImpacting:
+		return 4
+	case risk.TargetClassCustomerDataAdjacent:
+		return 3
+	case risk.TargetClassReleaseAdjacent:
+		return 2
+	default:
+		return 0
 	}
 }
 

@@ -2,6 +2,7 @@ package report
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -63,6 +64,85 @@ func TestBuildActionContractPacketIsStableAcrossInputOrdering(t *testing.T) {
 	}
 	if !reflect.DeepEqual(left, right) {
 		t.Fatalf("packet model changed under input reordering\nleft=%+v\nright=%+v", left, right)
+	}
+}
+
+func TestBuildActionContractPacketEvidenceGapsUseUncappedRequirements(t *testing.T) {
+	t.Parallel()
+
+	input := actionContractPacketTestInput()
+	input.Contract.AuthorityRequirements = make([]risk.ProposedActionRequirement, 0, actionContractPacketRequirementCap+1)
+	for index := 0; index < actionContractPacketRequirementCap; index++ {
+		input.Contract.AuthorityRequirements = append(input.Contract.AuthorityRequirements, risk.ProposedActionRequirement{
+			RequirementID:      "pacr-a-verified-" + twoDigitIndex(index),
+			Kind:               "aaa_verified_authority",
+			RequiredConstraint: "owner:required",
+			ObservedValue:      "team-platform",
+			EvidenceState:      risk.EvidenceStateVerified,
+			FreshnessState:     evidencepolicy.FreshnessStateFresh,
+		})
+	}
+	input.Contract.AuthorityRequirements = append(input.Contract.AuthorityRequirements, risk.ProposedActionRequirement{
+		RequirementID:      "pacr-z-uncapped-gap",
+		Kind:               "zzz_requesting_identity",
+		RequiredConstraint: "requester:verified",
+		ObservedValue:      "automation",
+		EvidenceState:      risk.EvidenceStateUnknown,
+		FreshnessState:     evidencepolicy.FreshnessStateFresh,
+		ReasonCodes:        []string{"requester_identity:missing"},
+	})
+	input.Contract.Preconditions = nil
+	input.Contract.ConfirmationRequirement = &risk.ProposedActionConfirmation{Mode: "explicit", Required: true, EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh}
+	input.Contract.ApprovalRequirement = &risk.ProposedActionApproval{Required: true, EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh}
+	input.Contract.CompensationRequirement = &risk.ProposedActionCompensation{Required: true, EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh}
+	input.Contract.LifecycleObservations = nil
+
+	packet, err := BuildActionContractPacket(input)
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	if len(packet.AuthorityRequirements) != actionContractPacketRequirementCap {
+		t.Fatalf("expected display requirements to stay capped, got %d", len(packet.AuthorityRequirements))
+	}
+	if packetHasAuthorityRequirement(packet, "pacr-z-uncapped-gap") {
+		t.Fatalf("expected uncapped gap fixture to be outside capped display requirements: %+v", packet.AuthorityRequirements)
+	}
+	if !packetHasEvidenceGap(packet, "pacr-z-uncapped-gap") {
+		t.Fatalf("expected evidence gap from uncapped requirement source, got %+v", packet.EvidenceGaps)
+	}
+	if !strings.Contains(packet.NextStep.Action, "pacr-z-uncapped-gap") {
+		t.Fatalf("next step must not claim activation readiness while uncapped evidence gap exists: %+v", packet.NextStep)
+	}
+}
+
+func TestBuildActionContractPacketStageCapPreservesHighImpactSink(t *testing.T) {
+	t.Parallel()
+
+	input := actionContractPacketTestInput()
+	input.Composition.Stages = []risk.CompositionStage{
+		{StageID: "stage-source", Role: risk.CompositionStageRoleSource, Location: "AGENTS.md", TargetClass: risk.TargetClassReleaseAdjacent},
+		{StageID: "stage-transform-a", Role: risk.CompositionStageRoleTransform, Location: "step-a"},
+		{StageID: "stage-transform-b", Role: risk.CompositionStageRoleTransform, Location: "step-b"},
+		{StageID: "stage-transform-c", Role: risk.CompositionStageRoleTransform, Location: "step-c"},
+		{StageID: "stage-transform-d", Role: risk.CompositionStageRoleTransform, Location: "step-d"},
+		{StageID: "stage-sink", Role: risk.CompositionStageRoleDestructiveSink, Location: ".github/workflows/release.yml", TargetClass: risk.TargetClassProductionImpacting},
+	}
+
+	packet, err := BuildActionContractPacket(input)
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	if len(packet.Path.Stages) != actionContractPacketStageCap {
+		t.Fatalf("expected capped stage presentation, got %+v", packet.Path.Stages)
+	}
+	if !packetHasStage(packet, "stage-sink") {
+		t.Fatalf("high-impact sink stage must survive presentation cap: %+v", packet.Path.Stages)
+	}
+	if packet.Path.Stages[len(packet.Path.Stages)-1].StageID != "stage-sink" {
+		t.Fatalf("selected packet stages must remain source-to-sink after capping: %+v", packet.Path.Stages)
+	}
+	if !packetHasTruncation(packet, "path.stages") {
+		t.Fatalf("expected path stage cap to be recorded: %+v", packet.Truncations)
 	}
 }
 
@@ -187,4 +267,44 @@ func reversePacketStages(values []risk.CompositionStage) {
 	for left, right := 0, len(values)-1; left < right; left, right = left+1, right-1 {
 		values[left], values[right] = values[right], values[left]
 	}
+}
+
+func twoDigitIndex(index int) string {
+	return fmt.Sprintf("%02d", index)
+}
+
+func packetHasAuthorityRequirement(packet ActionContractPacket, id string) bool {
+	for _, item := range packet.AuthorityRequirements {
+		if item.RequirementID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func packetHasEvidenceGap(packet ActionContractPacket, id string) bool {
+	for _, item := range packet.EvidenceGaps {
+		if item.RequirementID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func packetHasStage(packet ActionContractPacket, id string) bool {
+	for _, item := range packet.Path.Stages {
+		if item.StageID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func packetHasTruncation(packet ActionContractPacket, field string) bool {
+	for _, item := range packet.Truncations {
+		if item.Field == field {
+			return true
+		}
+	}
+	return false
 }
