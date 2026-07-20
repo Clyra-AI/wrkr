@@ -180,6 +180,9 @@ func buildArtifactSelections(snapshot state.Snapshot, options BuildOptions) ([]a
 		if err != nil {
 			return nil, "", err
 		}
+		if err := VerifyArtifact(artifact); err != nil {
+			return nil, "", fmt.Errorf("verify selected action contract artifact %s: %w", artifact.ContractID, err)
+		}
 		selections = append(selections, artifactSelection{artifact: artifact, composition: composition})
 	}
 	if selector != "" && len(selections) == 0 {
