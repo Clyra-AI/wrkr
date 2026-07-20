@@ -63,6 +63,26 @@ func TestVerifyActionContractArtifactRejectsTamperedBytes(t *testing.T) {
 	}
 }
 
+func TestVerifyActionContractArtifactRejectsStaleEmbeddedContractIdentity(t *testing.T) {
+	t.Parallel()
+
+	collection, err := Build(testSnapshot(), BuildOptions{ShareProfile: report.ShareProfileInternal})
+	if err != nil {
+		t.Fatalf("build artifact: %v", err)
+	}
+	artifact := collection.Artifacts[0]
+	artifact.Contract.ExpectedOutcomeClass = "tampered_effect"
+	digest, err := canonicalContentDigest(artifact)
+	if err != nil {
+		t.Fatalf("recompute artifact digest: %v", err)
+	}
+	artifact.CanonicalContentDigest = digest
+	artifact.ArtifactID = "paca-" + strings.TrimPrefix(digest, "sha256:")[:16]
+	if err := VerifyArtifact(artifact); err == nil {
+		t.Fatal("artifact verification must recompute the embedded contract identity")
+	}
+}
+
 func TestVerifyActionContractArtifactRejectsProducerAndSchemaMismatch(t *testing.T) {
 	t.Parallel()
 	collection, err := Build(testSnapshot(), BuildOptions{ShareProfile: report.ShareProfileInternal})

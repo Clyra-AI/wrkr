@@ -115,6 +115,64 @@ func TestBuildActionContractPacketEvidenceGapsUseUncappedRequirements(t *testing
 	}
 }
 
+func TestBuildActionContractPacketDerivedSectionsUseUncappedSources(t *testing.T) {
+	t.Parallel()
+
+	input := actionContractPacketTestInput()
+	input.Contract.AuthorityRequirements = make([]risk.ProposedActionRequirement, 0, actionContractPacketRequirementCap+1)
+	for index := 0; index < actionContractPacketRequirementCap; index++ {
+		input.Contract.AuthorityRequirements = append(input.Contract.AuthorityRequirements, risk.ProposedActionRequirement{
+			RequirementID:      "pacr-a-verified-" + twoDigitIndex(index),
+			Kind:               "aaa_verified_authority",
+			RequiredConstraint: "owner:required",
+			ObservedValue:      "team-platform",
+			EvidenceState:      risk.EvidenceStateVerified,
+			FreshnessState:     evidencepolicy.FreshnessStateFresh,
+		})
+	}
+	input.Contract.AuthorityRequirements = append(input.Contract.AuthorityRequirements, risk.ProposedActionRequirement{
+		RequirementID:      "pacr-z-hidden-credential",
+		Kind:               "zzz_credential_scope",
+		RequiredConstraint: "credential:ephemeral",
+		ObservedValue:      "standing_token",
+		EvidenceState:      risk.EvidenceStateUnknown,
+		FreshnessState:     evidencepolicy.FreshnessStateStale,
+	})
+	input.Contract.Preconditions = make([]risk.ProposedActionPrecondition, 0, actionContractPacketPreconditionCap+2)
+	for index := 0; index < actionContractPacketPreconditionCap; index++ {
+		input.Contract.Preconditions = append(input.Contract.Preconditions, risk.ProposedActionPrecondition{
+			RequirementID:      "pacp-a-verified-" + twoDigitIndex(index),
+			Kind:               "aaa_required_check",
+			RequiredConstraint: "check:pass",
+			ObservedResult:     "pass",
+			EvidenceState:      risk.EvidenceStateVerified,
+			FreshnessState:     evidencepolicy.FreshnessStateFresh,
+		})
+	}
+	input.Contract.Preconditions = append(input.Contract.Preconditions,
+		risk.ProposedActionPrecondition{RequirementID: "pacp-z-hidden-expected", Kind: "expected_effect", RequiredConstraint: "hidden_expected_effect", EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh},
+		risk.ProposedActionPrecondition{RequirementID: "pacp-z-hidden-forbidden", Kind: "forbidden_effect", RequiredConstraint: "hidden_forbidden_effect", EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh},
+	)
+	input.Contract.ConfirmationRequirement = &risk.ProposedActionConfirmation{Mode: "explicit", Required: true, EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh}
+	input.Contract.ApprovalRequirement = &risk.ProposedActionApproval{Required: true, EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh}
+	input.Contract.CompensationRequirement = &risk.ProposedActionCompensation{Required: true, EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh}
+	input.Contract.LifecycleObservations = nil
+
+	packet, err := BuildActionContractPacket(input)
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	if packetHasAuthorityRequirement(packet, "pacr-z-hidden-credential") || packetHasReadinessCheck(packet, "pacp-z-hidden-forbidden") {
+		t.Fatalf("hidden summary sources must remain outside capped display sections: requirements=%+v preconditions=%+v", packet.AuthorityRequirements, packet.ReadinessChecks)
+	}
+	if !packetContainsString(packet.CredentialPosture.RequirementIDs, "pacr-z-hidden-credential") || packet.CredentialPosture.EvidenceState != risk.EvidenceStateUnknown {
+		t.Fatalf("credential posture must use uncapped authority source, got %+v", packet.CredentialPosture)
+	}
+	if !packetContainsString(packet.Effects.Expected, "hidden_expected_effect") || !packetContainsString(packet.Effects.Forbidden, "hidden_forbidden_effect") {
+		t.Fatalf("effects must use uncapped precondition source, got %+v", packet.Effects)
+	}
+}
+
 func TestBuildActionContractPacketStageCapPreservesHighImpactSink(t *testing.T) {
 	t.Parallel()
 
@@ -291,9 +349,27 @@ func packetHasEvidenceGap(packet ActionContractPacket, id string) bool {
 	return false
 }
 
+func packetHasReadinessCheck(packet ActionContractPacket, id string) bool {
+	for _, item := range packet.ReadinessChecks {
+		if item.RequirementID == id {
+			return true
+		}
+	}
+	return false
+}
+
 func packetHasStage(packet ActionContractPacket, id string) bool {
 	for _, item := range packet.Path.Stages {
 		if item.StageID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func packetContainsString(values []string, value string) bool {
+	for _, item := range values {
+		if item == value {
 			return true
 		}
 	}
