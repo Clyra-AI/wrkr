@@ -100,6 +100,26 @@ func TestReportActionContractPacketRequiresExplicitSelector(t *testing.T) {
 	}
 }
 
+func TestScanRejectsActionContractPacketReportTemplate(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", tmp,
+		"--state", filepath.Join(tmp, "state.json"),
+		"--report-md",
+		"--report-template", "action-contract-packet",
+		"--json",
+	}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("scan must reject action-contract-packet outside report selector path: code=%d stdout=%s stderr=%s", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+}
+
 func TestReportDefaultOutputDoesNotIncludeActionContractPacket(t *testing.T) {
 	t.Parallel()
 

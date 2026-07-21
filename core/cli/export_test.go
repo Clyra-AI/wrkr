@@ -183,7 +183,6 @@ func TestExportActionContractsDuplicateTargetsExitUnsafe(t *testing.T) {
 	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
 	composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
 	duplicate := composition
-	duplicate.CompositionID = "cap-export-action-duplicate"
 	duplicate.ResolutionKey = "duplicate-target"
 	duplicate.ProposedActionContract = risk.CloneProposedActionContract(composition.ProposedActionContract)
 	duplicate.ProposedActionContractRefs = []string{duplicate.ProposedActionContract.ContractID}

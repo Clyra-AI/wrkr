@@ -128,7 +128,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonStdoutModeErr.Error(), exitInvalidInput)
 	}
 
-	template, shareProfile, parseErr := parseReportTemplateShare(*templateRaw, *shareProfileRaw)
+	template, shareProfile, parseErr := parseReportCommandTemplateShare(*templateRaw, *shareProfileRaw)
 	if parseErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
 	}

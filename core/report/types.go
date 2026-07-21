@@ -506,7 +506,7 @@ type ActivationItem struct {
 
 func ParseTemplate(raw string) (Template, bool) {
 	switch Template(raw) {
-	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft, TemplateAgentActionBOM, TemplateDesignPartnerSummary, TemplateActionContractPacket:
+	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft, TemplateAgentActionBOM, TemplateDesignPartnerSummary:
 		return Template(raw), true
 	default:
 		return "", false

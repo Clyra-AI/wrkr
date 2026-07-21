@@ -72,13 +72,28 @@ func isArtifactPathError(err error) bool {
 }
 
 func parseReportTemplateShare(templateRaw string, shareProfileRaw string) (reportcore.Template, reportcore.ShareProfile, error) {
+	return parseReportTemplateShareWithOptions(templateRaw, shareProfileRaw, false)
+}
+
+func parseReportCommandTemplateShare(templateRaw string, shareProfileRaw string) (reportcore.Template, reportcore.ShareProfile, error) {
+	return parseReportTemplateShareWithOptions(templateRaw, shareProfileRaw, true)
+}
+
+func parseReportTemplateShareWithOptions(templateRaw string, shareProfileRaw string, allowActionContractPacket bool) (reportcore.Template, reportcore.ShareProfile, error) {
 	templateValue := strings.TrimSpace(templateRaw)
 	if templateValue == "" {
 		templateValue = string(reportcore.TemplateOperator)
 	}
 	template, ok := reportcore.ParseTemplate(templateValue)
+	if allowActionContractPacket && templateValue == string(reportcore.TemplateActionContractPacket) {
+		template, ok = reportcore.TemplateActionContractPacket, true
+	}
 	if !ok {
-		return "", "", fmt.Errorf("--template must be one of exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary|action-contract-packet")
+		usage := "exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary"
+		if allowActionContractPacket {
+			usage += "|action-contract-packet"
+		}
+		return "", "", fmt.Errorf("--template must be one of %s", usage)
 	}
 
 	shareValue := strings.TrimSpace(shareProfileRaw)
