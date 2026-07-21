@@ -83,6 +83,17 @@ func TestVerifyActionContractArtifactRejectsStaleEmbeddedContractIdentity(t *tes
 	}
 }
 
+func TestBuildActionContractArtifactsRejectsStaleCompositionRef(t *testing.T) {
+	t.Parallel()
+
+	snapshot := testSnapshot()
+	contract := snapshot.RiskReport.ComposedActionPaths[0].ProposedActionContract
+	contract.CompositionRef = "cap-stale"
+	if _, err := Build(snapshot, BuildOptions{ShareProfile: report.ShareProfileInternal}); err == nil || !strings.Contains(err.Error(), "composition") {
+		t.Fatalf("expected stale composition ref to be rejected before export, got %v", err)
+	}
+}
+
 func TestVerifyActionContractArtifactRejectsProducerAndSchemaMismatch(t *testing.T) {
 	t.Parallel()
 	collection, err := Build(testSnapshot(), BuildOptions{ShareProfile: report.ShareProfileInternal})

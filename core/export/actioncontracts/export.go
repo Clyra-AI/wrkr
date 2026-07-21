@@ -211,6 +211,10 @@ func buildArtifact(snapshot state.Snapshot, composition risk.ComposedActionPath,
 	if !safeContractID.MatchString(strings.TrimSpace(contract.ContractID)) {
 		return Artifact{}, fmt.Errorf("unsafe contract id %q", contract.ContractID)
 	}
+	compositionID := strings.TrimSpace(composition.CompositionID)
+	if compositionID == "" || strings.TrimSpace(contract.CompositionRef) != compositionID {
+		return Artifact{}, fmt.Errorf("action contract artifact composition does not match selected composition")
+	}
 	artifact := Artifact{
 		SchemaID:         SchemaID,
 		SchemaVersion:    SchemaVersion,
@@ -223,7 +227,7 @@ func buildArtifact(snapshot state.Snapshot, composition risk.ComposedActionPath,
 			ContractSchemaVersion: strings.TrimSpace(contract.ContractVersion),
 		},
 		SourceScanRefs:   []string{"saved_scan:" + strings.TrimSpace(snapshot.Version)},
-		CompositionRefs:  []string{strings.TrimSpace(composition.CompositionID)},
+		CompositionRefs:  []string{compositionID},
 		ResolutionKey:    strings.TrimSpace(composition.ResolutionKey),
 		CreationEvidence: dedupeSorted(append(append([]string(nil), composition.ProofRefs...), composition.SourceDecisionRefs...)),
 		Variant: VariantMetadata{
