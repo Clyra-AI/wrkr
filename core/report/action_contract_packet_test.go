@@ -115,6 +115,80 @@ func TestBuildActionContractPacketEvidenceGapsUseUncappedRequirements(t *testing
 	}
 }
 
+func TestBuildActionContractPacketCapsEvidenceGapReasonCodes(t *testing.T) {
+	t.Parallel()
+
+	input := actionContractPacketTestInput()
+	reasons := make([]string, 0, actionContractPacketReferenceCap+2)
+	for index := 0; index < actionContractPacketReferenceCap+2; index++ {
+		reasons = append(reasons, "gap_reason:"+twoDigitIndex(index))
+	}
+	input.Contract.AuthorityRequirements = append(input.Contract.AuthorityRequirements, risk.ProposedActionRequirement{
+		RequirementID:      "pacr-many-reasons",
+		Kind:               "requester_identity",
+		RequiredConstraint: "requester:verified",
+		EvidenceState:      risk.EvidenceStateUnknown,
+		FreshnessState:     evidencepolicy.FreshnessStateUnknown,
+		ReasonCodes:        reasons,
+	})
+
+	packet, err := BuildActionContractPacket(input)
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	gap, ok := packetEvidenceGapForID(packet, "pacr-many-reasons")
+	if !ok {
+		t.Fatalf("expected evidence gap for uncapped reason fixture: %+v", packet.EvidenceGaps)
+	}
+	if len(gap.ReasonCodes) != actionContractPacketReferenceCap {
+		t.Fatalf("gap reason codes must honor packet schema cap: got=%d codes=%v", len(gap.ReasonCodes), gap.ReasonCodes)
+	}
+	if !packetHasTruncation(packet, "evidence_gaps.pacr-many-reasons.reason_codes") {
+		t.Fatalf("expected gap reason-code truncation receipt: %+v", packet.Truncations)
+	}
+}
+
+func TestBuildActionContractPacketEmitsRequiredPlaceholdersForMissingSections(t *testing.T) {
+	t.Parallel()
+
+	input := actionContractPacketTestInput()
+	input.Contract.ConfirmationRequirement = nil
+	input.Contract.ApprovalRequirement = nil
+	input.Contract.CompensationRequirement = nil
+
+	packet, err := BuildActionContractPacket(input)
+	if err != nil {
+		t.Fatalf("build packet: %v", err)
+	}
+	if packet.Confirmation == nil || packet.Confirmation.Mode != "explicit_confirmation" || !packet.Confirmation.Required || packet.Confirmation.EvidenceState != risk.EvidenceStateUnknown {
+		t.Fatalf("missing confirmation must project a fail-closed placeholder: %+v", packet.Confirmation)
+	}
+	if packet.Approval == nil || !packet.Approval.Required || packet.Approval.MinimumApprovals != 1 || !strings.HasPrefix(packet.Approval.ScopeDigest, "sha256:") || packet.Approval.EvidenceState != risk.EvidenceStateUnknown {
+		t.Fatalf("missing approval must project a schema-valid placeholder: %+v", packet.Approval)
+	}
+	if packet.Compensation == nil || !packet.Compensation.Required || packet.Compensation.Kind != "documented_recovery" || !packet.Compensation.VerificationRequired || packet.Compensation.EvidenceState != risk.EvidenceStateUnknown {
+		t.Fatalf("missing compensation must project a fail-closed placeholder: %+v", packet.Compensation)
+	}
+	for _, id := range []string{"confirmation", "approval", "compensation"} {
+		if !packetHasEvidenceGap(packet, id) {
+			t.Fatalf("missing %s section must stay visible as an evidence gap: %+v", id, packet.EvidenceGaps)
+		}
+	}
+	payload, err := json.Marshal(packet)
+	if err != nil {
+		t.Fatalf("marshal packet: %v", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(payload, &document); err != nil {
+		t.Fatalf("decode packet: %v", err)
+	}
+	for _, key := range []string{"confirmation_requirement", "approval_requirement", "compensation_requirement"} {
+		if _, ok := document[key]; !ok {
+			t.Fatalf("required packet section %q must not be omitted: %s", key, payload)
+		}
+	}
+}
+
 func TestBuildActionContractPacketDerivedSectionsUseUncappedSources(t *testing.T) {
 	t.Parallel()
 
@@ -341,12 +415,17 @@ func packetHasAuthorityRequirement(packet ActionContractPacket, id string) bool 
 }
 
 func packetHasEvidenceGap(packet ActionContractPacket, id string) bool {
+	_, ok := packetEvidenceGapForID(packet, id)
+	return ok
+}
+
+func packetEvidenceGapForID(packet ActionContractPacket, id string) (ActionContractPacketGap, bool) {
 	for _, item := range packet.EvidenceGaps {
 		if item.RequirementID == id {
-			return true
+			return item, true
 		}
 	}
-	return false
+	return ActionContractPacketGap{}, false
 }
 
 func packetHasReadinessCheck(packet ActionContractPacket, id string) bool {
