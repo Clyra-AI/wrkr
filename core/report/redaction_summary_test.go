@@ -87,6 +87,46 @@ func TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelatio
 	}
 }
 
+func TestSanitizeComposedActionPathsWithConfigRedactsGraphCorrelationRefs(t *testing.T) {
+	t.Parallel()
+
+	input := []risk.ComposedActionPath{{
+		CompositionID: "cap-graph",
+		Stages: []risk.CompositionStage{{
+			StageID:         "stage-source",
+			Role:            risk.CompositionStageRoleSource,
+			CorrelationRefs: []string{"workflow_chain:wfc-visible", "graph_edge:edge-sensitive"},
+		}},
+		Transitions: []risk.CompositionTransition{{
+			TransitionID:       "transition-graph",
+			FromStageID:        "stage-source",
+			ToStageID:          "stage-sink",
+			CorrelationRefs:    []string{"workflow_chain:wfc-visible", "graph_edge:edge-sensitive"},
+			AlternateRouteRefs: []string{"cap-peer"},
+		}},
+	}}
+
+	redacted := sanitizeComposedActionPathsWithConfig(input, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionGraphRefs}))
+	if len(redacted) != 1 {
+		t.Fatalf("expected one redacted composed path, got %+v", redacted)
+	}
+	payload, err := json.Marshal(redacted[0])
+	if err != nil {
+		t.Fatalf("marshal graph-redacted composed path: %v", err)
+	}
+	if strings.Contains(string(payload), "edge-sensitive") {
+		t.Fatalf("expected graph correlation refs to be redacted: %s", payload)
+	}
+	for _, refs := range [][]string{redacted[0].Stages[0].CorrelationRefs, redacted[0].Transitions[0].CorrelationRefs} {
+		if !containsStringValue(refs, "workflow_chain:wfc-visible") {
+			t.Fatalf("expected non-graph correlation refs to remain when only graph refs are selected, got %+v", refs)
+		}
+		if len(refs) != 2 || !strings.HasPrefix(refs[1], "correlation-") {
+			t.Fatalf("expected graph correlation ref to be redacted with correlation prefix, got %+v", refs)
+		}
+	}
+}
+
 func TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs(t *testing.T) {
 	t.Parallel()
 
