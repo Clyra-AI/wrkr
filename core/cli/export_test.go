@@ -168,6 +168,41 @@ func TestExportActionContractsJSONAndSelector(t *testing.T) {
 	}
 }
 
+func TestExportActionContractsDuplicateTargetsExitUnsafe(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-export-action", OutcomeClass: "release_publish", TargetIdentity: "release:stable", TargetClass: risk.TargetClassReleaseAdjacent,
+		EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh, RecommendedControl: risk.RecommendedControlApprovalRequired,
+		EvidenceRefs:       []string{"validation:release", "effect:publish", "check:tests", "producer:gait_policy", "sandbox:release", "compensation:rollback"},
+		SourceDecisionRefs: []string{"policy:release"},
+		Stages:             []risk.CompositionStage{{StageID: "source", Role: risk.CompositionStageRoleSource, ParentAuthorityRef: "authority:root"}, {StageID: "sink", Role: risk.CompositionStageRoleDestructiveSink}},
+	}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
+	duplicate := composition
+	duplicate.CompositionID = "cap-export-action-duplicate"
+	duplicate.ResolutionKey = "duplicate-target"
+	duplicate.ProposedActionContract = risk.CloneProposedActionContract(composition.ProposedActionContract)
+	duplicate.ProposedActionContractRefs = []string{duplicate.ProposedActionContract.ContractID}
+	if err := state.Save(statePath, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{composition, duplicate}}}); err != nil {
+		t.Fatalf("save duplicate action contract state: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"export", "action-contracts", "--state", statePath, "--output-dir", filepath.Join(tmp, "artifacts"), "--json"}, &out, &errOut)
+	if code != exitUnsafeBlocked {
+		t.Fatalf("expected duplicate artifact target to exit %d, got %d stdout=%q stderr=%q", exitUnsafeBlocked, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "unsafe_operation_blocked", exitUnsafeBlocked)
+	if !strings.Contains(errOut.String(), "collision") {
+		t.Fatalf("expected duplicate target error to classify as collision, got %q", errOut.String())
+	}
+}
+
 func TestExportTicketsDryRunDoesNotUseNetwork(t *testing.T) {
 	t.Parallel()
 

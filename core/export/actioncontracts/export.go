@@ -349,7 +349,7 @@ func Write(collection Collection, outputDir string) ([]string, error) {
 		}
 		path := filepath.Join(dir, filename)
 		if _, ok := seenTargets[path]; ok {
-			return nil, fmt.Errorf("refusing duplicate artifact target at %s", path)
+			return nil, fmt.Errorf("refusing artifact collision at duplicate target %s", path)
 		}
 		seenTargets[path] = struct{}{}
 		if _, err := os.Lstat(path); err == nil {
@@ -366,7 +366,7 @@ func Write(collection Collection, outputDir string) ([]string, error) {
 	}
 	manifestPath := filepath.Join(dir, "manifest.json")
 	if _, ok := seenTargets[manifestPath]; ok {
-		return nil, fmt.Errorf("refusing duplicate artifact target at %s", manifestPath)
+		return nil, fmt.Errorf("refusing artifact collision at duplicate target %s", manifestPath)
 	}
 	if _, err := os.Lstat(manifestPath); err == nil {
 		return nil, fmt.Errorf("refusing artifact collision at %s", manifestPath)
