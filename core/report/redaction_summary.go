@@ -406,7 +406,7 @@ func sanitizeCompositionStagesWithConfig(in []risk.CompositionStage, config Reda
 			copyStage.TrustBoundary = redactValue("boundary", copyStage.TrustBoundary, 8)
 			copyStage.CorrelationRefs = redactStringSlice(copyStage.CorrelationRefs, "correlation")
 		} else {
-			copyStage.CorrelationRefs = maybeRedactEvidenceRefSlice(copyStage.CorrelationRefs, config)
+			copyStage.CorrelationRefs = maybeRedactCorrelationRefSlice(copyStage.CorrelationRefs, config)
 		}
 		copyStage.GaitCoverage = sanitizeGaitCoverageWithConfig(copyStage.GaitCoverage, config)
 		copyStage.Contradictions = sanitizeContradictionsWithConfig(copyStage.Contradictions, config)
@@ -461,7 +461,7 @@ func sanitizeCompositionTransitionsWithConfig(in []risk.CompositionTransition, c
 			copyTransition.TrustBoundary = redactValue("boundary", copyTransition.TrustBoundary, 8)
 			copyTransition.CorrelationRefs = redactStringSlice(copyTransition.CorrelationRefs, "correlation")
 		} else {
-			copyTransition.CorrelationRefs = maybeRedactEvidenceRefSlice(copyTransition.CorrelationRefs, config)
+			copyTransition.CorrelationRefs = maybeRedactCorrelationRefSlice(copyTransition.CorrelationRefs, config)
 		}
 		copyTransition.GaitCoverage = sanitizeGaitCoverageWithConfig(copyTransition.GaitCoverage, config)
 		out = append(out, copyTransition)
@@ -1217,6 +1217,28 @@ func sanitizeEvidenceDecisionsWithConfig(in []evidencepolicy.Decision, config Re
 
 func maybeRedactEvidenceRefSlice(values []string, config RedactionConfig) []string {
 	return maybeRedactStringSlice(values, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos))
+}
+
+func maybeRedactCorrelationRefSlice(values []string, config RedactionConfig) []string {
+	if config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+		return redactStringSlice(values, "evidence")
+	}
+	if !config.Has(RedactionGraphRefs) {
+		return cloneStrings(values)
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if isGraphCorrelationRef(value) {
+			out = append(out, redactValue("correlation", value, 8))
+			continue
+		}
+		out = append(out, value)
+	}
+	return out
+}
+
+func isGraphCorrelationRef(value string) bool {
+	return strings.HasPrefix(strings.TrimSpace(value), "graph_edge:")
 }
 
 func evidenceDecisionRequiresOwnerRedaction(in evidencepolicy.Decision) bool {
