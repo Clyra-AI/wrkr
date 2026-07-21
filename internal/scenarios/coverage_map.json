@@ -150,6 +150,11 @@
     "TestEnterpriseFixtureGovernedCINotTopControlFirst",
     "TestEnterpriseFixtureExpiredDeclarationReopens"
   ],
+  "W58-bounded-multi-stage-reachability": [
+    "TestScenarioBoundedMultiStageCompositions",
+    "TestComposedActionPathSchemaValidatesBoundedMultiStageFixture",
+    "TestActionContractPacketSchemaValidatesMultiStageReachabilityProjection"
+  ],
   "W4-drift-review": [
     "TestCompareAddsActionPathDriftCategories",
     "TestReportFocusPresetFiltersToDriftedPaths",

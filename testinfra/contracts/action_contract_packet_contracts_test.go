@@ -66,6 +66,54 @@ func TestActionContractPacketSchemaValidatesRealArtifactProjection(t *testing.T)
 	}
 }
 
+func TestActionContractPacketSchemaValidatesMultiStageReachabilityProjection(t *testing.T) {
+	t.Parallel()
+
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-packet-multistage", PatternID: risk.CompositionPatternCodeToDeployMultiStage,
+		OutcomeClass: "production_deploy", TargetIdentity: "prod:cluster", TargetClass: risk.TargetClassProductionImpacting, AffectedAsset: "prod:cluster",
+		ClaimState: risk.CompositionClaimStaticOnly, EvidenceState: risk.EvidenceStateDeclared, FreshnessState: evidencepolicy.FreshnessStateFresh,
+		RecommendedControl: risk.RecommendedControlApprovalRequired,
+		ReachabilityState:  risk.CompositionReachabilityPossible,
+		AlternateRouteRefs: []string{"cap-packet-multistage-alternate"},
+		Truncations:        []risk.CompositionTruncation{{PatternID: risk.CompositionPatternCodeToDeployMultiStage, Reason: risk.CompositionTruncationCandidateCap, Limit: 6, ObservedCandidates: 8, OmittedCandidates: 2}},
+		Stages: []risk.CompositionStage{
+			{StageID: "source", Role: risk.CompositionStageRoleSource, ToolType: "codex", Location: "AGENTS.md", SystemClass: risk.CompositionSystemClassRepo, TrustBoundary: "repo:fixture/app", CorrelationRefs: []string{"workflow_chain:wfc-deploy"}, ReachabilityState: risk.CompositionReachabilityPossible},
+			{StageID: "transform", Role: risk.CompositionStageRoleTransform, ToolType: "github_actions", Location: ".github/workflows/deploy.yml", SystemClass: risk.CompositionSystemClassCI, TrustBoundary: "ci:fixture/app", CorrelationRefs: []string{"workflow_chain:wfc-deploy"}, ReachabilityState: risk.CompositionReachabilityPossible},
+			{StageID: "sink", Role: risk.CompositionStageRolePrivilegedSink, ToolType: "mcp_aws_lambda", Location: "cloud://lambda/deploy", SystemClass: risk.CompositionSystemClassCloud, TrustBoundary: "cloud:mcp_aws_lambda", CorrelationRefs: []string{"workflow_chain:wfc-deploy"}, ReachabilityState: risk.CompositionReachabilityPossible},
+		},
+	}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
+	snapshot := state.Snapshot{Version: state.SnapshotVersion, RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{composition}}}
+	packet, err := actioncontracts.BuildPacket(snapshot, actioncontracts.BuildOptions{ShareProfile: report.ShareProfileInternal, ContractID: composition.ProposedActionContract.ContractID})
+	if err != nil {
+		t.Fatalf("build multi-stage packet projection: %v", err)
+	}
+	payload, err := json.Marshal(packet)
+	if err != nil {
+		t.Fatalf("marshal multi-stage packet: %v", err)
+	}
+	var document any
+	if err := json.Unmarshal(payload, &document); err != nil {
+		t.Fatalf("decode multi-stage packet: %v", err)
+	}
+
+	repoRoot := mustFindRepoRoot(t)
+	packetSchemaPath := filepath.Join(repoRoot, "schemas", "v1", "report", "action-contract-packet.schema.json")
+	v3SchemaPath := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract-v3.schema.json")
+	compiler := jsonschema.NewCompiler()
+	mustAddCompositionSchemaResourceAs(t, compiler, "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json", v3SchemaPath)
+	mustAddCompositionSchemaResource(t, compiler, packetSchemaPath)
+	compiled, err := compiler.Compile(packetSchemaPath)
+	if err != nil {
+		t.Fatalf("compile packet schema: %v", err)
+	}
+	if err := compiled.Validate(document); err != nil {
+		t.Fatalf("multi-stage packet projection must validate: %v\n%s", err, payload)
+	}
+}
+
 func TestActionContractPacketSchemaValidatesGapOnlyRequiredSections(t *testing.T) {
 	t.Parallel()
 

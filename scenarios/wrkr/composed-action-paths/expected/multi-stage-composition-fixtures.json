@@ -1,0 +1,48 @@
+{
+  "fixture_version": "1",
+  "description": "Bounded real-engine fixtures for possible and observed three-to-five-stage cross-system compositions.",
+  "cases": [
+    {
+      "scenario_id": "three-stage-repo-ci-communications",
+      "systems": ["repo", "ci", "communications"],
+      "correlated": true,
+      "observed": false,
+      "expected_stage_count": 3,
+      "expected_reachability_state": "possible"
+    },
+    {
+      "scenario_id": "four-stage-repo-ci-cloud-communications",
+      "systems": ["repo", "ci", "cloud", "communications"],
+      "correlated": true,
+      "observed": false,
+      "expected_stage_count": 4,
+      "expected_reachability_state": "possible"
+    },
+    {
+      "scenario_id": "five-stage-cross-repo-route",
+      "systems": ["repo", "ci", "cloud", "saas", "communications"],
+      "correlated": true,
+      "observed": false,
+      "cross_repo": true,
+      "expected_stage_count": 5,
+      "expected_reachability_state": "possible"
+    },
+    {
+      "scenario_id": "three-stage-observed-runtime-route",
+      "systems": ["repo", "ci", "communications"],
+      "correlated": true,
+      "observed": true,
+      "expected_stage_count": 3,
+      "expected_reachability_state": "observed"
+    },
+    {
+      "scenario_id": "cross-repo-route-without-explicit-join",
+      "systems": ["repo", "ci", "communications"],
+      "correlated": false,
+      "observed": false,
+      "cross_repo": true,
+      "expected_stage_count": 0,
+      "expected_reachability_state": ""
+    }
+  ]
+}

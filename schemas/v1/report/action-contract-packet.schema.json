@@ -84,6 +84,10 @@
         "target": {"type": "string", "maxLength": 180},
         "target_class": {"type": "string"},
         "outcome_class": {"type": "string"},
+        "reachability_state": {"$ref": "#/$defs/reachabilityState"},
+        "observed_execution": {"type": "boolean"},
+        "alternate_route_refs": {"$ref": "#/$defs/stringList"},
+        "truncations": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/compositionTruncation"}},
         "stages": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/stage"}}
       },
       "additionalProperties": false
@@ -99,7 +103,13 @@
         "action_classes": {"$ref": "#/$defs/stringList"},
         "target_class": {"type": "string"},
         "evidence_state": {"$ref": "#/$defs/evidenceState"},
-        "freshness_state": {"$ref": "#/$defs/freshnessState"}
+        "freshness_state": {"$ref": "#/$defs/freshnessState"},
+        "system_class": {"$ref": "#/$defs/systemClass"},
+        "trust_boundary": {"type": "string", "maxLength": 180},
+        "correlation_refs": {"$ref": "#/$defs/stringList"},
+        "alternate_route_refs": {"$ref": "#/$defs/stringList"},
+        "reachability_state": {"$ref": "#/$defs/reachabilityState"},
+        "observed_execution": {"type": "boolean"}
       },
       "additionalProperties": false
     },
@@ -140,11 +150,32 @@
       "type": "object",
       "required": ["claim_state", "evidence_state", "freshness_state", "observed_execution", "buyer_label"],
       "properties": {
+        "state": {"$ref": "#/$defs/reachabilityState"},
         "claim_state": {"type": "string", "enum": ["static_only", "partially_evidenced", "declared_policy_only", "runtime_controlled", "observed_execution", "contradictory", "unknown"]},
         "evidence_state": {"$ref": "#/$defs/evidenceState"},
         "freshness_state": {"$ref": "#/$defs/freshnessState"},
         "observed_execution": {"type": "boolean"},
         "buyer_label": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "systemClass": {
+      "type": "string",
+      "enum": ["repo", "ci", "package", "cloud", "saas", "communications", "unknown"]
+    },
+    "reachabilityState": {
+      "type": "string",
+      "enum": ["possible", "incomplete", "observed"]
+    },
+    "compositionTruncation": {
+      "type": "object",
+      "required": ["pattern_id", "reason", "limit"],
+      "properties": {
+        "pattern_id": {"type": "string"},
+        "reason": {"type": "string", "enum": ["depth_cap", "path_cap", "candidate_cap", "reference_cap"]},
+        "limit": {"type": "integer", "minimum": 1},
+        "observed_candidates": {"type": "integer", "minimum": 0},
+        "omitted_candidates": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
     },

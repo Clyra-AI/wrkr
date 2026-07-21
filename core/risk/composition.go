@@ -20,11 +20,33 @@ const (
 	CompositionStageRolePrivilegedSink  = "privileged_sink"
 	CompositionStageRoleDestructiveSink = "destructive_sink"
 
-	CompositionPatternSensitiveReadToEgress      = "sensitive_read_to_egress"
-	CompositionPatternSecretToNetwork            = "secret_to_network"
-	CompositionPatternCodeToDeploy               = "code_to_deploy"
-	CompositionPatternWorkflowMutationProduction = "workflow_mutation_to_production"
-	CompositionPatternPackageChangeToRelease     = "package_change_to_release"
+	CompositionPatternSensitiveReadToEgress                = "sensitive_read_to_egress"
+	CompositionPatternSecretToNetwork                      = "secret_to_network"
+	CompositionPatternCodeToDeploy                         = "code_to_deploy"
+	CompositionPatternWorkflowMutationProduction           = "workflow_mutation_to_production"
+	CompositionPatternPackageChangeToRelease               = "package_change_to_release"
+	CompositionPatternSensitiveReadToEgressMultiStage      = "sensitive_read_to_egress_multistage"
+	CompositionPatternSecretToNetworkMultiStage            = "secret_to_network_multistage"
+	CompositionPatternCodeToDeployMultiStage               = "code_to_deploy_multistage"
+	CompositionPatternWorkflowMutationProductionMultiStage = "workflow_mutation_to_production_multistage"
+	CompositionPatternPackageChangeToReleaseMultiStage     = "package_change_to_release_multistage"
+
+	CompositionSystemClassRepo           = "repo"
+	CompositionSystemClassCI             = "ci"
+	CompositionSystemClassPackage        = "package"
+	CompositionSystemClassCloud          = "cloud"
+	CompositionSystemClassSaaS           = "saas"
+	CompositionSystemClassCommunications = "communications"
+	CompositionSystemClassUnknown        = "unknown"
+
+	CompositionReachabilityPossible   = "possible"
+	CompositionReachabilityIncomplete = "incomplete"
+	CompositionReachabilityObserved   = "observed"
+
+	CompositionTruncationDepthCap     = "depth_cap"
+	CompositionTruncationPathCap      = "path_cap"
+	CompositionTruncationCandidateCap = "candidate_cap"
+	CompositionTruncationReferenceCap = "reference_cap"
 
 	CompositionClaimStaticOnly         = "static_only"
 	CompositionClaimPartiallyEvidenced = "partially_evidenced"
@@ -53,10 +75,20 @@ const (
 )
 
 type CompositionPattern struct {
-	PatternID    string   `json:"pattern_id"`
-	Description  string   `json:"description,omitempty"`
-	StageRoles   []string `json:"stage_roles,omitempty"`
-	OutcomeClass string   `json:"outcome_class,omitempty"`
+	PatternID                  string                            `json:"pattern_id"`
+	Description                string                            `json:"description,omitempty"`
+	StageRoles                 []string                          `json:"stage_roles,omitempty"`
+	OutcomeClass               string                            `json:"outcome_class,omitempty"`
+	MinStages                  int                               `json:"min_stages,omitempty"`
+	MaxStages                  int                               `json:"max_stages,omitempty"`
+	StageTemplates             []CompositionPatternStageTemplate `json:"stage_templates,omitempty"`
+	RequiredTransitionEvidence []string                          `json:"required_transition_evidence,omitempty"`
+	TrustBoundaryConstraint    string                            `json:"trust_boundary_constraint,omitempty"`
+}
+
+type CompositionPatternStageTemplate struct {
+	Role                 string   `json:"role"`
+	AllowedSystemClasses []string `json:"allowed_system_classes"`
 }
 
 type CompositionStage struct {
@@ -85,6 +117,12 @@ type CompositionStage struct {
 	CredentialDelta              []string                       `json:"credential_delta,omitempty"`
 	ExpiryDelta                  []string                       `json:"expiry_delta,omitempty"`
 	ReasonCodes                  []string                       `json:"reason_codes,omitempty"`
+	SystemClass                  string                         `json:"system_class,omitempty"`
+	TrustBoundary                string                         `json:"trust_boundary,omitempty"`
+	CorrelationRefs              []string                       `json:"correlation_refs,omitempty"`
+	AlternateRouteRefs           []string                       `json:"alternate_route_refs,omitempty"`
+	ReachabilityState            string                         `json:"reachability_state,omitempty"`
+	ObservedExecution            bool                           `json:"observed_execution,omitempty"`
 }
 
 type CompositionTransition struct {
@@ -107,6 +145,22 @@ type CompositionTransition struct {
 	TargetDelta                  []string      `json:"target_delta,omitempty"`
 	CredentialDelta              []string      `json:"credential_delta,omitempty"`
 	ExpiryDelta                  []string      `json:"expiry_delta,omitempty"`
+	FromSystemClass              string        `json:"from_system_class,omitempty"`
+	ToSystemClass                string        `json:"to_system_class,omitempty"`
+	TrustBoundary                string        `json:"trust_boundary,omitempty"`
+	CorrelationRefs              []string      `json:"correlation_refs,omitempty"`
+	AlternateRouteRefs           []string      `json:"alternate_route_refs,omitempty"`
+	FreshnessState               string        `json:"freshness_state,omitempty"`
+	ReachabilityState            string        `json:"reachability_state,omitempty"`
+	ObservedExecution            bool          `json:"observed_execution,omitempty"`
+}
+
+type CompositionTruncation struct {
+	PatternID          string `json:"pattern_id"`
+	Reason             string `json:"reason"`
+	Limit              int    `json:"limit"`
+	ObservedCandidates int    `json:"observed_candidates,omitempty"`
+	OmittedCandidates  int    `json:"omitted_candidates,omitempty"`
 }
 
 type ComposedActionPath struct {
@@ -151,6 +205,10 @@ type ComposedActionPath struct {
 	ApprovalEvasionSignal             string                         `json:"approval_evasion_signal,omitempty"`
 	CoverageDeltaReasons              []string                       `json:"coverage_delta_reasons,omitempty"`
 	Materiality                       string                         `json:"materiality,omitempty"`
+	ReachabilityState                 string                         `json:"reachability_state,omitempty"`
+	ObservedExecution                 bool                           `json:"observed_execution,omitempty"`
+	AlternateRouteRefs                []string                       `json:"alternate_route_refs,omitempty"`
+	Truncations                       []CompositionTruncation        `json:"truncations,omitempty"`
 }
 
 type ComposedActionPathSummary struct {
@@ -161,6 +219,8 @@ type ComposedActionPathSummary struct {
 	ObservedExecutions         int `json:"observed_execution_compositions"`
 	ContradictoryCompositions  int `json:"contradictory_compositions"`
 	TruncatedCandidatePatterns int `json:"truncated_candidate_patterns,omitempty"`
+	MultiStageCompositions     int `json:"multi_stage_compositions,omitempty"`
+	IncompleteReachability     int `json:"incomplete_reachability_compositions,omitempty"`
 }
 
 type ComposedActionPathToControlFirst struct {
@@ -209,6 +269,12 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 			}
 		}
 	}
+	for _, composition := range buildMultiStageComposedActionPaths(projected, workflowChains) {
+		if strings.TrimSpace(composition.CompositionID) == "" {
+			continue
+		}
+		compositionsByKey[composition.CompositionID] = composition
+	}
 
 	if len(compositionsByKey) == 0 {
 		return nil, nil
@@ -216,8 +282,10 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 	compositions := make([]ComposedActionPath, 0, len(compositionsByKey))
 	for _, composition := range compositionsByKey {
 		composition.TruncatedCandidates = dedupeSortedStrings(composition.TruncatedCandidates)
+		composition.Truncations = normalizeCompositionTruncations(composition.Truncations)
 		compositions = append(compositions, composition)
 	}
+	annotateMultiStageAlternateRoutes(compositions)
 	annotateEquivalentOutcomeSignals(compositions)
 	sort.Slice(compositions, func(i, j int) bool {
 		return compareComposedActionPaths(compositions[i], compositions[j])
@@ -273,7 +341,7 @@ func SummarizeComposedActionPaths(paths []ComposedActionPath) ComposedActionPath
 		case CompositionClaimContradictory:
 			summary.ContradictoryCompositions++
 		}
-		if len(path.TruncatedCandidates) > 0 {
+		if len(path.TruncatedCandidates) > 0 || len(path.Truncations) > 0 {
 			patternID := strings.TrimSpace(path.PatternID)
 			if patternID == "" {
 				patternID = strings.TrimSpace(path.CompositionID)
@@ -281,6 +349,12 @@ func SummarizeComposedActionPaths(paths []ComposedActionPath) ComposedActionPath
 			if patternID != "" {
 				truncatedPatterns[patternID] = struct{}{}
 			}
+		}
+		if len(path.Stages) >= minMultiStageCompositionDepth && strings.TrimSpace(path.ReachabilityState) != "" {
+			summary.MultiStageCompositions++
+		}
+		if strings.TrimSpace(path.ReachabilityState) == CompositionReachabilityIncomplete {
+			summary.IncompleteReachability++
 		}
 	}
 	summary.TruncatedCandidatePatterns = len(truncatedPatterns)
@@ -1195,6 +1269,11 @@ func hydrateCompositionTransitions(composition *ComposedActionPath) {
 		composition.Transitions[idx].PolicyCoverageStatus = composition.PolicyCoverageStatus
 		composition.Transitions[idx].GaitCoverage = CloneGaitCoverage(composition.GaitCoverage)
 		composition.Transitions[idx].RuntimeEvidenceAbsenceStatus = composition.RuntimeEvidenceAbsenceStatus
+		composition.Transitions[idx].FreshnessState = composition.FreshnessState
+		if strings.TrimSpace(composition.ReachabilityState) != "" {
+			composition.Transitions[idx].ReachabilityState = composition.ReachabilityState
+			composition.Transitions[idx].ObservedExecution = composition.ObservedExecution
+		}
 		composition.Transitions[idx].EvidenceRefs = append([]string(nil), composition.EvidenceRefs...)
 		composition.Transitions[idx].ProofRefs = append([]string(nil), composition.ProofRefs...)
 		composition.Transitions[idx].SourceDecisionRefs = append([]string(nil), composition.SourceDecisionRefs...)
@@ -2134,6 +2213,9 @@ func compositionObservedExecution(paths []ActionPath, stages []CompositionStage,
 		return false
 	}
 	for _, stage := range stages {
+		if strings.TrimSpace(stage.ReachabilityState) != "" && !stage.ObservedExecution {
+			return false
+		}
 		if stage.GaitCoverage == nil {
 			return false
 		}

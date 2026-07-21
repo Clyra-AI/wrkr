@@ -415,11 +415,31 @@ func RenderActionContractPacketMarkdown(packet ActionContractPacket) string {
 	packetMarkdownBullet(&builder, "Affected asset", firstPacketValue(packet.AffectedAsset, "unknown"))
 	packetMarkdownBullet(&builder, "Outcome", firstPacketValue(packet.Path.OutcomeClass, "unknown"))
 	packetMarkdownBullet(&builder, "Reachability", packet.Reachability.BuyerLabel)
+	if packet.Path.ReachabilityState != "" {
+		packetMarkdownBullet(&builder, "Reachability state", packet.Path.ReachabilityState)
+		packetMarkdownBullet(&builder, "Observed execution", fmt.Sprintf("%t", packet.Path.ObservedExecution))
+	}
+	if len(packet.Path.AlternateRouteRefs) > 0 {
+		packetMarkdownBullet(&builder, "Alternate routes", packetMarkdownList(packet.Path.AlternateRouteRefs))
+	}
 	for _, stage := range packet.Path.Stages {
+		if stage.SystemClass != "" || stage.TrustBoundary != "" || stage.ReachabilityState != "" || len(stage.CorrelationRefs) > 0 {
+			builder.WriteString(fmt.Sprintf("- Stage `%s`: role=%s system=%s boundary=%s tool=%s location=%s actions=%s evidence=%s freshness=%s reachability=%s observed=%t correlation=%s\n",
+				packetMarkdownValue(stage.StageID), packetMarkdownValue(stage.Role), packetMarkdownValue(firstPacketValue(stage.SystemClass, "unknown")),
+				packetMarkdownValue(firstPacketValue(stage.TrustBoundary, "not_recorded")), packetMarkdownValue(firstPacketValue(stage.ToolType, "unknown")),
+				packetMarkdownValue(firstPacketValue(stage.Location, "not_recorded")), packetMarkdownList(stage.ActionClasses),
+				packetMarkdownValue(firstPacketValue(stage.EvidenceState, "unknown")), packetMarkdownValue(firstPacketValue(stage.Freshness, "unknown")),
+				packetMarkdownValue(firstPacketValue(stage.ReachabilityState, "not_recorded")), stage.ObservedExecution, packetMarkdownList(stage.CorrelationRefs)))
+			continue
+		}
 		builder.WriteString(fmt.Sprintf("- Stage `%s`: role=%s tool=%s location=%s actions=%s evidence=%s freshness=%s\n",
 			packetMarkdownValue(stage.StageID), packetMarkdownValue(stage.Role), packetMarkdownValue(firstPacketValue(stage.ToolType, "unknown")),
 			packetMarkdownValue(firstPacketValue(stage.Location, "not_recorded")), packetMarkdownList(stage.ActionClasses),
 			packetMarkdownValue(firstPacketValue(stage.EvidenceState, "unknown")), packetMarkdownValue(firstPacketValue(stage.Freshness, "unknown"))))
+	}
+	for _, truncation := range packet.Path.Truncations {
+		builder.WriteString(fmt.Sprintf("- Traversal limit: pattern=%s reason=%s limit=%d observed=%d omitted=%d\n",
+			packetMarkdownValue(truncation.PatternID), packetMarkdownValue(truncation.Reason), truncation.Limit, truncation.ObservedCandidates, truncation.OmittedCandidates))
 	}
 	builder.WriteString("\n")
 

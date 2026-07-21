@@ -32,6 +32,7 @@ const (
 	DriftCategoryWorsenedCompositionRecommendation   = "worsened_composition_recommendation"
 	DriftCategoryAlternateRouteAppeared              = "alternate_route_appeared"
 	DriftCategoryCompositionOutcomeChanged           = "composition_outcome_changed"
+	DriftCategoryCompositionReachabilityChanged      = "composition_reachability_changed"
 	DriftComparisonStatusOK                          = "ok"
 	DriftComparisonStatusBaselineMissing             = "baseline_action_paths_unavailable"
 	DriftComparisonStatusCurrentMissing              = "current_action_paths_unavailable"
@@ -350,6 +351,15 @@ var driftCategoryPlanOrder = []categoryMetadata{
 		recommended: []string{
 			"Review outcome changes before carrying forward historical approvals.",
 			"Regenerate proposed Action Contracts for the changed outcome class or target.",
+		},
+	},
+	{
+		category: DriftCategoryCompositionReachabilityChanged,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Review reachability-state changes before carrying forward a prior Action Contract decision.",
+			"Require imported runtime proof before treating a possible or incomplete route as observed execution.",
 		},
 	},
 }

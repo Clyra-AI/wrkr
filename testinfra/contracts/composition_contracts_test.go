@@ -82,6 +82,54 @@ func TestComposedActionPathSchemasValidateMinimalFixture(t *testing.T) {
 	}
 }
 
+func TestComposedActionPathSchemaValidatesBoundedMultiStageFixture(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	composedPath := filepath.Join(repoRoot, "schemas", "v1", "composed-action-path.schema.json")
+	proposedPath := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract.schema.json")
+	proposedV3Path := filepath.Join(repoRoot, "schemas", "v1", "proposed-action-contract-v3.schema.json")
+	compiler := jsonschema.NewCompiler()
+	mustAddCompositionSchemaResource(t, compiler, composedPath)
+	mustAddCompositionSchemaResourceAs(t, compiler, "https://wrkr.dev/schemas/v1/proposed-action-contract.schema.json", proposedPath)
+	mustAddCompositionSchemaResourceAs(t, compiler, "https://wrkr.dev/schemas/v1/proposed-action-contract-v3.schema.json", proposedV3Path)
+	compiled, err := compiler.Compile(composedPath)
+	if err != nil {
+		t.Fatalf("compile composed action path schema: %v", err)
+	}
+
+	fixture := map[string]any{
+		"composition_id": "cap-multistage-1234",
+		"pattern_id":     "code_to_deploy_multistage",
+		"pattern": map[string]any{
+			"pattern_id":                   "code_to_deploy_multistage",
+			"stage_roles":                  []any{"source", "transform", "privileged_sink"},
+			"outcome_class":                "production_deploy",
+			"min_stages":                   3,
+			"max_stages":                   5,
+			"stage_templates":              []any{map[string]any{"role": "source", "allowed_system_classes": []any{"repo"}}, map[string]any{"role": "transform", "allowed_system_classes": []any{"ci"}}, map[string]any{"role": "privileged_sink", "allowed_system_classes": []any{"cloud"}}},
+			"required_transition_evidence": []any{"workflow_chain", "graph_edge"},
+			"trust_boundary_constraint":    "explicit_correlation_required_across_boundaries",
+		},
+		"stages": []any{
+			map[string]any{"stage_id": "stage-repo", "role": "source", "system_class": "repo", "trust_boundary": "repo:acme/app", "correlation_refs": []any{"workflow_chain:wfc-deploy"}, "evidence_state": "inferred", "freshness_state": "unknown", "reachability_state": "possible", "observed_execution": false},
+			map[string]any{"stage_id": "stage-ci", "role": "transform", "system_class": "ci", "trust_boundary": "ci:acme/app", "correlation_refs": []any{"workflow_chain:wfc-deploy"}, "evidence_state": "declared", "freshness_state": "fresh", "reachability_state": "possible", "observed_execution": false},
+			map[string]any{"stage_id": "stage-cloud", "role": "privileged_sink", "system_class": "cloud", "trust_boundary": "cloud:mcp_aws_lambda", "correlation_refs": []any{"workflow_chain:wfc-deploy"}, "evidence_state": "verified", "freshness_state": "fresh", "reachability_state": "possible", "observed_execution": false},
+		},
+		"transitions": []any{
+			map[string]any{"transition_id": "transition-repo-ci", "from_stage_id": "stage-repo", "to_stage_id": "stage-ci", "from_system_class": "repo", "to_system_class": "ci", "trust_boundary": "repo:acme/app->ci:acme/app", "correlation_refs": []any{"workflow_chain:wfc-deploy"}, "freshness_state": "unknown", "reachability_state": "possible", "observed_execution": false},
+			map[string]any{"transition_id": "transition-ci-cloud", "from_stage_id": "stage-ci", "to_stage_id": "stage-cloud", "from_system_class": "ci", "to_system_class": "cloud", "trust_boundary": "ci:acme/app->cloud:mcp_aws_lambda", "correlation_refs": []any{"workflow_chain:wfc-deploy"}, "freshness_state": "fresh", "reachability_state": "possible", "observed_execution": false},
+		},
+		"reachability_state":   "possible",
+		"observed_execution":   false,
+		"alternate_route_refs": []any{"cap-multistage-alternate"},
+		"truncations":          []any{map[string]any{"pattern_id": "code_to_deploy_multistage", "reason": "candidate_cap", "limit": 8, "observed_candidates": 10, "omitted_candidates": 2}},
+	}
+	if err := compiled.Validate(fixture); err != nil {
+		t.Fatalf("bounded multi-stage fixture must validate: %v", err)
+	}
+}
+
 func TestCompositionSchemaExamplesValidate(t *testing.T) {
 	t.Parallel()
 
@@ -160,6 +208,10 @@ func TestCompositionSchemasExposeContractSpine(t *testing.T) {
 		"proposed_action_contract",
 		"proposed_action_contract_refs",
 		"equivalent_outcome_escalation_source",
+		"reachability_state",
+		"observed_execution",
+		"alternate_route_refs",
+		"truncations",
 	} {
 		compositionRequireProperty(t, composedProps, field)
 	}
@@ -174,6 +226,29 @@ func TestCompositionSchemasExposeContractSpine(t *testing.T) {
 	for _, state := range []string{"static_only", "partially_evidenced", "declared_policy_only", "runtime_controlled", "observed_execution", "contradictory", "unknown"} {
 		if !compositionContains(claimEnum, state) {
 			t.Fatalf("claimState enum missing %q: %v", state, claimEnum)
+		}
+	}
+	patternEnum := compositionDefinitionEnum(t, composed, "patternID")
+	for _, patternID := range []string{
+		"sensitive_read_to_egress_multistage",
+		"secret_to_network_multistage",
+		"code_to_deploy_multistage",
+		"workflow_mutation_to_production_multistage",
+		"package_change_to_release_multistage",
+	} {
+		if !compositionContains(patternEnum, patternID) {
+			t.Fatalf("patternID enum missing %q: %v", patternID, patternEnum)
+		}
+	}
+	for definition, values := range map[string][]string{
+		"systemClass":       {"repo", "ci", "package", "cloud", "saas", "communications", "unknown"},
+		"reachabilityState": {"possible", "incomplete", "observed"},
+	} {
+		enum := compositionDefinitionEnum(t, composed, definition)
+		for _, value := range values {
+			if !compositionContains(enum, value) {
+				t.Fatalf("%s enum missing %q: %v", definition, value, enum)
+			}
 		}
 	}
 
@@ -284,6 +359,27 @@ func TestCompositionFieldsReachAggregateSchemas(t *testing.T) {
 	evidenceProps := compositionSchemaProperties(t, evidenceBundleSchema)
 	compositionRequireProperty(t, evidenceProps, "composition_refs")
 	compositionDefinitionPropertiesDraft7(t, evidenceBundleSchema, "compositionRef")
+}
+
+func TestMultiStageCompositionFieldsReachRegressSchemas(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	baseline := mustReadJSON(t, filepath.Join(repoRoot, "schemas", "v1", "regress", "regress-baseline.schema.json"))
+	compositionState := schemaDefinition(t, baseline, "compositionState")
+	compositionProps := compositionState["properties"].(map[string]any)
+	for _, field := range []string{"ordered_stage_semantics", "reachability_state", "observed_execution", "correlation_refs", "alternate_route_refs"} {
+		compositionRequireProperty(t, compositionProps, field)
+	}
+
+	result := mustReadJSON(t, filepath.Join(repoRoot, "schemas", "v1", "regress", "regress-result.schema.json"))
+	driftCategory := schemaDefinition(t, result, "driftCategorySummary")
+	driftProps := driftCategory["properties"].(map[string]any)
+	category := compositionRequireProperty(t, driftProps, "category")
+	values, _ := category["enum"].([]any)
+	if !compositionContains(values, "composition_reachability_changed") {
+		t.Fatalf("regress category enum missing composition_reachability_changed: %v", values)
+	}
 }
 
 func mustAddCompositionSchemaResource(t *testing.T, compiler *jsonschema.Compiler, path string) {

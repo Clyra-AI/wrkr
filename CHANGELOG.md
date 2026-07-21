@@ -21,6 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added `wrkr export action-contracts` for standalone, RFC 8785 JCS-digested proposed Action Contract artifacts with deterministic selection, redaction, and proof references.
 - [semver:minor] Added immutable proposed Action Contract revision chains and evidence-backed Gait activation, rejection, execution, effect, and Axym verification references.
 - [semver:minor] Added an opt-in JSON and Markdown Action Contract packet for buyer review of authority, checks, effects, approvals, compensation, gaps, and downstream evidence.
+- [semver:minor] Added bounded three-to-five-stage cross-system composed Action Contracts with explicit trust-boundary evidence, stable identities, and possible-versus-observed reachability states.
 
 ### Changed
 

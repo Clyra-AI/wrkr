@@ -47,6 +47,45 @@ func TestSanitizeComposedActionPathsPublicKeepsTransitionStageRefsAligned(t *tes
 	checkAlignment(sanitizeComposedActionPathsWithConfig(input, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionPaths})))
 }
 
+func TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs(t *testing.T) {
+	t.Parallel()
+
+	input := []risk.ComposedActionPath{
+		{
+			CompositionID: "cap-primary", PatternID: risk.CompositionPatternCodeToDeployMultiStage, ReachabilityState: risk.CompositionReachabilityPossible,
+			AlternateRouteRefs: []string{"cap-alternate"}, EquivalentOutcomeRefs: []string{"cap-alternate"}, EquivalentOutcomeEscalationSource: "peer:cap-alternate", MostRestrictiveSource: "peer:cap-alternate",
+			Stages: []risk.CompositionStage{{
+				StageID: "stage-source", Role: risk.CompositionStageRoleSource, SystemClass: risk.CompositionSystemClassRepo,
+				TrustBoundary: "repo:acme/private-repo", CorrelationRefs: []string{"workflow_chain:wfc-private"}, AlternateRouteRefs: []string{"cap-alternate"},
+			}},
+			Transitions: []risk.CompositionTransition{{
+				TransitionID: "transition-private", FromStageID: "stage-source", ToStageID: "stage-source",
+				TrustBoundary: "repo:acme/private-repo->ci:acme/private-repo", CorrelationRefs: []string{"workflow_chain:wfc-private"}, AlternateRouteRefs: []string{"cap-alternate"},
+			}},
+		},
+		{CompositionID: "cap-alternate", PatternID: risk.CompositionPatternCodeToDeployMultiStage, ReachabilityState: risk.CompositionReachabilityPossible},
+	}
+
+	redacted := sanitizeComposedActionPathsPublic(input)
+	if len(redacted) != 2 {
+		t.Fatalf("expected both routes, got %+v", redacted)
+	}
+	primary := redacted[0]
+	peerID := redacted[1].CompositionID
+	if strings.Contains(primary.Stages[0].TrustBoundary, "acme") || strings.Contains(strings.Join(primary.Stages[0].CorrelationRefs, "|"), "wfc-private") {
+		t.Fatalf("public multi-stage boundary/correlation evidence was not redacted: %+v", primary.Stages[0])
+	}
+	if len(primary.AlternateRouteRefs) != 1 || primary.AlternateRouteRefs[0] != peerID || primary.Stages[0].AlternateRouteRefs[0] != peerID || primary.Transitions[0].AlternateRouteRefs[0] != peerID {
+		t.Fatalf("redacted alternate-route refs must align with the redacted peer id: primary=%+v peer=%s", primary, peerID)
+	}
+	if primary.EquivalentOutcomeEscalationSource != "peer:"+peerID {
+		t.Fatalf("redacted parity source must align with the redacted peer id: primary=%+v peer=%s", primary, peerID)
+	}
+	if primary.MostRestrictiveSource != "peer:"+peerID {
+		t.Fatalf("redacted most-restrictive source must align with the redacted peer id: primary=%+v peer=%s", primary, peerID)
+	}
+}
+
 func TestSanitizeComposedActionPathsWithRepoRedactionHidesDerivedTargetsAndResolution(t *testing.T) {
 	t.Parallel()
 

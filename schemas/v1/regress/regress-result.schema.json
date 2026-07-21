@@ -201,7 +201,8 @@
             "newly_ungoverned_compositions",
             "worsened_composition_recommendation",
             "alternate_route_appeared",
-            "composition_outcome_changed"
+            "composition_outcome_changed",
+            "composition_reachability_changed"
           ]
         },
         "severity": {

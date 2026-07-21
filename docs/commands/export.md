@@ -70,6 +70,16 @@ complete saved set while each redacted artifact receives its own valid identity
 and never claims to be the internal artifact. Export stays local and does not
 activate, approve, execute, or send a contract to Gait or Axym.
 
+For a supported bounded multi-stage composition, the embedded version `3`
+contract carries the ordered system/trust-boundary sequence, possible-versus-
+observed reachability constraints, and transition-correlation evidence
+requirements. Stable artifact identity is derived after the final capped route
+set and excludes volatile action-path IDs. The portable envelope preserves the
+selected composition reference and contract constraints; the opt-in packet
+preserves the ordered route plus alternate-route and truncation context. Neither
+projection fills a missing middle-stage correlation or upgrades static
+reachability into observed execution.
+
 The release-level cross-product contract is the exact-byte pack under
 `scenarios/cross-product/action-contract-interop/`. Its documented generator
 check mode rebuilds all nine scenarios into temporary storage, validates

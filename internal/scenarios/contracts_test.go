@@ -64,6 +64,7 @@ func TestScenarioContracts(t *testing.T) {
 		"scenarios/wrkr/js-ts-enterprise/expected/receipt.json",
 		"scenarios/wrkr/composed-action-paths/README.md",
 		"scenarios/wrkr/composed-action-paths/expected/composition-contract-fixtures.json",
+		"scenarios/wrkr/composed-action-paths/expected/multi-stage-composition-fixtures.json",
 		"scenarios/cross-product/composed-action-contracts/README.md",
 		"scenarios/cross-product/action-contract-interop/README.md",
 		"scenarios/cross-product/action-contract-interop/inputs/scenario-specs.json",
@@ -146,7 +147,7 @@ func TestScenarioContracts(t *testing.T) {
 		t.Fatalf("parse coverage map: %v", err)
 	}
 
-	requiredMappings := []string{"FR11", "FR12", "FR13", "FR14", "FR15", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25", "AC26", "AC27", "FO14-duplicate", "FO14-mixed-governance", "FO14-noise-pack", "FO15-usefulness", "W5-overclaim-qa", "W31-site-assets", "W41-precision-calibration", "W42-enterprise-pressure", "W45-enterprise-review-loop"}
+	requiredMappings := []string{"FR11", "FR12", "FR13", "FR14", "FR15", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25", "AC26", "AC27", "FO14-duplicate", "FO14-mixed-governance", "FO14-noise-pack", "FO15-usefulness", "W5-overclaim-qa", "W31-site-assets", "W41-precision-calibration", "W42-enterprise-pressure", "W45-enterprise-review-loop", "W58-bounded-multi-stage-reachability"}
 	testSymbols := coverageTestSymbols(t, repoRoot)
 	for _, key := range requiredMappings {
 		mapped, ok := coverage[key]

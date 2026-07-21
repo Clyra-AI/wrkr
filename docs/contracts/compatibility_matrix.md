@@ -12,7 +12,7 @@ description: "Compatibility expectations for Wrkr command contracts, schema surf
 | Exit codes | Stable and versioned as API |
 | `--json` envelope | Stable keys for major line |
 | Schema assets in `schemas/v1` | Backward-compatible additive changes |
-| `composed_action_paths` and proposed Action Contracts | Additive v1 surfaces; IDs are stable join keys and contracts remain report-only |
+| `composed_action_paths` and proposed Action Contracts | Additive v1 surfaces; pairwise IDs remain supported, bounded multi-stage pattern IDs/fields are additive, stable IDs exclude volatile path IDs, and contracts remain report-only |
 | Proposed Action Contract v2 | Frozen reader-compatible schema; never silently rewritten to v3 |
 | Proposed Action Contract v3 | Typed authority, precondition, confirmation, approval, compensation, revision, and imported-lifecycle contract |
 | Action Contract artifact v1 | Opt-in JCS-digested portable envelope from `wrkr export action-contracts` |
@@ -27,6 +27,7 @@ description: "Compatibility expectations for Wrkr command contracts, schema surf
 - Treat unknown required fields as blocking.
 - Treat regress drift exit `5` as a stable CI failure signal.
 - Treat `composed_action_paths[*].claim_state` as a conservative evidence claim. Static or declared compositions are not runtime enforcement proof, and `proposed_action_contract.report_only=true` means Wrkr is proposing a downstream control shape, not enforcing it.
+- For bounded multi-stage paths, preserve stage array order and the explicit `system_class`, `trust_boundary`, `correlation_refs`, `reachability_state`, `observed_execution`, alternate-route, and truncation fields. Do not infer a missing transition. `possible` is static correlation; only all-stage imported runtime outcome evidence can produce `observed`.
 - Read version `2` artifacts with their frozen schema. New scans emit version `3`; migration is an explicit re-scan/export path, never an in-place upgrade of a v2 contract ID.
 - A v3 authority or precondition requirement has separate required constraint, observed value, evidence state, and freshness state. `declared`, `inferred`, `unknown`, stale, or contradictory evidence is not an authority grant or a satisfied condition.
 - A v3 successor requires a matching explicit predecessor, exactly one higher revision, and `supersedes_ref`. Gait/Axym activation, rejection, execution, effect, and verification observations are imported evidence only; they do not represent Wrkr state transitions.

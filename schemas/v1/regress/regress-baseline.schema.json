@@ -179,7 +179,12 @@
         "equivalent_outcome_refs": {"type": "array", "items": {"type": "string"}},
         "sink_stage_keys": {"type": "array", "items": {"type": "string"}},
         "path_ids": {"type": "array", "items": {"type": "string"}},
-        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "ordered_stage_semantics": {"type": "array", "items": {"type": "string"}},
+        "reachability_state": {"type": "string", "enum": ["possible", "incomplete", "observed"]},
+        "observed_execution": {"type": "boolean"},
+        "correlation_refs": {"type": "array", "items": {"type": "string"}},
+        "alternate_route_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     }
