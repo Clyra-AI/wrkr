@@ -67,6 +67,53 @@ func TestBuildActionContractPacketIsStableAcrossInputOrdering(t *testing.T) {
 	}
 }
 
+func TestBuildActionContractPacketPreservesOrderedMultiStageReachability(t *testing.T) {
+	t.Parallel()
+
+	input := actionContractPacketTestInput()
+	input.Composition.PatternID = risk.CompositionPatternCodeToDeployMultiStage
+	input.Composition.ReachabilityState = risk.CompositionReachabilityPossible
+	input.Composition.ObservedExecution = false
+	input.Composition.AlternateRouteRefs = []string{"cap-alternate"}
+	input.Composition.Truncations = []risk.CompositionTruncation{{PatternID: risk.CompositionPatternCodeToDeployMultiStage, Reason: risk.CompositionTruncationCandidateCap, Limit: 8, ObservedCandidates: 10, OmittedCandidates: 2}}
+	input.Composition.Stages = []risk.CompositionStage{
+		{StageID: "stage-source", Role: risk.CompositionStageRoleSource, SystemClass: risk.CompositionSystemClassRepo, TrustBoundary: "repo:acme/app", CorrelationRefs: []string{"workflow_chain:wfc-deploy"}, ReachabilityState: risk.CompositionReachabilityPossible},
+		{StageID: "stage-ci", Role: risk.CompositionStageRoleTransform, SystemClass: risk.CompositionSystemClassCI, TrustBoundary: "ci:acme/app", CorrelationRefs: []string{"workflow_chain:wfc-deploy"}, ReachabilityState: risk.CompositionReachabilityPossible},
+		{StageID: "stage-cloud", Role: risk.CompositionStageRolePrivilegedSink, SystemClass: risk.CompositionSystemClassCloud, TrustBoundary: "cloud:deploy", CorrelationRefs: []string{"workflow_chain:wfc-deploy"}, ReachabilityState: risk.CompositionReachabilityPossible},
+	}
+
+	packet, err := BuildActionContractPacket(input)
+	if err != nil {
+		t.Fatalf("build multi-stage packet: %v", err)
+	}
+	if len(packet.Path.Stages) != 3 || packet.Path.Stages[0].StageID != "stage-source" || packet.Path.Stages[1].StageID != "stage-ci" || packet.Path.Stages[2].StageID != "stage-cloud" {
+		t.Fatalf("packet must preserve ordered multi-stage semantics, got %+v", packet.Path.Stages)
+	}
+	if packet.Reachability.State != risk.CompositionReachabilityPossible || packet.Reachability.ObservedExecution || packet.Path.ObservedExecution {
+		t.Fatalf("possible reachability must not render as observed execution, got path=%+v reachability=%+v", packet.Path, packet.Reachability)
+	}
+	if len(packet.Path.AlternateRouteRefs) != 1 || len(packet.Path.Truncations) != 1 {
+		t.Fatalf("expected bounded alternate/truncation evidence, got %+v", packet.Path)
+	}
+	markdown := RenderActionContractPacketMarkdown(packet)
+	if !strings.Contains(markdown, "system=ci") || !strings.Contains(markdown, "Observed execution: false") || !strings.Contains(markdown, "Traversal limit") {
+		t.Fatalf("markdown must expose system boundaries and possible-versus-observed state:\n%s", markdown)
+	}
+	payload, err := json.MarshalIndent(packet, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal multi-stage packet: %v", err)
+	}
+	const jsonBudget = 64 * 1024
+	const markdownBudget = 32 * 1024
+	if len(payload) > jsonBudget || len(markdown) > markdownBudget {
+		t.Fatalf("multi-stage packet exceeded size budget: json=%d/%d markdown=%d/%d", len(payload), jsonBudget, len(markdown), markdownBudget)
+	}
+	if lines := strings.Count(markdown, "\n"); lines > ActionContractPacketMarkdownLineCap {
+		t.Fatalf("multi-stage packet exceeded readability line cap: lines=%d cap=%d", lines, ActionContractPacketMarkdownLineCap)
+	}
+	t.Logf("multi-stage-action-contract-packet measured_bytes json=%d markdown=%d markdown_lines=%d", len(payload), len(markdown), strings.Count(markdown, "\n"))
+}
+
 func TestBuildActionContractPacketEvidenceGapsUseUncappedRequirements(t *testing.T) {
 	t.Parallel()
 

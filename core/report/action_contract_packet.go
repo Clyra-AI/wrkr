@@ -82,25 +82,35 @@ type ActionContractPacketIdentity struct {
 }
 
 type ActionContractPacketPath struct {
-	CompositionID string                      `json:"composition_id"`
-	PatternID     string                      `json:"pattern_id,omitempty"`
-	ResolutionKey string                      `json:"resolution_key,omitempty"`
-	PathIDs       []string                    `json:"path_ids,omitempty"`
-	Target        string                      `json:"target,omitempty"`
-	TargetClass   string                      `json:"target_class,omitempty"`
-	OutcomeClass  string                      `json:"outcome_class,omitempty"`
-	Stages        []ActionContractPacketStage `json:"stages"`
+	CompositionID      string                       `json:"composition_id"`
+	PatternID          string                       `json:"pattern_id,omitempty"`
+	ResolutionKey      string                       `json:"resolution_key,omitempty"`
+	PathIDs            []string                     `json:"path_ids,omitempty"`
+	Target             string                       `json:"target,omitempty"`
+	TargetClass        string                       `json:"target_class,omitempty"`
+	OutcomeClass       string                       `json:"outcome_class,omitempty"`
+	ReachabilityState  string                       `json:"reachability_state,omitempty"`
+	ObservedExecution  bool                         `json:"observed_execution,omitempty"`
+	AlternateRouteRefs []string                     `json:"alternate_route_refs,omitempty"`
+	Truncations        []risk.CompositionTruncation `json:"truncations,omitempty"`
+	Stages             []ActionContractPacketStage  `json:"stages"`
 }
 
 type ActionContractPacketStage struct {
-	StageID       string   `json:"stage_id"`
-	Role          string   `json:"role"`
-	ToolType      string   `json:"tool_type,omitempty"`
-	Location      string   `json:"location,omitempty"`
-	ActionClasses []string `json:"action_classes,omitempty"`
-	TargetClass   string   `json:"target_class,omitempty"`
-	EvidenceState string   `json:"evidence_state,omitempty"`
-	Freshness     string   `json:"freshness_state,omitempty"`
+	StageID            string   `json:"stage_id"`
+	Role               string   `json:"role"`
+	ToolType           string   `json:"tool_type,omitempty"`
+	Location           string   `json:"location,omitempty"`
+	ActionClasses      []string `json:"action_classes,omitempty"`
+	TargetClass        string   `json:"target_class,omitempty"`
+	EvidenceState      string   `json:"evidence_state,omitempty"`
+	Freshness          string   `json:"freshness_state,omitempty"`
+	SystemClass        string   `json:"system_class,omitempty"`
+	TrustBoundary      string   `json:"trust_boundary,omitempty"`
+	CorrelationRefs    []string `json:"correlation_refs,omitempty"`
+	AlternateRouteRefs []string `json:"alternate_route_refs,omitempty"`
+	ReachabilityState  string   `json:"reachability_state,omitempty"`
+	ObservedExecution  bool     `json:"observed_execution,omitempty"`
 }
 
 type ActionContractPacketCredentialPosture struct {
@@ -125,6 +135,7 @@ type ActionContractPacketGap struct {
 }
 
 type ActionContractPacketReachability struct {
+	State             string `json:"state,omitempty"`
 	ClaimState        string `json:"claim_state"`
 	EvidenceState     string `json:"evidence_state"`
 	FreshnessState    string `json:"freshness_state"`
@@ -223,14 +234,18 @@ func BuildActionContractPacket(input ActionContractPacketInput) (ActionContractP
 
 func buildActionContractPacketPath(composition risk.ComposedActionPath, stages []ActionContractPacketStage, truncations *[]ActionContractPacketTruncation) ActionContractPacketPath {
 	return ActionContractPacketPath{
-		CompositionID: strings.TrimSpace(composition.CompositionID),
-		PatternID:     strings.TrimSpace(composition.PatternID),
-		ResolutionKey: truncatePacketValue("path.resolution_key", composition.ResolutionKey, truncations),
-		PathIDs:       capPacketStrings("path.path_ids", composition.PathIDs, actionContractPacketReferenceCap, truncations),
-		Target:        truncatePacketValue("path.target", composition.TargetIdentity, truncations),
-		TargetClass:   strings.TrimSpace(composition.TargetClass),
-		OutcomeClass:  strings.TrimSpace(composition.OutcomeClass),
-		Stages:        stages,
+		CompositionID:      strings.TrimSpace(composition.CompositionID),
+		PatternID:          strings.TrimSpace(composition.PatternID),
+		ResolutionKey:      truncatePacketValue("path.resolution_key", composition.ResolutionKey, truncations),
+		PathIDs:            capPacketStrings("path.path_ids", composition.PathIDs, actionContractPacketReferenceCap, truncations),
+		Target:             truncatePacketValue("path.target", composition.TargetIdentity, truncations),
+		TargetClass:        strings.TrimSpace(composition.TargetClass),
+		OutcomeClass:       strings.TrimSpace(composition.OutcomeClass),
+		ReachabilityState:  strings.TrimSpace(composition.ReachabilityState),
+		ObservedExecution:  composition.ObservedExecution,
+		AlternateRouteRefs: capPacketStrings("path.alternate_route_refs", composition.AlternateRouteRefs, actionContractPacketReferenceCap, truncations),
+		Truncations:        normalizePacketCompositionTruncations(composition.Truncations, truncations),
+		Stages:             stages,
 	}
 }
 
@@ -280,20 +295,32 @@ func normalizePacketPreconditions(values []risk.ProposedActionPrecondition, trun
 
 func normalizePacketStages(values []risk.CompositionStage, truncations *[]ActionContractPacketTruncation) []ActionContractPacketStage {
 	out := make([]ActionContractPacketStage, 0, len(values))
+	preserveOrder := false
 	for _, value := range values {
 		field := "path.stages." + strings.TrimSpace(value.StageID)
+		if strings.TrimSpace(value.SystemClass) != "" || strings.TrimSpace(value.ReachabilityState) != "" {
+			preserveOrder = true
+		}
 		out = append(out, ActionContractPacketStage{
 			StageID: strings.TrimSpace(value.StageID), Role: strings.TrimSpace(value.Role), ToolType: strings.TrimSpace(value.ToolType),
 			Location:      truncatePacketValue(field+".location", value.Location, truncations),
 			ActionClasses: capPacketStrings(field+".action_classes", value.ActionClasses, actionContractPacketReferenceCap, truncations),
 			TargetClass:   strings.TrimSpace(value.TargetClass), EvidenceState: strings.TrimSpace(value.EvidenceState), Freshness: strings.TrimSpace(value.FreshnessState),
+			SystemClass:        strings.TrimSpace(value.SystemClass),
+			TrustBoundary:      truncatePacketValue(field+".trust_boundary", value.TrustBoundary, truncations),
+			CorrelationRefs:    capPacketStrings(field+".correlation_refs", value.CorrelationRefs, actionContractPacketReferenceCap, truncations),
+			AlternateRouteRefs: capPacketStrings(field+".alternate_route_refs", value.AlternateRouteRefs, actionContractPacketReferenceCap, truncations),
+			ReachabilityState:  strings.TrimSpace(value.ReachabilityState),
+			ObservedExecution:  value.ObservedExecution,
 		})
 	}
-	sort.Slice(out, func(i, j int) bool {
-		left := fmt.Sprintf("%02d|%s", packetStageRoleRank(out[i].Role), out[i].StageID)
-		right := fmt.Sprintf("%02d|%s", packetStageRoleRank(out[j].Role), out[j].StageID)
-		return left < right
-	})
+	if !preserveOrder {
+		sort.Slice(out, func(i, j int) bool {
+			left := fmt.Sprintf("%02d|%s", packetStageRoleRank(out[i].Role), out[i].StageID)
+			right := fmt.Sprintf("%02d|%s", packetStageRoleRank(out[j].Role), out[j].StageID)
+			return left < right
+		})
+	}
 	if len(out) > actionContractPacketStageCap {
 		*truncations = append(*truncations, ActionContractPacketTruncation{Field: "path.stages", OmittedCount: len(out) - actionContractPacketStageCap, Reason: "item_cap"})
 		out = capPacketStages(out, actionContractPacketStageCap)
@@ -520,12 +547,35 @@ func packetEffects(contract *risk.ProposedActionContract, preconditions []risk.P
 }
 
 func packetReachability(composition risk.ComposedActionPath) ActionContractPacketReachability {
-	observed := strings.TrimSpace(composition.ClaimState) == risk.CompositionClaimObservedExecution
+	observed := composition.ObservedExecution || strings.TrimSpace(composition.ClaimState) == risk.CompositionClaimObservedExecution
+	state := strings.TrimSpace(composition.ReachabilityState)
 	label := "possible static reachability; not observed execution"
+	if state == risk.CompositionReachabilityIncomplete {
+		label = "incomplete reachability hypothesis; required correlation evidence is missing"
+	}
 	if observed {
 		label = "observed execution backed by imported runtime evidence"
+		state = risk.CompositionReachabilityObserved
 	}
-	return ActionContractPacketReachability{ClaimState: strings.TrimSpace(composition.ClaimState), EvidenceState: strings.TrimSpace(composition.EvidenceState), FreshnessState: strings.TrimSpace(composition.FreshnessState), ObservedExecution: observed, BuyerLabel: label}
+	return ActionContractPacketReachability{State: state, ClaimState: strings.TrimSpace(composition.ClaimState), EvidenceState: strings.TrimSpace(composition.EvidenceState), FreshnessState: strings.TrimSpace(composition.FreshnessState), ObservedExecution: observed, BuyerLabel: label}
+}
+
+func normalizePacketCompositionTruncations(values []risk.CompositionTruncation, truncations *[]ActionContractPacketTruncation) []risk.CompositionTruncation {
+	out := append([]risk.CompositionTruncation(nil), values...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].PatternID != out[j].PatternID {
+			return out[i].PatternID < out[j].PatternID
+		}
+		if out[i].Reason != out[j].Reason {
+			return out[i].Reason < out[j].Reason
+		}
+		return out[i].Limit < out[j].Limit
+	})
+	if len(out) > actionContractPacketReferenceCap {
+		*truncations = append(*truncations, ActionContractPacketTruncation{Field: "path.truncations", OmittedCount: len(out) - actionContractPacketReferenceCap, Reason: "item_cap"})
+		out = out[:actionContractPacketReferenceCap]
+	}
+	return out
 }
 
 func packetNextStep(packet ActionContractPacket) ActionContractPacketNextStep {

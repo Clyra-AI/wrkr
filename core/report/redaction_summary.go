@@ -176,9 +176,13 @@ func sanitizeComposedActionPathsPublic(in []risk.ComposedActionPath) []risk.Comp
 		return nil
 	}
 	out := make([]risk.ComposedActionPath, 0, len(in))
+	compositionIDMap := map[string]string{}
+	for _, item := range in {
+		compositionIDMap[strings.TrimSpace(item.CompositionID)] = redactValue("composition", item.CompositionID, 8)
+	}
 	for _, item := range in {
 		copyItem := item
-		copyItem.CompositionID = redactValue("composition", copyItem.CompositionID, 8)
+		copyItem.CompositionID = compositionIDMap[strings.TrimSpace(copyItem.CompositionID)]
 		copyItem.PathIDs = redactStringSlice(copyItem.PathIDs, "path")
 		copyItem.WorkflowChainRefs = redactStringSlice(copyItem.WorkflowChainRefs, "workflow")
 		copyItem.ResolutionKey = redactValue("resolution", copyItem.ResolutionKey, 8)
@@ -190,6 +194,10 @@ func sanitizeComposedActionPathsPublic(in []risk.ComposedActionPath) []risk.Comp
 		copyItem.ProofRefs = redactStringSlice(copyItem.ProofRefs, "proof")
 		copyItem.SourceDecisionRefs = redactStringSlice(copyItem.SourceDecisionRefs, "decision")
 		copyItem.TruncatedCandidates = redactStringSlice(copyItem.TruncatedCandidates, "candidate")
+		copyItem.AlternateRouteRefs = remapCompositionRefs(copyItem.AlternateRouteRefs, compositionIDMap)
+		copyItem.EquivalentOutcomeRefs = remapCompositionRefs(copyItem.EquivalentOutcomeRefs, compositionIDMap)
+		copyItem.EquivalentOutcomeEscalationSource = remapCompositionRef(copyItem.EquivalentOutcomeEscalationSource, compositionIDMap)
+		copyItem.MostRestrictiveSource = remapCompositionRef(copyItem.MostRestrictiveSource, compositionIDMap)
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsPublic(copyItem.ClosureRequirements)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.GaitCoverage = sanitizeGaitCoveragePublic(copyItem.GaitCoverage)
@@ -197,6 +205,12 @@ func sanitizeComposedActionPathsPublic(in []risk.ComposedActionPath) []risk.Comp
 		stageIDMap := map[string]string{}
 		copyItem.Stages = sanitizeCompositionStagesPublic(copyItem.Stages, stageIDMap)
 		copyItem.Transitions = sanitizeCompositionTransitionsPublic(copyItem.Transitions, stageIDMap)
+		for idx := range copyItem.Stages {
+			copyItem.Stages[idx].AlternateRouteRefs = remapCompositionRefs(copyItem.Stages[idx].AlternateRouteRefs, compositionIDMap)
+		}
+		for idx := range copyItem.Transitions {
+			copyItem.Transitions[idx].AlternateRouteRefs = remapCompositionRefs(copyItem.Transitions[idx].AlternateRouteRefs, compositionIDMap)
+		}
 		copyItem.ProposedActionContract = sanitizeProposedActionContractPublic(copyItem.ProposedActionContract)
 		if copyItem.ProposedActionContract != nil {
 			copyItem.ProposedActionContract.CompositionRef = copyItem.CompositionID
@@ -220,16 +234,41 @@ func sanitizeComposedActionPathToControlFirstPublic(in *risk.ComposedActionPathT
 	return out
 }
 
+func remapCompositionRef(ref string, compositionIDMap map[string]string) string {
+	trimmed := strings.TrimSpace(ref)
+	if trimmed == "" {
+		return ""
+	}
+	if mapped := strings.TrimSpace(compositionIDMap[trimmed]); mapped != "" {
+		return mapped
+	}
+	if strings.HasPrefix(trimmed, "peer:") {
+		peer := strings.TrimSpace(strings.TrimPrefix(trimmed, "peer:"))
+		if mapped := strings.TrimSpace(compositionIDMap[peer]); mapped != "" {
+			return "peer:" + mapped
+		}
+	}
+	return trimmed
+}
+
 func sanitizeComposedActionPathsWithConfig(in []risk.ComposedActionPath, config RedactionConfig) []risk.ComposedActionPath {
 	if len(in) == 0 {
 		return nil
 	}
 	out := make([]risk.ComposedActionPath, 0, len(in))
+	compositionIDMap := map[string]string{}
+	for _, item := range in {
+		value := strings.TrimSpace(item.CompositionID)
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			value = redactValue("composition", value, 8)
+		}
+		compositionIDMap[strings.TrimSpace(item.CompositionID)] = value
+	}
 	for _, item := range in {
 		copyItem := item
 		redactComposedIdentity := config.Has(RedactionPaths) || config.Has(RedactionRepos)
 		if redactComposedIdentity {
-			copyItem.CompositionID = redactValue("composition", copyItem.CompositionID, 8)
+			copyItem.CompositionID = compositionIDMap[strings.TrimSpace(copyItem.CompositionID)]
 		}
 		if config.Has(RedactionPaths) {
 			copyItem.PathIDs = redactStringSlice(copyItem.PathIDs, "path")
@@ -261,8 +300,22 @@ func sanitizeComposedActionPathsWithConfig(in []risk.ComposedActionPath, config 
 		copyItem.SourceDecisionRefs = maybeRedactStringSlice(copyItem.SourceDecisionRefs, "decision", config.Has(RedactionProofRefs))
 		if redactComposedIdentity {
 			copyItem.TruncatedCandidates = redactStringSlice(copyItem.TruncatedCandidates, "candidate")
+			copyItem.AlternateRouteRefs = remapCompositionRefs(copyItem.AlternateRouteRefs, compositionIDMap)
+			copyItem.EquivalentOutcomeRefs = remapCompositionRefs(copyItem.EquivalentOutcomeRefs, compositionIDMap)
+			copyItem.EquivalentOutcomeEscalationSource = remapCompositionRef(copyItem.EquivalentOutcomeEscalationSource, compositionIDMap)
+			copyItem.MostRestrictiveSource = remapCompositionRef(copyItem.MostRestrictiveSource, compositionIDMap)
 		} else {
 			copyItem.TruncatedCandidates = cloneStrings(copyItem.TruncatedCandidates)
+			copyItem.AlternateRouteRefs = cloneStrings(copyItem.AlternateRouteRefs)
+			copyItem.EquivalentOutcomeRefs = cloneStrings(copyItem.EquivalentOutcomeRefs)
+		}
+		if redactComposedIdentity {
+			for idx := range copyItem.Stages {
+				copyItem.Stages[idx].AlternateRouteRefs = remapCompositionRefs(copyItem.Stages[idx].AlternateRouteRefs, compositionIDMap)
+			}
+			for idx := range copyItem.Transitions {
+				copyItem.Transitions[idx].AlternateRouteRefs = remapCompositionRefs(copyItem.Transitions[idx].AlternateRouteRefs, compositionIDMap)
+			}
 		}
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyItem.ClosureRequirements, config)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
@@ -313,6 +366,8 @@ func sanitizeCompositionStagesPublic(in []risk.CompositionStage, stageIDMap map[
 		copyStage.EvidenceRefs = redactStringSlice(copyStage.EvidenceRefs, "evidence")
 		copyStage.ProofRefs = redactStringSlice(copyStage.ProofRefs, "proof")
 		copyStage.SourceDecisionRefs = redactStringSlice(copyStage.SourceDecisionRefs, "decision")
+		copyStage.TrustBoundary = redactValue("boundary", copyStage.TrustBoundary, 8)
+		copyStage.CorrelationRefs = redactStringSlice(copyStage.CorrelationRefs, "correlation")
 		copyStage.GaitCoverage = sanitizeGaitCoveragePublic(copyStage.GaitCoverage)
 		copyStage.Contradictions = sanitizeContradictionsPublic(copyStage.Contradictions)
 		out = append(out, copyStage)
@@ -341,6 +396,12 @@ func sanitizeCompositionStagesWithConfig(in []risk.CompositionStage, config Reda
 		copyStage.EvidenceRefs = maybeRedactEvidenceRefSlice(copyStage.EvidenceRefs, config)
 		copyStage.ProofRefs = maybeRedactStringSlice(copyStage.ProofRefs, "proof", config.Has(RedactionProofRefs))
 		copyStage.SourceDecisionRefs = maybeRedactStringSlice(copyStage.SourceDecisionRefs, "decision", config.Has(RedactionProofRefs))
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			copyStage.TrustBoundary = redactValue("boundary", copyStage.TrustBoundary, 8)
+			copyStage.CorrelationRefs = redactStringSlice(copyStage.CorrelationRefs, "correlation")
+		} else {
+			copyStage.CorrelationRefs = maybeRedactEvidenceRefSlice(copyStage.CorrelationRefs, config)
+		}
 		copyStage.GaitCoverage = sanitizeGaitCoverageWithConfig(copyStage.GaitCoverage, config)
 		copyStage.Contradictions = sanitizeContradictionsWithConfig(copyStage.Contradictions, config)
 		out = append(out, copyStage)
@@ -364,6 +425,8 @@ func sanitizeCompositionTransitionsPublic(in []risk.CompositionTransition, stage
 		copyTransition.EvidenceRefs = redactStringSlice(copyTransition.EvidenceRefs, "evidence")
 		copyTransition.ProofRefs = redactStringSlice(copyTransition.ProofRefs, "proof")
 		copyTransition.SourceDecisionRefs = redactStringSlice(copyTransition.SourceDecisionRefs, "decision")
+		copyTransition.TrustBoundary = redactValue("boundary", copyTransition.TrustBoundary, 8)
+		copyTransition.CorrelationRefs = redactStringSlice(copyTransition.CorrelationRefs, "correlation")
 		copyTransition.GaitCoverage = sanitizeGaitCoveragePublic(copyTransition.GaitCoverage)
 		out = append(out, copyTransition)
 	}
@@ -388,6 +451,12 @@ func sanitizeCompositionTransitionsWithConfig(in []risk.CompositionTransition, c
 		copyTransition.EvidenceRefs = maybeRedactEvidenceRefSlice(copyTransition.EvidenceRefs, config)
 		copyTransition.ProofRefs = maybeRedactStringSlice(copyTransition.ProofRefs, "proof", config.Has(RedactionProofRefs))
 		copyTransition.SourceDecisionRefs = maybeRedactStringSlice(copyTransition.SourceDecisionRefs, "decision", config.Has(RedactionProofRefs))
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			copyTransition.TrustBoundary = redactValue("boundary", copyTransition.TrustBoundary, 8)
+			copyTransition.CorrelationRefs = redactStringSlice(copyTransition.CorrelationRefs, "correlation")
+		} else {
+			copyTransition.CorrelationRefs = maybeRedactEvidenceRefSlice(copyTransition.CorrelationRefs, config)
+		}
 		copyTransition.GaitCoverage = sanitizeGaitCoverageWithConfig(copyTransition.GaitCoverage, config)
 		out = append(out, copyTransition)
 	}

@@ -12,6 +12,12 @@
       "unit": "ns/op",
       "median": 1800000,
       "max_regression_factor": 1.25
+    },
+    {
+      "name": "BenchmarkBuildComposedActionPathsMultiStageBounded",
+      "unit": "ns/op",
+      "median": 250000000,
+      "max_regression_factor": 1.5
     }
   ]
 }

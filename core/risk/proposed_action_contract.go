@@ -311,6 +311,14 @@ func proposedTargetConstraints(composition ComposedActionPath) []ProposedActionT
 		{Key: "environment", Value: strings.TrimSpace(composition.Environment)},
 		{Key: "outcome_class", Value: strings.TrimSpace(composition.OutcomeClass)},
 	}
+	if strings.TrimSpace(composition.ReachabilityState) != "" {
+		values = append(values,
+			ProposedActionTargetConstraint{Key: "reachability_state", Value: strings.TrimSpace(composition.ReachabilityState)},
+			ProposedActionTargetConstraint{Key: "observed_execution", Value: strconv.FormatBool(composition.ObservedExecution)},
+			ProposedActionTargetConstraint{Key: "system_class_sequence", Value: proposedSystemClassSequence(composition.Stages)},
+			ProposedActionTargetConstraint{Key: "trust_boundary_sequence", Value: proposedTrustBoundarySequence(composition.Stages)},
+		)
+	}
 	out := []ProposedActionTargetConstraint{}
 	for _, item := range values {
 		if strings.TrimSpace(item.Value) == "" {
@@ -354,6 +362,9 @@ func proposedMaximumDelegationDepth(composition ComposedActionPath) int {
 
 func proposedEvidenceRequirements(composition ComposedActionPath) []string {
 	requirements := []string{"policy_decision", "approval", "action_outcome", "proof_verification"}
+	if strings.TrimSpace(composition.ReachabilityState) != "" {
+		requirements = append(requirements, "transition_correlation", "trust_boundary_evidence")
+	}
 	if strings.TrimSpace(composition.RecommendedControl) == RecommendedControlJITCredentialRequired ||
 		strings.TrimSpace(composition.RecommendedControl) == RecommendedControlBlockStandingCredential {
 		requirements = append(requirements, "jit_credential")
@@ -410,6 +421,9 @@ func proposedActionContractReadiness(composition ComposedActionPath) (string, []
 		return ActionContractReadinessBlockedContradict, []string{"readiness:contradictory_composition"}
 	}
 	reasons := []string{}
+	if strings.TrimSpace(composition.ReachabilityState) == CompositionReachabilityIncomplete {
+		reasons = append(reasons, "readiness:needs_composition_correlation")
+	}
 	if strings.TrimSpace(composition.CompositionID) == "" || len(composition.Stages) < 2 {
 		reasons = append(reasons, "readiness:needs_composition_correlation")
 	}
@@ -443,6 +457,30 @@ func proposedActionContractReadiness(composition ComposedActionPath) (string, []
 	}
 	reasons = append(reasons, "readiness:ready_for_report_only")
 	return ActionContractReadinessReadyForReportOnly, dedupeSortedStrings(reasons)
+}
+
+func proposedSystemClassSequence(stages []CompositionStage) string {
+	values := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		value := strings.TrimSpace(stage.SystemClass)
+		if value == "" {
+			return ""
+		}
+		values = append(values, value)
+	}
+	return strings.Join(values, "->")
+}
+
+func proposedTrustBoundarySequence(stages []CompositionStage) string {
+	values := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		value := strings.TrimSpace(stage.TrustBoundary)
+		if value == "" {
+			return ""
+		}
+		values = append(values, value)
+	}
+	return strings.Join(values, "->")
 }
 
 func RefreshProposedActionContractIdentity(contract *ProposedActionContract) {

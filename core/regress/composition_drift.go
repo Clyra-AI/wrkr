@@ -30,6 +30,11 @@ type CompositionState struct {
 	SinkStageKeys             []string `json:"sink_stage_keys,omitempty"`
 	PathIDs                   []string `json:"path_ids,omitempty"`
 	EvidenceRefs              []string `json:"evidence_refs,omitempty"`
+	OrderedStageSemantics     []string `json:"ordered_stage_semantics,omitempty"`
+	ReachabilityState         string   `json:"reachability_state,omitempty"`
+	ObservedExecution         bool     `json:"observed_execution,omitempty"`
+	CorrelationRefs           []string `json:"correlation_refs,omitempty"`
+	AlternateRouteRefs        []string `json:"alternate_route_refs,omitempty"`
 }
 
 type compositionPair struct {
@@ -99,6 +104,11 @@ func newCompositionState(composition risk.ComposedActionPath) CompositionState {
 		SinkStageKeys:             compositionSinkStageKeys(composition),
 		PathIDs:                   mergeSortedStrings(composition.PathIDs, nil),
 		EvidenceRefs:              mergeSortedStrings(append(append([]string(nil), composition.EvidenceRefs...), composition.ProofRefs...), nil),
+		OrderedStageSemantics:     compositionOrderedStageSemantics(composition),
+		ReachabilityState:         strings.TrimSpace(composition.ReachabilityState),
+		ObservedExecution:         composition.ObservedExecution,
+		CorrelationRefs:           compositionCorrelationRefs(composition),
+		AlternateRouteRefs:        mergeSortedStrings(composition.AlternateRouteRefs, nil),
 	}
 	out.CompositionFamilyKey = compositionFamilyKey(out)
 	return normalizeCompositionState(out)
@@ -126,6 +136,10 @@ func normalizeCompositionState(in CompositionState) CompositionState {
 	in.SinkStageKeys = mergeSortedStrings(in.SinkStageKeys, nil)
 	in.PathIDs = mergeSortedStrings(in.PathIDs, nil)
 	in.EvidenceRefs = mergeSortedStrings(in.EvidenceRefs, nil)
+	in.OrderedStageSemantics = append([]string(nil), in.OrderedStageSemantics...)
+	in.ReachabilityState = strings.TrimSpace(in.ReachabilityState)
+	in.CorrelationRefs = mergeSortedStrings(in.CorrelationRefs, nil)
+	in.AlternateRouteRefs = mergeSortedStrings(in.AlternateRouteRefs, nil)
 	if in.CompositionFamilyKey == "" {
 		in.CompositionFamilyKey = compositionFamilyKey(in)
 	}
@@ -133,12 +147,16 @@ func normalizeCompositionState(in CompositionState) CompositionState {
 }
 
 func compositionFamilyKey(state CompositionState) string {
-	return strings.Join([]string{
+	parts := []string{
 		"pattern=" + strings.TrimSpace(state.PatternID),
 		"roles=" + strings.Join(mergeSortedStrings(state.StageRoles, nil), ","),
 		"target=" + strings.TrimSpace(state.TargetIdentity),
 		"route=" + strings.TrimSpace(state.StableRouteSourceIdentity),
-	}, "|")
+	}
+	if len(state.OrderedStageSemantics) > 0 {
+		parts = append(parts, "ordered="+strings.Join(state.OrderedStageSemantics, ","))
+	}
+	return strings.Join(parts, "|")
 }
 
 func sortCompositionStates(values []CompositionState) {
@@ -294,6 +312,9 @@ func addMatchedCompositionDriftExamples(buckets map[string]*driftBucket, pair co
 	if compositionEvidenceDegraded(pair.Baseline, pair.Current) {
 		addCompositionDriftCategoryExample(buckets[DriftCategoryCompositionEvidenceDegraded], pair.Current, pair.Baseline, "composition evidence posture degraded since baseline")
 	}
+	if len(stringDelta(pair.Current.CorrelationRefs, pair.Baseline.CorrelationRefs)) > 0 {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryCompositionEvidenceDegraded], pair.Current, pair.Baseline, "bounded multi-stage transition correlation evidence was removed since baseline")
+	}
 	if compositionNewlyUngoverned(pair.Baseline, pair.Current) {
 		addCompositionDriftCategoryExample(buckets[DriftCategoryNewlyUngovernedCompositions], pair.Current, pair.Baseline, "composition became newly ungoverned since baseline")
 	}
@@ -305,6 +326,12 @@ func addMatchedCompositionDriftExamples(buckets map[string]*driftBucket, pair co
 	}
 	if len(stringDelta(pair.Baseline.EquivalentOutcomeRefs, pair.Current.EquivalentOutcomeRefs)) > 0 {
 		addCompositionDriftCategoryExample(buckets[DriftCategoryAlternateRouteAppeared], pair.Current, pair.Baseline, "composition equivalent-outcome alternatives changed since baseline")
+	}
+	if len(stringDelta(pair.Baseline.AlternateRouteRefs, pair.Current.AlternateRouteRefs)) > 0 {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryAlternateRouteAppeared], pair.Current, pair.Baseline, "bounded multi-stage alternate routes changed since baseline")
+	}
+	if strings.TrimSpace(pair.Baseline.ReachabilityState) != strings.TrimSpace(pair.Current.ReachabilityState) || pair.Baseline.ObservedExecution != pair.Current.ObservedExecution {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryCompositionReachabilityChanged], pair.Current, pair.Baseline, "composition possible/incomplete/observed reachability changed since baseline")
 	}
 }
 
@@ -379,6 +406,7 @@ func compositionEvidenceSummary(state CompositionState) []string {
 		{label: "freshness", value: state.FreshnessState},
 		{label: "policy", value: state.PolicyCoverageStatus},
 		{label: "recommendation", value: state.RecommendedControl},
+		{label: "reachability", value: state.ReachabilityState},
 	} {
 		if strings.TrimSpace(item.value) != "" {
 			out = append(out, item.label+":"+strings.TrimSpace(item.value))
@@ -387,6 +415,32 @@ func compositionEvidenceSummary(state CompositionState) []string {
 	out = append(out, state.GaitCoverageSummary...)
 	out = append(out, state.DelegationRelationships...)
 	return mergeSortedStrings(out, nil)
+}
+
+func compositionOrderedStageSemantics(composition risk.ComposedActionPath) []string {
+	if strings.TrimSpace(composition.ReachabilityState) == "" {
+		return nil
+	}
+	out := make([]string, 0, len(composition.Stages))
+	for _, stage := range composition.Stages {
+		out = append(out, strings.Join([]string{
+			strings.TrimSpace(stage.Role),
+			strings.TrimSpace(stage.SystemClass),
+			strings.TrimSpace(stage.TrustBoundary),
+		}, ":"))
+	}
+	return out
+}
+
+func compositionCorrelationRefs(composition risk.ComposedActionPath) []string {
+	refs := []string{}
+	for _, stage := range composition.Stages {
+		refs = append(refs, stage.CorrelationRefs...)
+	}
+	for _, transition := range composition.Transitions {
+		refs = append(refs, transition.CorrelationRefs...)
+	}
+	return mergeSortedStrings(refs, nil)
 }
 
 func compositionStageRoles(composition risk.ComposedActionPath) []string {

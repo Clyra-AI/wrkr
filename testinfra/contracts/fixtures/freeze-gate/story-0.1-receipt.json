@@ -12,9 +12,10 @@
     "proposed_action_contract_v3",
     "proposed_action_contract_artifact",
     "action_contract_packet_v1",
-    "action_contract_conformance_fixture_v1"
+    "action_contract_conformance_fixture_v1",
+    "bounded_multi_stage_composed_action_contracts"
   ],
-  "validated_on": "2026-07-19",
+  "validated_on": "2026-07-21",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:4-repos",
@@ -30,7 +31,16 @@
     "internal/scenarios.TestScenarioActionContractPacketPaidAssessment",
     "scenarios/cross-product/action-contract-interop/expected/fixture-manifest.json",
     "testinfra/contracts.TestActionContractConformanceExactBytesRegenerateFromWrkr",
-    "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
+    "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios",
+    "core/risk.TestBuildComposedActionPathsMultiStageSupportsThreeToFiveStages",
+    "core/risk.TestBuildComposedActionPathsMultiStageRejectsUnknownTrustBoundaryAndWeakRefs",
+    "core/risk.TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget",
+    "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability",
+    "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget",
+    "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
+    "testinfra/contracts.TestActionContractPacketSchemaValidatesMultiStageReachabilityProjection",
+    "internal/scenarios.TestScenarioBoundedMultiStageCompositions",
+    "scenarios/wrkr/composed-action-paths/expected/multi-stage-composition-fixtures.json"
   ],
   "artifact_size_deltas": [
     {
@@ -104,6 +114,38 @@
       "budget_bytes": 32768,
       "delta_bytes": 13626,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
+    },
+    {
+      "artifact": "multi-stage-action-contract-packet.json",
+      "fixture": "core/report.actionContractPacketTestInput:three-stage",
+      "measured_bytes": 7310,
+      "budget_bytes": 65536,
+      "delta_bytes": 748,
+      "measurement_source": "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability"
+    },
+    {
+      "artifact": "multi-stage-action-contract-packet.md",
+      "fixture": "core/report.actionContractPacketTestInput:three-stage",
+      "measured_bytes": 4404,
+      "budget_bytes": 32768,
+      "delta_bytes": 625,
+      "measurement_source": "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability"
+    },
+    {
+      "artifact": "composed-action-paths-default-projection.json",
+      "fixture": "core/risk.high-fanout-multi-stage:38-paths",
+      "measured_bytes": 2226242,
+      "budget_bytes": 4194304,
+      "delta_bytes": 420392,
+      "measurement_source": "core/risk.TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget"
+    },
+    {
+      "artifact": "default-report-summary.json",
+      "fixture": "core/report.multiStageReportPath:20-paths",
+      "measured_bytes": 3452852,
+      "budget_bytes": 4194304,
+      "delta_bytes": 822119,
+      "measurement_source": "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget"
     }
   ],
   "validations": [
@@ -115,15 +157,21 @@
         "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1",
         "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent -count=1",
         "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1",
-        "go test ./internal/scenarios -run TestScenarioActionContractPacketPaidAssessment -tags=scenario -count=1"
+        "go test ./internal/scenarios -run TestScenarioActionContractPacketPaidAssessment -tags=scenario -count=1",
+        "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1",
+        "go test ./core/risk -run TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget -count=1",
+        "go test ./core/report -run TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "internal/enterprisepressure.EndpointDense:4-repos",
         "core/report.actionContractPacketTestInput",
-        "internal/scenarios.TestScenarioActionContractPacketPaidAssessment"
+        "internal/scenarios.TestScenarioActionContractPacketPaidAssessment",
+        "core/report.actionContractPacketTestInput:three-stage",
+        "core/risk.high-fanout-multi-stage:38-paths",
+        "core/report.multiStageReportPath:20-paths"
       ],
-      "evidence": "Saved state, evidence JSON, and endpoint-dense state remain under committed byte budgets."
+      "evidence": "Saved state, evidence JSON, endpoint-dense state, and the multi-stage Action Contract packet remain under committed byte budgets."
     },
     {
       "name": "redaction",
@@ -133,14 +181,16 @@
         "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureHardening -count=1",
         "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity -count=1",
         "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1",
-        "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1"
+        "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1",
+        "go test ./core/report -run TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "internal/enterprisepressure.VariantBaseline:64-repos",
-        "core/export/actioncontracts.testSnapshot"
+        "core/export/actioncontracts.testSnapshot",
+        "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs"
       ],
-      "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, and fixture repo names."
+      "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, fixture repo names, and multi-stage trust-boundary/correlation identities."
     },
     {
       "name": "recursive_redaction",
@@ -148,13 +198,15 @@
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1",
-        "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1"
+        "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1",
+        "go test ./core/report -run TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
-        "core/export/actioncontracts.testSnapshot"
+        "core/export/actioncontracts.testSnapshot",
+        "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs"
       ],
-      "evidence": "Nested owner fields are checked through requireAcceptanceOwnerFieldsRedacted across customer-redacted report payloads."
+      "evidence": "Nested owner fields and multi-stage stage/transition correlation and trust-boundary fields are recursively redacted in shareable payloads."
     },
     {
       "name": "clone_strip",
@@ -162,12 +214,14 @@
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1",
-        "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1"
+        "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1",
+        "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "internal/enterprisepressure.EndpointDense:4-repos",
-        "core/report.actionContractPacketTestInput"
+        "core/report.actionContractPacketTestInput",
+        "core/report.actionContractPacketTestInput:three-stage"
       ],
       "evidence": "Canonical refs remain present while repeated endpoint, authority, and mutable-endpoint payload clones are bounded or omitted from shareable/default artifacts."
     },
@@ -177,14 +231,16 @@
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureContract -count=1",
-        "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1"
+        "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1",
+        "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "scenarios/wrkr/enterprise-pressure",
-        "core/report.actionContractPacketTestInput"
+        "core/report.actionContractPacketTestInput",
+        "core/report.actionContractPacketTestInput:three-stage"
       ],
-      "evidence": "Agent Action BOM lead stays under 45 lines and 5 sections; enterprise markdown stays under the scenario contract line budget."
+      "evidence": "Agent Action BOM lead stays under 45 lines and 5 sections; enterprise and opt-in multi-stage packet markdown stay under their committed line and byte budgets."
     },
     {
       "name": "finding_noise",
@@ -193,14 +249,18 @@
         "go test ./internal/e2e/diff -run TestE2EScenarioUnchangedReposProduceZeroDiffNoise -count=1",
         "go test -tags scenario ./internal/scenarios -run TestScenarioFirstOfferNoisePackAssessmentSharpening -count=1",
         "go test ./testinfra/contracts -run TestStory24NoisePackAssessmentContracts -count=1",
-        "go test ./core/cli -run TestReportDefaultOutputDoesNotIncludeActionContractPacket -count=1"
+        "go test ./core/cli -run TestReportDefaultOutputDoesNotIncludeActionContractPacket -count=1",
+        "go test ./core/risk -run TestBuildComposedActionPathsMultiStageRejectsUnknownTrustBoundaryAndWeakRefs -count=1",
+        "go test ./core/report -run TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget -count=1"
       ],
       "fixture_names": [
         "scenarios/wrkr/scan-diff-no-noise",
         "scenarios/wrkr/first-offer-noise-pack",
-        "core/cli.seedActionContractPacketState"
+        "core/cli.seedActionContractPacketState",
+        "core/risk.TestBuildComposedActionPathsMultiStageRejectsUnknownTrustBoundaryAndWeakRefs",
+        "core/report.multiStageReportPath:20-paths"
       ],
-      "evidence": "Unchanged fixture scans produce zero diff noise, and first-offer assessment fixtures keep expected focused findings."
+      "evidence": "Unchanged fixture scans produce zero diff noise, first-offer assessment fixtures keep expected focused findings, weak or missing cross-system joins add no guessed composition, and multi-stage projection does not add default top-risk rows."
     },
     {
       "name": "exact_byte_interop",

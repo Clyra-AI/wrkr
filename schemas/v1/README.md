@@ -5,7 +5,7 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - `cli/`: shared CLI success/error envelope contracts.
 - `assess/assessment-manifest.schema.json`: canonical repeatable-assessment manifest contract for `wrkr assess` output directories.
 - `agent-action-bom.schema.json`: canonical Agent Action BOM artifact contract for report and evidence outputs.
-- `composed-action-path.schema.json`, frozen `proposed-action-contract.schema.json` (v2), and `proposed-action-contract-v3.schema.json`: deterministic report-only proposed Action Contract surfaces. Embeddings accept explicit v2/v3 alternatives; v3 keeps required authority, observed evidence, typed readiness/effect preconditions, confirmation/approval/compensation, and immutable revision/lifecycle evidence distinct.
+- `composed-action-path.schema.json`, frozen `proposed-action-contract.schema.json` (v2), and `proposed-action-contract-v3.schema.json`: deterministic report-only proposed Action Contract surfaces. Embeddings accept explicit v2/v3 alternatives; v3 keeps required authority, observed evidence, typed readiness/effect preconditions, confirmation/approval/compensation, and immutable revision/lifecycle evidence distinct. The composition schema also accepts the bounded three-to-five-stage pattern IDs, ordered system/trust-boundary/correlation fields, alternate-route refs, explicit truncation receipts, and separate `reachability_state` / `observed_execution` claims.
 - `proposed-action-contract-artifact.schema.json`: opt-in portable envelope v1 with RFC 8785 JCS digest, redaction variant, durable source/composition refs, and a v3 contract payload.
 - `report/action-contract-packet.schema.json`: opt-in buyer packet v1 projected from one normalized portable artifact, with bounded path, authority, credential, readiness, effect, approval, compensation, evidence-gap, and imported-lifecycle sections shared by JSON and Markdown.
 - `scenarios/cross-product/action-contract-interop/expected/fixture-manifest.json`: release-level fixture contract pinning exact production-generated artifact/packet bytes to producer version, artifact schema `1`, contract schema `3`, packet schema `1`, identities, and SHA-256 digests. Regenerate with the explicit check/update script; never hand-author downstream projections.
@@ -24,7 +24,7 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - Report-summary and Agent Action BOM summary contracts now also carry additive `repeat_usage_signals` fields that count privacy-safe local artifact families such as baselines, assess reruns, regress artifacts, evidence exports, ticket exports, and action-contract exports.
 - Report-summary contracts also include additive `evidence_packets` and `recent_pr_review` surfaces for local PR/MR review workflows that stay offline by default.
 - Report-summary contracts also include additive `workflow_highlights` and `focus_view` sections for workflow-first buyer reports and named low-click review presets.
-- Regress baseline/result contracts now also carry additive action-path comparison state (`action_paths_captured`, `action_paths[]`, `comparison_status`, `comparison_issues[]`, `drift_category_count`, and `drift_categories[]`) so recurring drift review can fail closed without implying a clean no-drift result.
+- Regress baseline/result contracts now also carry additive action-path and composition comparison state (`action_paths_captured`, `action_paths[]`, ordered multi-stage semantics, reachability/correlation/alternate-route evidence, `comparison_status`, `comparison_issues[]`, `drift_category_count`, and `drift_categories[]`) so recurring drift review can fail closed without implying a clean no-drift result.
 - Agent Action BOM summary contracts now also carry additive `drift_review` metadata when report or assess output is baseline-backed.
 - Action-path and BOM contracts also carry additive `evidence_decisions[]` and `contradictions[]` for source precedence, freshness, rejected candidates, and enterprise-evidence conflicts.
 - Report and BOM action-path contracts also carry `closure_requirements`, `lifecycle_queue`, `governance_disposition`, and `evidence_completeness` so accepted-risk, suppression, closure guidance, lifecycle ownership work, and evidence sufficiency stay explicit in v1.
@@ -46,6 +46,9 @@ Canonical enum additions in the v1 schema line include:
 - runtime absence states: `not_collected`, `not_applicable`, `missing_required`, `missing_for_control_claim`
 - composition stage roles: `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, `destructive_sink`
 - composition claim states: `static_only`, `partially_evidenced`, `declared_policy_only`, `runtime_controlled`, `observed_execution`, `contradictory`, `unknown`
+- composition system classes: `repo`, `ci`, `package`, `cloud`, `saas`, `communications`, `unknown`
+- composition reachability states: `possible`, `incomplete`, `observed`
+- composition truncation reasons: `depth_cap`, `path_cap`, `candidate_cap`, `reference_cap`
 
 Compatibility aliases can remain present in v1 where existing consumers still expect them, but schema examples and user-facing docs should lead with the canonical evidence-state fields instead of unsupported blanket `missing_*` wording.
 

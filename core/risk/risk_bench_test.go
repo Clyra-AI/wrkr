@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -23,5 +24,26 @@ func BenchmarkRiskScoreDeterministic(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = Score(findings, 5, now)
+	}
+}
+
+func BenchmarkBuildComposedActionPathsMultiStageBounded(b *testing.B) {
+	paths := []ActionPath{multiStageCompositionEndpoint("apc-source", "rk-source", "repo", []string{"read_sensitive"}, TargetClassCustomerDataAdjacent)}
+	for _, systemClass := range []string{"ci", "cloud", "saas"} {
+		for index := 0; index < 12; index++ {
+			paths = append(paths, multiStageCompositionTestPath(
+				fmt.Sprintf("apc-%s-%02d", systemClass, index),
+				fmt.Sprintf("rk-%s-%02d", systemClass, index),
+				systemClass,
+			))
+		}
+	}
+	paths = append(paths, multiStageCompositionEndpoint("apc-sink", "rk-sink", "communications", []string{"external_write", "egress"}, TargetClassProductionImpacting))
+	chains := multiStageWorkflowArtifact("wfc-high-fanout", paths)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for index := 0; index < b.N; index++ {
+		_, _ = BuildComposedActionPaths(paths, chains)
 	}
 }

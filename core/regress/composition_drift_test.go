@@ -86,6 +86,93 @@ func TestCompositionDriftTreatsMissingGaitCoverageAsDegraded(t *testing.T) {
 	}
 }
 
+func TestCompositionDriftTracksMultiStageReachabilityWithoutRekeyingFamily(t *testing.T) {
+	t.Parallel()
+
+	baselineComposition := regressTestComposition("cap-observed", "rk-deploy", "prod:checkout", "production_deploy")
+	baselineComposition.PatternID = risk.CompositionPatternCodeToDeployMultiStage
+	baselineComposition.ReachabilityState = risk.CompositionReachabilityObserved
+	baselineComposition.ObservedExecution = true
+	baselineComposition.Stages = append(baselineComposition.Stages[:1], risk.CompositionStage{
+		StageID: "stage-ci", Role: risk.CompositionStageRoleTransform, ResolutionKey: "rk-ci", SystemClass: risk.CompositionSystemClassCI, TrustBoundary: "ci:acme/checkout", CorrelationRefs: []string{"workflow_chain:wfc-deploy"},
+	}, baselineComposition.Stages[1])
+	baselineComposition.Stages[0].SystemClass = risk.CompositionSystemClassRepo
+	baselineComposition.Stages[0].TrustBoundary = "repo:acme/checkout"
+	baselineComposition.Stages[2].SystemClass = risk.CompositionSystemClassCloud
+	baselineComposition.Stages[2].TrustBoundary = "cloud:deploy"
+
+	currentComposition := baselineComposition
+	currentComposition.CompositionID = "cap-possible"
+	currentComposition.ReachabilityState = risk.CompositionReachabilityPossible
+	currentComposition.ObservedExecution = false
+
+	baseline := BuildBaseline(state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{baselineComposition}}}, time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC))
+	result := Compare(baseline, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{currentComposition}}})
+
+	if !hasDriftCategory(result.DriftCategories, DriftCategoryCompositionReachabilityChanged) {
+		t.Fatalf("expected possible-versus-observed reachability drift, got %+v", result.DriftCategories)
+	}
+	if hasDriftCategory(result.DriftCategories, DriftCategoryIntroducedCompositions) || hasDriftCategory(result.DriftCategories, DriftCategoryRemovedCompositions) {
+		t.Fatalf("reachability evidence movement must remain within the same route family, got %+v", result.DriftCategories)
+	}
+}
+
+func TestCompositionDriftTreatsRemovedMultiStageCorrelationAsEvidenceDegraded(t *testing.T) {
+	t.Parallel()
+
+	baselineComposition := regressTestComposition("cap-correlated", "rk-deploy", "prod:checkout", "production_deploy")
+	baselineComposition.PatternID = risk.CompositionPatternCodeToDeployMultiStage
+	baselineComposition.ReachabilityState = risk.CompositionReachabilityPossible
+	baselineComposition.Stages = append(baselineComposition.Stages[:1], risk.CompositionStage{
+		StageID: "stage-ci", Role: risk.CompositionStageRoleTransform, ResolutionKey: "rk-ci", SystemClass: risk.CompositionSystemClassCI, TrustBoundary: "ci:acme/checkout", CorrelationRefs: []string{"workflow_chain:wfc-deploy"},
+	}, baselineComposition.Stages[1])
+	baselineComposition.Stages[0].SystemClass = risk.CompositionSystemClassRepo
+	baselineComposition.Stages[0].TrustBoundary = "repo:acme/checkout"
+	baselineComposition.Stages[2].SystemClass = risk.CompositionSystemClassCloud
+	baselineComposition.Stages[2].TrustBoundary = "cloud:deploy"
+
+	currentComposition := baselineComposition
+	currentComposition.Stages = append([]risk.CompositionStage(nil), baselineComposition.Stages...)
+	currentComposition.Stages[1].CorrelationRefs = nil
+
+	baseline := BuildBaseline(state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{baselineComposition}}}, time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC))
+	result := Compare(baseline, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{currentComposition}}})
+
+	if !hasDriftCategory(result.DriftCategories, DriftCategoryCompositionEvidenceDegraded) {
+		t.Fatalf("expected removed transition correlation to degrade evidence, got %+v", result.DriftCategories)
+	}
+}
+
+func TestCompositionDriftPairsMultiStageMemberChurnWithinRouteFamily(t *testing.T) {
+	t.Parallel()
+
+	baselineComposition := regressTestComposition("cap-baseline", "rk-deploy", "prod:checkout", "production_deploy")
+	baselineComposition.PatternID = risk.CompositionPatternCodeToDeployMultiStage
+	baselineComposition.ReachabilityState = risk.CompositionReachabilityPossible
+	baselineComposition.Stages = append(baselineComposition.Stages[:1], risk.CompositionStage{
+		StageID: "stage-ci", Role: risk.CompositionStageRoleTransform, ResolutionKey: "rk-ci-old", ToolType: "github_actions", Location: ".github/workflows/deploy.yml", SystemClass: risk.CompositionSystemClassCI, TrustBoundary: "ci:acme/checkout",
+	}, baselineComposition.Stages[1])
+	baselineComposition.Stages[0].SystemClass = risk.CompositionSystemClassRepo
+	baselineComposition.Stages[0].TrustBoundary = "repo:acme/checkout"
+	baselineComposition.Stages[2].SystemClass = risk.CompositionSystemClassCloud
+	baselineComposition.Stages[2].TrustBoundary = "cloud:deploy"
+
+	currentComposition := baselineComposition
+	currentComposition.CompositionID = "cap-current"
+	currentComposition.Stages = append([]risk.CompositionStage(nil), baselineComposition.Stages...)
+	currentComposition.Stages[1].ResolutionKey = "rk-ci-new"
+
+	baseline := BuildBaseline(state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{baselineComposition}}}, time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC))
+	result := Compare(baseline, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{currentComposition}}})
+
+	if !hasDriftCategory(result.DriftCategories, DriftCategoryChangedCompositionMembers) {
+		t.Fatalf("expected durable member churn to stay in the route family, got %+v", result.DriftCategories)
+	}
+	if hasDriftCategory(result.DriftCategories, DriftCategoryIntroducedCompositions) || hasDriftCategory(result.DriftCategories, DriftCategoryRemovedCompositions) {
+		t.Fatalf("member churn must not become removed-plus-introduced noise: %+v", result.DriftCategories)
+	}
+}
+
 func regressTestComposition(compositionID, sinkResolutionKey, targetIdentity, outcomeClass string) risk.ComposedActionPath {
 	return risk.ComposedActionPath{
 		CompositionID:        compositionID,
