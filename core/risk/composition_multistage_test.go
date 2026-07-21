@@ -170,6 +170,50 @@ func TestBuildComposedActionPathsMultiStageRejectsMalformedCorrelationRefs(t *te
 	}
 }
 
+func TestBuildComposedActionPathsMultiStageRejectsPrefixedPathLikeCorrelationRefs(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		apply func(*ActionPath)
+		raw   string
+	}{
+		{
+			name: "workflow chain absolute suffix",
+			raw:  "workflow_chain:/tmp/private",
+			apply: func(path *ActionPath) {
+				path.WorkflowChainRefs = []string{"workflow_chain:/tmp/private"}
+			},
+		},
+		{
+			name: "imported evidence drive suffix",
+			raw:  "imported_evidence:C:/Users/acme/file",
+			apply: func(path *ActionPath) {
+				path.EvidencePacketRefs = []string{"imported_evidence:C:/Users/acme/file"}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if strongMultiStageCorrelationRef(tc.raw) {
+				t.Fatalf("prefixed path-like ref must not be considered strong: %q", tc.raw)
+			}
+
+			source := multiStageCompositionEndpoint("apc-source", "rk-source", "repo", []string{"write"}, TargetClassReleaseAdjacent)
+			bridge := multiStageCompositionTestPath("apc-ci", "rk-ci", "ci")
+			sink := multiStageCompositionEndpoint("apc-deploy", "rk-deploy", "cloud", []string{"deploy"}, TargetClassProductionImpacting)
+			for _, path := range []*ActionPath{&source, &bridge, &sink} {
+				tc.apply(path)
+			}
+
+			compositions, _ := BuildComposedActionPaths([]ActionPath{source, bridge, sink}, nil)
+			if got := findCompositionByPatternAndStageCount(compositions, CompositionPatternCodeToDeployMultiStage, 3); got != nil {
+				t.Fatalf("prefixed path-like correlation refs must fail closed: %+v", got)
+			}
+		})
+	}
+}
+
 func TestBuildComposedActionPathsMultiStageRepeatedTrustBoundariesStayDeduplicated(t *testing.T) {
 	t.Parallel()
 
@@ -423,6 +467,63 @@ func TestBuildComposedActionPathsMultiStageOverDepthRouteTruncatesExplicitly(t *
 	}
 	if !compositionsHaveTruncationReason(compositions, CompositionPatternSensitiveReadToEgressMultiStage, CompositionTruncationDepthCap) {
 		t.Fatalf("over-depth route must emit depth-cap metadata: %+v", compositions)
+	}
+}
+
+func TestBuildComposedActionPathsMultiStageDepthCapWithoutRouteEmitsReceipt(t *testing.T) {
+	t.Parallel()
+
+	source := multiStageCompositionEndpoint("apc-read", "rk-read", "repo", []string{"read_sensitive"}, TargetClassCustomerDataAdjacent)
+	ci := multiStageCompositionTestPath("apc-ci", "rk-ci", "ci")
+	pkg := multiStageCompositionTestPath("apc-package", "rk-package", "package")
+	cloud := multiStageCompositionTestPath("apc-cloud", "rk-cloud", "cloud")
+	saas := multiStageCompositionTestPath("apc-saas", "rk-saas", "saas")
+	sink := multiStageCompositionEndpoint("apc-send", "rk-send", "communications", []string{"external_write", "egress"}, TargetClassProductionImpacting)
+	for _, path := range []*ActionPath{&ci, &pkg, &cloud, &saas} {
+		path.ActionClasses = []string{"transform"}
+		path.WritePathClasses = nil
+		path.WriteCapable = false
+		path.DeployWrite = false
+		path.ProductionWrite = false
+		path.CredentialAccess = false
+		path.TargetClass = TargetClassUnknown
+		path.MatchedProductionTargets = nil
+		path.RiskZone = ""
+		path.MutableEndpointSemantics = nil
+		path.EndpointRefGroupID = ""
+		path.ActionBindingState = ActionBindingStateBound
+		path.ActionPathEligible = true
+	}
+	source.WorkflowChainRefs = []string{"edge-01"}
+	ci.WorkflowChainRefs = []string{"edge-01", "edge-12"}
+	pkg.WorkflowChainRefs = []string{"edge-12", "edge-23"}
+	cloud.WorkflowChainRefs = []string{"edge-23", "edge-34"}
+	saas.WorkflowChainRefs = []string{"edge-34", "edge-45"}
+	sink.WorkflowChainRefs = []string{"edge-45"}
+
+	compositions := buildMultiStageComposedActionPaths([]ActionPath{source, ci, pkg, cloud, saas, sink}, nil)
+	var receipt *ComposedActionPath
+	for index := range compositions {
+		composition := &compositions[index]
+		if composition.PatternID != CompositionPatternSensitiveReadToEgressMultiStage {
+			continue
+		}
+		if len(composition.Stages) > 0 {
+			t.Fatalf("over-depth adjacent-only route must not emit a partial path: %+v", composition)
+		}
+		if compositionHasTruncationReason(*composition, CompositionTruncationDepthCap) {
+			receipt = composition
+		}
+	}
+	if receipt == nil {
+		t.Fatalf("over-depth adjacent-only route must emit a truncation receipt: %+v", compositions)
+	}
+	if receipt.ReachabilityState != CompositionReachabilityIncomplete || receipt.RecommendedControl != RecommendedControlAllow {
+		t.Fatalf("truncation receipt must be visibly incomplete without becoming control-first: %+v", receipt)
+	}
+	summary := SummarizeComposedActionPaths([]ComposedActionPath{*receipt})
+	if summary.MultiStageCompositions != 0 || summary.IncompleteReachability != 1 || summary.ControlFirstCompositions != 0 || summary.TruncatedCandidatePatterns != 1 {
+		t.Fatalf("truncation receipt must not count as an emitted route: %+v", summary)
 	}
 }
 
