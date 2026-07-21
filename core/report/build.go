@@ -2671,13 +2671,7 @@ func remapCompositionRefs(refs []string, compositionIDMap map[string]string) []s
 		if trimmed == "" {
 			continue
 		}
-		if compositionIDMap != nil {
-			if mapped := strings.TrimSpace(compositionIDMap[trimmed]); mapped != "" {
-				out = append(out, mapped)
-				continue
-			}
-		}
-		out = append(out, trimmed)
+		out = append(out, remapCompositionRef(trimmed, compositionIDMap))
 	}
 	return cloneStrings(out)
 }

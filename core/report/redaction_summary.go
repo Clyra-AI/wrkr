@@ -247,6 +247,12 @@ func remapCompositionRef(ref string, compositionIDMap map[string]string) string 
 		if mapped := strings.TrimSpace(compositionIDMap[peer]); mapped != "" {
 			return "peer:" + mapped
 		}
+		if compositionIDMap != nil {
+			return "peer:" + redactValue("composition", peer, 8)
+		}
+	}
+	if compositionIDMap != nil {
+		return redactValue("composition", trimmed, 8)
 	}
 	return trimmed
 }

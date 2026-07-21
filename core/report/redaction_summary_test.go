@@ -7,6 +7,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func TestSanitizeComposedActionPathsPublicKeepsTransitionStageRefsAligned(t *testing.T) {
@@ -83,6 +84,55 @@ func TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelatio
 	}
 	if primary.MostRestrictiveSource != "peer:"+peerID {
 		t.Fatalf("redacted most-restrictive source must align with the redacted peer id: primary=%+v peer=%s", primary, peerID)
+	}
+}
+
+func TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs(t *testing.T) {
+	t.Parallel()
+
+	input := risk.ComposedActionPath{
+		CompositionID:                     "cap-primary",
+		AlternateRouteRefs:                []string{"cap-peer"},
+		EquivalentOutcomeRefs:             []string{"cap-peer"},
+		EquivalentOutcomeEscalationSource: "peer:cap-peer",
+		MostRestrictiveSource:             "peer:cap-peer",
+		Stages: []risk.CompositionStage{{
+			StageID:            "stage-source",
+			Role:               risk.CompositionStageRoleSource,
+			AlternateRouteRefs: []string{"cap-peer"},
+		}},
+		Transitions: []risk.CompositionTransition{{
+			TransitionID:       "transition-source-peer",
+			FromStageID:        "stage-source",
+			ToStageID:          "stage-source",
+			AlternateRouteRefs: []string{"cap-peer"},
+		}},
+	}
+
+	redacted, err := ProjectComposedActionPathsForShareProfile(state.Snapshot{}, []risk.ComposedActionPath{input}, ShareProfileCustomerRedacted)
+	if err != nil {
+		t.Fatalf("project redacted composition: %v", err)
+	}
+	if len(redacted) != 1 {
+		t.Fatalf("expected one selected composition, got %+v", redacted)
+	}
+	primary := redacted[0]
+	wantPeerID := redactValue("composition", "cap-peer", 8)
+	if primary.AlternateRouteRefs[0] != wantPeerID || primary.EquivalentOutcomeRefs[0] != wantPeerID {
+		t.Fatalf("unmapped peer refs must be redacted: %+v", primary)
+	}
+	if primary.Stages[0].AlternateRouteRefs[0] != wantPeerID || primary.Transitions[0].AlternateRouteRefs[0] != wantPeerID {
+		t.Fatalf("nested unmapped peer refs must be redacted: %+v", primary)
+	}
+	if primary.EquivalentOutcomeEscalationSource != "peer:"+wantPeerID || primary.MostRestrictiveSource != "peer:"+wantPeerID {
+		t.Fatalf("peer-prefixed unmapped refs must be redacted: %+v", primary)
+	}
+	payload, err := json.Marshal(primary)
+	if err != nil {
+		t.Fatalf("marshal projected composition: %v", err)
+	}
+	if strings.Contains(string(payload), "cap-peer") {
+		t.Fatalf("selected share-profile projection leaked raw peer composition ref: %s", payload)
 	}
 }
 
