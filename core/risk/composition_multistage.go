@@ -585,10 +585,7 @@ func validMultiStageCorrelationRef(value string) bool {
 		return false
 	}
 	normalized := strings.ReplaceAll(safetyValue, "\\", "/")
-	if unsafeMultiStageCorrelationPathRef(normalized) {
-		return false
-	}
-	return true
+	return !unsafeMultiStageCorrelationPathRef(normalized)
 }
 
 func multiStageCorrelationRefSafetyValue(value string) string {

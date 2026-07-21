@@ -39,6 +39,7 @@ func TestBuildComposedActionPathsMultiStageSupportsThreeToFiveStages(t *testing.
 			got := findCompositionByPatternAndStageCount(compositions, CompositionPatternSensitiveReadToEgressMultiStage, tc.wantStages)
 			if got == nil {
 				t.Fatalf("expected %d-stage composition, got %+v", tc.wantStages, compositions)
+				return
 			}
 			if got.Pattern.MinStages != 3 || got.Pattern.MaxStages != 5 {
 				t.Fatalf("expected explicit 3-5 stage template, got %+v", got.Pattern)
@@ -79,6 +80,7 @@ func TestBuildComposedActionPathsMultiStageRequiresExplicitCorrelationAcrossRepo
 	got := findCompositionByPatternAndStageCount(withCorrelation, CompositionPatternCodeToDeployMultiStage, 3)
 	if got == nil {
 		t.Fatalf("expected explicit cross-repo correlation to produce a composition, got %+v", withCorrelation)
+		return
 	}
 	if got.Stages[0].TrustBoundary == got.Stages[1].TrustBoundary || got.Stages[1].TrustBoundary == got.Stages[2].TrustBoundary {
 		t.Fatalf("expected explicit trust-boundary crossings, got %+v", got.Stages)
@@ -99,6 +101,7 @@ func TestBuildComposedActionPathsCrossSystemAcceptsImportedEvidenceJoin(t *testi
 	got := findCompositionByPatternAndStageCount(compositions, CompositionPatternCodeToDeployMultiStage, 3)
 	if got == nil {
 		t.Fatalf("expected imported evidence to provide an explicit cross-system join, got %+v", compositions)
+		return
 	}
 	for _, transition := range got.Transitions {
 		if !containsMultiStageString(transition.CorrelationRefs, "imported_evidence:packet:verified-deploy-route") {
@@ -121,6 +124,7 @@ func TestBuildComposedActionPathsCrossSystemAcceptsPriorCompositionJoin(t *testi
 	got := findCompositionByPatternAndStageCount(compositions, CompositionPatternCodeToDeployMultiStage, 3)
 	if got == nil {
 		t.Fatalf("expected a prior composition ref to provide an explicit cross-system join, got %+v", compositions)
+		return
 	}
 	for _, transition := range got.Transitions {
 		if !containsMultiStageString(transition.CorrelationRefs, "composition:cap-prior-route") {
@@ -265,6 +269,7 @@ func TestBuildComposedActionPathsMultiStageCorrelationRefsAreBounded(t *testing.
 	got := findCompositionByPatternAndStageCount(compositions, CompositionPatternCodeToDeployMultiStage, 3)
 	if got == nil {
 		t.Fatalf("expected bounded correlated route, got %+v", compositions)
+		return
 	}
 	for _, transition := range got.Transitions {
 		if len(transition.CorrelationRefs) > maxMultiStageCorrelationRefs {
@@ -367,7 +372,11 @@ func TestBuildComposedActionPathsMultiStageStableIdentityAlternatesAndObservatio
 	}
 	observed, _ := BuildComposedActionPaths(observedPaths, chains)
 	got := findCompositionByPatternAndStageCount(observed, CompositionPatternSensitiveReadToEgressMultiStage, 3)
-	if got == nil || !got.ObservedExecution || got.ReachabilityState != CompositionReachabilityObserved || got.ClaimState != CompositionClaimObservedExecution {
+	if got == nil {
+		t.Fatalf("all-stage runtime proof must emit a composition, got %+v", observed)
+		return
+	}
+	if !got.ObservedExecution || got.ReachabilityState != CompositionReachabilityObserved || got.ClaimState != CompositionClaimObservedExecution {
 		t.Fatalf("all-stage runtime proof must be required for observed execution, got %+v", got)
 	}
 	if got.ProposedActionContract == nil || got.ProposedActionContract.ContractVersion != ProposedActionContractVersionV3 {
@@ -393,7 +402,11 @@ func TestBuildComposedActionPathsMultiStageStableIdentityAlternatesAndObservatio
 	partiallyObservedPaths[1].GaitCoverage.ActionOutcome = GaitCoverageDetail{Status: GaitStatusMissing}
 	partiallyObserved, _ := BuildComposedActionPaths(partiallyObservedPaths, chains)
 	partial := findCompositionByPatternAndStageCount(partiallyObserved, CompositionPatternSensitiveReadToEgressMultiStage, 3)
-	if partial == nil || partial.ObservedExecution || partial.ReachabilityState != CompositionReachabilityPossible || partial.ClaimState == CompositionClaimObservedExecution {
+	if partial == nil {
+		t.Fatalf("partial stage runtime evidence must emit a composition, got %+v", partiallyObserved)
+		return
+	}
+	if partial.ObservedExecution || partial.ReachabilityState != CompositionReachabilityPossible || partial.ClaimState == CompositionClaimObservedExecution {
 		t.Fatalf("partial stage runtime evidence must remain possible rather than observed: %+v", partial)
 	}
 
@@ -517,6 +530,7 @@ func TestBuildComposedActionPathsMultiStageDepthCapWithoutRouteEmitsReceipt(t *t
 	}
 	if receipt == nil {
 		t.Fatalf("over-depth adjacent-only route must emit a truncation receipt: %+v", compositions)
+		return
 	}
 	if receipt.ReachabilityState != CompositionReachabilityIncomplete || receipt.RecommendedControl != RecommendedControlAllow {
 		t.Fatalf("truncation receipt must be visibly incomplete without becoming control-first: %+v", receipt)
