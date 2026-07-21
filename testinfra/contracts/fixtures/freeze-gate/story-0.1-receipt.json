@@ -38,6 +38,7 @@
     "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability",
     "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget",
     "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
+    "core/report.TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs",
     "testinfra/contracts.TestActionContractPacketSchemaValidatesMultiStageReachabilityProjection",
     "internal/scenarios.TestScenarioBoundedMultiStageCompositions",
     "scenarios/wrkr/composed-action-paths/expected/multi-stage-composition-fixtures.json"
@@ -182,15 +183,17 @@
         "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity -count=1",
         "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1",
         "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1",
-        "go test ./core/report -run TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs -count=1"
+        "go test ./core/report -run TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs -count=1",
+        "go test ./core/report -run TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "internal/enterprisepressure.VariantBaseline:64-repos",
         "core/export/actioncontracts.testSnapshot",
-        "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs"
+        "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
+        "core/report.TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs"
       ],
-      "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, fixture repo names, and multi-stage trust-boundary/correlation identities."
+      "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, fixture repo names, multi-stage trust-boundary/correlation identities, and unmapped peer route references in selected projections."
     },
     {
       "name": "recursive_redaction",
