@@ -400,9 +400,12 @@ func runActionContractPacketReport(snapshot state.Snapshot, shareProfile reportc
 	if err != nil {
 		return emitError(stderr, jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}
-	markdown := reportcore.RenderActionContractPacketMarkdown(packet)
-	if strings.Count(markdown, "\n") > reportcore.ActionContractPacketMarkdownLineCap {
-		return emitError(stderr, jsonOut, "runtime_failure", "Action Contract packet exceeded its Markdown line budget", exitRuntime)
+	markdown := ""
+	if writeMarkdown || !jsonOut {
+		markdown = reportcore.RenderActionContractPacketMarkdown(packet)
+		if strings.Count(markdown, "\n") > reportcore.ActionContractPacketMarkdownLineCap {
+			return emitError(stderr, jsonOut, "runtime_failure", "Action Contract packet exceeded its Markdown line budget", exitRuntime)
+		}
 	}
 	if writeMarkdown {
 		path, pathErr := resolveArtifactOutputPath(markdownPath)
