@@ -54,9 +54,9 @@ type ActionContractPacket struct {
 	CredentialPosture     ActionContractPacketCredentialPosture     `json:"credential_posture"`
 	ReadinessChecks       []risk.ProposedActionPrecondition         `json:"readiness_checks"`
 	Effects               ActionContractPacketEffects               `json:"effects"`
-	Confirmation          *risk.ProposedActionConfirmation          `json:"confirmation_requirement,omitempty"`
-	Approval              *risk.ProposedActionApproval              `json:"approval_requirement,omitempty"`
-	Compensation          *risk.ProposedActionCompensation          `json:"compensation_requirement,omitempty"`
+	Confirmation          *risk.ProposedActionConfirmation          `json:"confirmation_requirement"`
+	Approval              *risk.ProposedActionApproval              `json:"approval_requirement"`
+	Compensation          *risk.ProposedActionCompensation          `json:"compensation_requirement"`
 	EvidenceGaps          []ActionContractPacketGap                 `json:"evidence_gaps"`
 	LifecycleObservations []risk.ProposedActionLifecycleObservation `json:"lifecycle_observations"`
 	Reachability          ActionContractPacketReachability          `json:"reachability"`
@@ -171,6 +171,7 @@ func BuildActionContractPacket(input ActionContractPacketInput) (ActionContractP
 		contract.ApprovalRequirement,
 		contract.CompensationRequirement,
 		lifecycleSummary,
+		&truncations,
 	)
 	if len(gaps) > actionContractPacketGapCap {
 		truncations = append(truncations, ActionContractPacketTruncation{Field: "evidence_gaps", OmittedCount: len(gaps) - actionContractPacketGapCap, Reason: "item_cap"})
@@ -364,42 +365,55 @@ func normalizePacketLifecycle(values []risk.ProposedActionLifecycleObservation, 
 	return out
 }
 
-func packetEvidenceGaps(authority []risk.ProposedActionRequirement, preconditions []risk.ProposedActionPrecondition, confirmation *risk.ProposedActionConfirmation, approval *risk.ProposedActionApproval, compensation *risk.ProposedActionCompensation, lifecycle []risk.ProposedActionLifecycleObservation) []ActionContractPacketGap {
+func packetEvidenceGaps(authority []risk.ProposedActionRequirement, preconditions []risk.ProposedActionPrecondition, confirmation *risk.ProposedActionConfirmation, approval *risk.ProposedActionApproval, compensation *risk.ProposedActionCompensation, lifecycle []risk.ProposedActionLifecycleObservation, truncations *[]ActionContractPacketTruncation) []ActionContractPacketGap {
 	gaps := make([]ActionContractPacketGap, 0)
 	for _, item := range authority {
 		if packetEvidenceNeedsAttention(item.EvidenceState, item.FreshnessState) {
-			gaps = append(gaps, ActionContractPacketGap{RequirementID: strings.TrimSpace(item.RequirementID), Kind: "authority:" + strings.TrimSpace(item.Kind), EvidenceState: strings.TrimSpace(item.EvidenceState), Freshness: strings.TrimSpace(item.FreshnessState), ReasonCodes: uniquePacketStrings(item.ReasonCodes)})
+			gaps = append(gaps, packetEvidenceGap(item.RequirementID, "authority:"+strings.TrimSpace(item.Kind), item.EvidenceState, item.FreshnessState, item.ReasonCodes, truncations))
 		}
 	}
 	for _, item := range preconditions {
 		if packetEvidenceNeedsAttention(item.EvidenceState, item.FreshnessState) {
-			gaps = append(gaps, ActionContractPacketGap{RequirementID: strings.TrimSpace(item.RequirementID), Kind: "precondition:" + strings.TrimSpace(item.Kind), EvidenceState: strings.TrimSpace(item.EvidenceState), Freshness: strings.TrimSpace(item.FreshnessState), ReasonCodes: uniquePacketStrings(item.ReasonCodes)})
+			gaps = append(gaps, packetEvidenceGap(item.RequirementID, "precondition:"+strings.TrimSpace(item.Kind), item.EvidenceState, item.FreshnessState, item.ReasonCodes, truncations))
 		}
 	}
 	if confirmation == nil {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "confirmation", Kind: "confirmation", EvidenceState: risk.EvidenceStateUnknown, Freshness: evidencepolicy.FreshnessStateUnknown, ReasonCodes: []string{"confirmation:missing"}})
+		gaps = append(gaps, packetEvidenceGap("confirmation", "confirmation", risk.EvidenceStateUnknown, evidencepolicy.FreshnessStateUnknown, []string{"confirmation:missing"}, truncations))
 	} else if confirmation.Required && packetEvidenceNeedsAttention(confirmation.EvidenceState, confirmation.FreshnessState) {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "confirmation", Kind: "confirmation", EvidenceState: strings.TrimSpace(confirmation.EvidenceState), Freshness: strings.TrimSpace(confirmation.FreshnessState), ReasonCodes: uniquePacketStrings(confirmation.ReasonCodes)})
+		gaps = append(gaps, packetEvidenceGap("confirmation", "confirmation", confirmation.EvidenceState, confirmation.FreshnessState, confirmation.ReasonCodes, truncations))
 	}
 	if approval == nil {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "approval", Kind: "approval", EvidenceState: risk.EvidenceStateUnknown, Freshness: evidencepolicy.FreshnessStateUnknown, ReasonCodes: []string{"approval:missing"}})
+		gaps = append(gaps, packetEvidenceGap("approval", "approval", risk.EvidenceStateUnknown, evidencepolicy.FreshnessStateUnknown, []string{"approval:missing"}, truncations))
 	} else if approval.Required && packetEvidenceNeedsAttention(approval.EvidenceState, approval.FreshnessState) {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "approval", Kind: "approval", EvidenceState: strings.TrimSpace(approval.EvidenceState), Freshness: strings.TrimSpace(approval.FreshnessState), ReasonCodes: uniquePacketStrings(approval.ReasonCodes)})
+		gaps = append(gaps, packetEvidenceGap("approval", "approval", approval.EvidenceState, approval.FreshnessState, approval.ReasonCodes, truncations))
 	}
 	if compensation == nil {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "compensation", Kind: "compensation", EvidenceState: risk.EvidenceStateUnknown, Freshness: evidencepolicy.FreshnessStateUnknown, ReasonCodes: []string{"compensation:missing"}})
+		gaps = append(gaps, packetEvidenceGap("compensation", "compensation", risk.EvidenceStateUnknown, evidencepolicy.FreshnessStateUnknown, []string{"compensation:missing"}, truncations))
 	} else if compensation.Required && packetEvidenceNeedsAttention(compensation.EvidenceState, compensation.FreshnessState) {
-		gaps = append(gaps, ActionContractPacketGap{RequirementID: "compensation", Kind: "compensation", EvidenceState: strings.TrimSpace(compensation.EvidenceState), Freshness: strings.TrimSpace(compensation.FreshnessState), ReasonCodes: uniquePacketStrings(compensation.ReasonCodes)})
+		gaps = append(gaps, packetEvidenceGap("compensation", "compensation", compensation.EvidenceState, compensation.FreshnessState, compensation.ReasonCodes, truncations))
 	}
 	for _, item := range lifecycle {
 		if strings.TrimSpace(item.EvidenceState) == risk.EvidenceStateContradictory {
-			gaps = append(gaps, ActionContractPacketGap{RequirementID: strings.TrimSpace(item.ObservationID), Kind: "lifecycle:" + strings.TrimSpace(item.Kind), EvidenceState: strings.TrimSpace(item.EvidenceState), Freshness: strings.TrimSpace(item.FreshnessState), ReasonCodes: uniquePacketStrings(item.ReasonCodes)})
+			gaps = append(gaps, packetEvidenceGap(item.ObservationID, "lifecycle:"+strings.TrimSpace(item.Kind), item.EvidenceState, item.FreshnessState, item.ReasonCodes, truncations))
 		}
 	}
 	sort.Slice(gaps, func(i, j int) bool {
 		return gaps[i].Kind+"|"+gaps[i].RequirementID < gaps[j].Kind+"|"+gaps[j].RequirementID
 	})
 	return gaps
+}
+
+func packetEvidenceGap(requirementID, kind, evidenceState, freshness string, reasonCodes []string, truncations *[]ActionContractPacketTruncation) ActionContractPacketGap {
+	requirementID = strings.TrimSpace(requirementID)
+	kind = strings.TrimSpace(kind)
+	fieldID := firstPacketValue(requirementID, kind, "unknown")
+	return ActionContractPacketGap{
+		RequirementID: requirementID,
+		Kind:          kind,
+		EvidenceState: firstPacketValue(evidenceState, risk.EvidenceStateUnknown),
+		Freshness:     firstPacketValue(freshness, evidencepolicy.FreshnessStateUnknown),
+		ReasonCodes:   capPacketStrings("evidence_gaps."+fieldID+".reason_codes", reasonCodes, actionContractPacketReferenceCap, truncations),
+	}
 }
 
 func packetAuthoritySummarySource(values []risk.ProposedActionRequirement) []risk.ProposedActionRequirement {
@@ -527,7 +541,13 @@ func packetNextStep(packet ActionContractPacket) ActionContractPacketNextStep {
 
 func clonePacketConfirmation(in *risk.ProposedActionConfirmation, truncations *[]ActionContractPacketTruncation) *risk.ProposedActionConfirmation {
 	if in == nil {
-		return nil
+		return &risk.ProposedActionConfirmation{
+			Mode:           "explicit_confirmation",
+			Required:       true,
+			EvidenceState:  risk.EvidenceStateUnknown,
+			FreshnessState: evidencepolicy.FreshnessStateUnknown,
+			ReasonCodes:    capPacketStrings("confirmation_requirement.reason_codes", []string{"confirmation:missing"}, actionContractPacketReferenceCap, truncations),
+		}
 	}
 	out := *in
 	out.EvidenceRefs = capPacketStrings("confirmation_requirement.evidence_refs", in.EvidenceRefs, actionContractPacketReferenceCap, truncations)
@@ -537,7 +557,14 @@ func clonePacketConfirmation(in *risk.ProposedActionConfirmation, truncations *[
 
 func clonePacketApproval(in *risk.ProposedActionApproval, truncations *[]ActionContractPacketTruncation) *risk.ProposedActionApproval {
 	if in == nil {
-		return nil
+		return &risk.ProposedActionApproval{
+			Required:         true,
+			MinimumApprovals: 1,
+			ScopeDigest:      packetMissingApprovalScopeDigest(),
+			EvidenceState:    risk.EvidenceStateUnknown,
+			FreshnessState:   evidencepolicy.FreshnessStateUnknown,
+			ReasonCodes:      capPacketStrings("approval_requirement.reason_codes", []string{"approval:missing"}, actionContractPacketReferenceCap, truncations),
+		}
 	}
 	out := *in
 	out.ApproverRoles = capPacketStrings("approval_requirement.approver_roles", in.ApproverRoles, actionContractPacketReferenceCap, truncations)
@@ -550,7 +577,14 @@ func clonePacketApproval(in *risk.ProposedActionApproval, truncations *[]ActionC
 
 func clonePacketCompensation(in *risk.ProposedActionCompensation, truncations *[]ActionContractPacketTruncation) *risk.ProposedActionCompensation {
 	if in == nil {
-		return nil
+		return &risk.ProposedActionCompensation{
+			Required:             true,
+			Kind:                 "documented_recovery",
+			VerificationRequired: true,
+			EvidenceState:        risk.EvidenceStateUnknown,
+			FreshnessState:       evidencepolicy.FreshnessStateUnknown,
+			ReasonCodes:          capPacketStrings("compensation_requirement.reason_codes", []string{"compensation:missing"}, actionContractPacketReferenceCap, truncations),
+		}
 	}
 	out := *in
 	out.ProcedureRef = truncatePacketValue("compensation_requirement.procedure_ref", in.ProcedureRef, truncations)
@@ -559,6 +593,11 @@ func clonePacketCompensation(in *risk.ProposedActionCompensation, truncations *[
 	out.EvidenceRefs = capPacketStrings("compensation_requirement.evidence_refs", in.EvidenceRefs, actionContractPacketReferenceCap, truncations)
 	out.ReasonCodes = capPacketStrings("compensation_requirement.reason_codes", in.ReasonCodes, actionContractPacketReferenceCap, truncations)
 	return &out
+}
+
+func packetMissingApprovalScopeDigest() string {
+	digest := sha256.Sum256([]byte("wrkr:action-contract-packet:approval:missing"))
+	return "sha256:" + hex.EncodeToString(digest[:])
 }
 
 func truncatePacketValue(field, raw string, truncations *[]ActionContractPacketTruncation) string {
