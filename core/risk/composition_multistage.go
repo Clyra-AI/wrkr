@@ -21,6 +21,18 @@ const (
 	multiStageTrustBoundaryConstraint = "explicit_correlation_required_across_boundaries"
 )
 
+var multiStageCorrelationRefKnownPrefixes = []string{
+	"workflow_chain:",
+	"attack_path:",
+	"authority_binding:",
+	"endpoint_group:",
+	"policy:",
+	"source_finding:",
+	"imported_evidence:",
+	"composition:",
+	"graph_edge:",
+}
+
 type multiStageCompositionPatternSpec struct {
 	id               string
 	description      string
@@ -84,7 +96,7 @@ func buildMultiStageComposedActionPaths(paths []ActionPath, workflowChains *agen
 				break
 			}
 		}
-		attachMultiStageTruncation(byID, spec.id, state)
+		attachMultiStageTruncation(byID, spec, state)
 	}
 
 	out := make([]ComposedActionPath, 0, len(byID))
@@ -180,6 +192,16 @@ func walkMultiStageComposition(
 		state.candidateCount++
 		route := append(append([]ActionPath(nil), current...), candidate.path)
 		routeEdgeRefs := append(append([][]string(nil), edgeCorrelationRefs...), candidate.correlationRefs)
+		if len(route) > spec.maxStages {
+			state.truncations = append(state.truncations, CompositionTruncation{
+				PatternID:          spec.id,
+				Reason:             CompositionTruncationDepthCap,
+				Limit:              spec.maxStages,
+				ObservedCandidates: len(route),
+				OmittedCandidates:  1,
+			})
+			continue
+		}
 		if candidate.isSink && len(route) >= spec.minStages {
 			if state.emittedCount >= maxMultiStageCompositionPathsPerPattern {
 				state.truncations = append(state.truncations, CompositionTruncation{
@@ -558,14 +580,49 @@ func validMultiStageCorrelationRef(value string) bool {
 			return false
 		}
 	}
-	normalized := strings.ReplaceAll(trimmed, "\\", "/")
-	if normalized == ".." || strings.HasPrefix(normalized, "/") || strings.HasPrefix(normalized, "../") || strings.Contains(normalized, "/../") {
+	safetyValue := multiStageCorrelationRefSafetyValue(trimmed)
+	if safetyValue == "" {
 		return false
 	}
-	if len(normalized) >= 3 && normalized[1] == ':' && normalized[2] == '/' && ((normalized[0] >= 'a' && normalized[0] <= 'z') || (normalized[0] >= 'A' && normalized[0] <= 'Z')) {
+	normalized := strings.ReplaceAll(safetyValue, "\\", "/")
+	if unsafeMultiStageCorrelationPathRef(normalized) {
 		return false
 	}
 	return true
+}
+
+func multiStageCorrelationRefSafetyValue(value string) string {
+	trimmed := strings.TrimSpace(value)
+	lower := strings.ToLower(trimmed)
+	for _, prefix := range multiStageCorrelationRefKnownPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return strings.TrimSpace(trimmed[len(prefix):])
+		}
+	}
+	return trimmed
+}
+
+func unsafeMultiStageCorrelationPathRef(normalized string) bool {
+	if normalized == ".." || strings.HasPrefix(normalized, "/") || strings.HasPrefix(normalized, "../") || strings.Contains(normalized, "/../") || strings.HasSuffix(normalized, "/..") {
+		return true
+	}
+	return containsWindowsDrivePathRef(normalized)
+}
+
+func containsWindowsDrivePathRef(normalized string) bool {
+	for index := 0; index+2 < len(normalized); index++ {
+		if !asciiAlpha(normalized[index]) || normalized[index+1] != ':' || normalized[index+2] != '/' {
+			continue
+		}
+		if index == 0 || normalized[index-1] == ':' || normalized[index-1] == '/' {
+			return true
+		}
+	}
+	return false
+}
+
+func asciiAlpha(value byte) bool {
+	return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z')
 }
 
 func intersectSortedStrings(left, right []string) []string {
@@ -804,17 +861,21 @@ func mergeMultiStageComposedActionPath(current, incoming ComposedActionPath) Com
 	return merged
 }
 
-func attachMultiStageTruncation(byID map[string]ComposedActionPath, patternID string, state *multiStageCompositionBuildState) {
+func attachMultiStageTruncation(byID map[string]ComposedActionPath, spec multiStageCompositionPatternSpec, state *multiStageCompositionBuildState) {
 	if state == nil || (len(state.truncatedCandidates) == 0 && len(state.truncations) == 0) {
 		return
 	}
 	ids := []string{}
 	for id, composition := range byID {
-		if composition.PatternID == patternID {
+		if composition.PatternID == spec.id {
 			ids = append(ids, id)
 		}
 	}
 	if len(ids) == 0 {
+		receipt := multiStageTruncationReceipt(spec, state)
+		if strings.TrimSpace(receipt.CompositionID) != "" {
+			byID[receipt.CompositionID] = receipt
+		}
 		return
 	}
 	sort.Strings(ids)
@@ -822,6 +883,47 @@ func attachMultiStageTruncation(byID map[string]ComposedActionPath, patternID st
 	composition.TruncatedCandidates = dedupeSortedStrings(append(composition.TruncatedCandidates, state.truncatedCandidates...))
 	composition.Truncations = normalizeCompositionTruncations(append(composition.Truncations, state.truncations...))
 	byID[ids[0]] = composition
+}
+
+func multiStageTruncationReceipt(spec multiStageCompositionPatternSpec, state *multiStageCompositionBuildState) ComposedActionPath {
+	if state == nil {
+		return ComposedActionPath{}
+	}
+	truncatedCandidates := dedupeSortedStrings(state.truncatedCandidates)
+	truncations := normalizeCompositionTruncations(state.truncations)
+	if len(truncatedCandidates) == 0 && len(truncations) == 0 {
+		return ComposedActionPath{}
+	}
+	return ComposedActionPath{
+		CompositionID:          multiStageTruncationReceiptID(spec.id, truncatedCandidates, truncations),
+		PatternID:              spec.id,
+		Pattern:                multiStagePublicPattern(spec, nil),
+		ResolutionKey:          "truncation:" + strings.TrimSpace(spec.id),
+		OutcomeClass:           spec.outcome,
+		RecommendedControl:     RecommendedControlAllow,
+		ReachabilityState:      CompositionReachabilityIncomplete,
+		TruncatedCandidates:    truncatedCandidates,
+		Truncations:            truncations,
+		ProposedActionContract: nil,
+	}
+}
+
+func multiStageTruncationReceiptID(patternID string, truncatedCandidates []string, truncations []CompositionTruncation) string {
+	parts := []string{"pattern=" + strings.TrimSpace(patternID), "kind=truncation_receipt"}
+	for _, candidate := range truncatedCandidates {
+		parts = append(parts, "candidate="+strings.TrimSpace(candidate))
+	}
+	for _, truncation := range truncations {
+		parts = append(parts, strings.Join([]string{
+			"truncation",
+			strings.TrimSpace(truncation.PatternID),
+			strings.TrimSpace(truncation.Reason),
+			strconv.Itoa(truncation.Limit),
+			strconv.Itoa(truncation.ObservedCandidates),
+			strconv.Itoa(truncation.OmittedCandidates),
+		}, "="))
+	}
+	return "cap-" + stableCompositionHash(strings.Join(parts, "\x1f"))
 }
 
 func normalizeCompositionTruncations(values []CompositionTruncation) []CompositionTruncation {
