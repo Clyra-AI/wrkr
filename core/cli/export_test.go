@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -165,6 +167,60 @@ func TestExportActionContractsJSONAndSelector(t *testing.T) {
 	code = Run([]string{"export", "action-contracts", "--state", statePath, "--contract-id", "pac-not-found", "--json"}, &out, &errOut)
 	if code != exitInvalidInput {
 		t.Fatalf("expected missing selector exit 6, got %d (%s)", code, errOut.String())
+	}
+}
+
+func TestExportActionContractLifecycleEvidenceReachesArtifactAndPacket(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-export-lifecycle", OutcomeClass: "release_publish", TargetIdentity: "release:stable", TargetClass: risk.TargetClassReleaseAdjacent,
+		EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh, RecommendedControl: risk.RecommendedControlApprovalRequired,
+		Stages: []risk.CompositionStage{{StageID: "source", Role: risk.CompositionStageRoleSource}, {StageID: "sink", Role: risk.CompositionStageRoleDestructiveSink}},
+	}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
+	if err := state.Save(statePath, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{composition}}}); err != nil {
+		t.Fatalf("save lifecycle state: %v", err)
+	}
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	if err := ingest.Save(ingest.DefaultPath(statePath), ingest.Bundle{GeneratedAt: now.Format(time.RFC3339), Records: []ingest.Record{{
+		RecordKind: ingest.RecordKindExternalControl, SourceType: "signed_declaration", Source: "gait-export", ObservedAt: now.Format(time.RFC3339), EvidenceClass: ingest.EvidenceClassApproval,
+		ProposedActionContractRef: composition.ProposedActionContract.ContractID, ContractRevision: composition.ProposedActionContract.Revision, ActionContractArtifactRef: "paca-gait-activation", ActionContractEvent: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified,
+	}}}); err != nil {
+		t.Fatalf("save lifecycle sidecar: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"export", "action-contracts", "--state", statePath, "--contract-id", composition.ProposedActionContract.ContractID, "--json"}, &out, &errOut); code != exitSuccess {
+		t.Fatalf("lifecycle export failed: %d %s", code, errOut.String())
+	}
+	var exported struct {
+		Collection struct {
+			Artifacts []struct {
+				Contract risk.ProposedActionContract `json:"contract"`
+			} `json:"artifacts"`
+		} `json:"collection"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &exported); err != nil || len(exported.Collection.Artifacts) != 1 || len(exported.Collection.Artifacts[0].Contract.LifecycleObservations) != 1 {
+		t.Fatalf("export omitted imported lifecycle evidence: err=%v payload=%s", err, out.String())
+	}
+	if got := exported.Collection.Artifacts[0].Contract; got.ContractID != composition.ProposedActionContract.ContractID || got.ContractContentDigest != composition.ProposedActionContract.ContractContentDigest {
+		t.Fatalf("export lifecycle projection mutated immutable contract identity: %+v", got)
+	}
+
+	out.Reset()
+	errOut.Reset()
+	if code := Run([]string{"report", "--template", "action-contract-packet", "--contract-id", composition.ProposedActionContract.ContractID, "--share-profile", "internal", "--state", statePath, "--json"}, &out, &errOut); code != exitSuccess {
+		t.Fatalf("lifecycle packet failed: %d %s", code, errOut.String())
+	}
+	var packet struct {
+		LifecycleObservations []risk.ProposedActionLifecycleObservation `json:"lifecycle_observations"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &packet); err != nil || len(packet.LifecycleObservations) != 1 || packet.LifecycleObservations[0].Producer != "gait" {
+		t.Fatalf("packet omitted imported lifecycle evidence: err=%v payload=%s", err, out.String())
 	}
 }
 

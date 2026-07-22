@@ -252,6 +252,33 @@ func TestMapRiskIncludesPostureAssessment(t *testing.T) {
 	}
 }
 
+func TestMapRiskActionContractArtifactRefCreationRecord(t *testing.T) {
+	t.Parallel()
+	composition := risk.ComposedActionPath{CompositionID: "cap-proof-contract", OutcomeClass: "production_deploy", TargetIdentity: "prod", Stages: []risk.CompositionStage{{StageID: "source"}, {StageID: "sink"}}}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	composition.ProposedActionContract.LifecycleObservations = risk.NormalizeProposedActionLifecycleObservations([]risk.ProposedActionLifecycleObservation{{
+		Kind: risk.LifecycleObservationAxymVerification, Producer: "axym", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh", EvidenceRefs: []string{"axym:artifact:1"},
+	}})
+	records := MapRisk(risk.Report{ComposedActionPaths: []risk.ComposedActionPath{composition}}, score.Result{}, profileeval.Result{}, SecurityVisibilityContext{}, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+	found := false
+	for _, record := range records {
+		if record.Event["assessment_type"] != "proposed_action_contract_creation" {
+			continue
+		}
+		found = true
+		if record.Event["contract_id"] != composition.ProposedActionContract.ContractID {
+			t.Fatalf("creation assessment lost contract identity: %+v", record.Event)
+		}
+		refs, _ := record.Event["lifecycle_refs"].([]string)
+		if len(refs) == 0 {
+			t.Fatalf("creation assessment lost downstream artifact refs: %+v", record.Event)
+		}
+	}
+	if !found {
+		t.Fatalf("expected sanctioned risk_assessment creation record, got %+v", records)
+	}
+}
+
 func TestMapRiskIncludesActionPathGovernanceControls(t *testing.T) {
 	t.Parallel()
 

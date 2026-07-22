@@ -56,6 +56,13 @@ type CompositionCorrelationRef struct {
 	EvidenceState              string            `json:"evidence_state,omitempty"`
 	PolicyCoverageStatus       string            `json:"policy_coverage_status,omitempty"`
 	GaitCoverageSummary        map[string]string `json:"gait_coverage_summary,omitempty"`
+	ProposedActionContractID   string            `json:"proposed_action_contract_id,omitempty"`
+	ContractFamilyID           string            `json:"contract_family_id,omitempty"`
+	ContractRevision           int               `json:"contract_revision,omitempty"`
+	ContractContentDigest      string            `json:"contract_content_digest,omitempty"`
+	SupersedesRef              string            `json:"supersedes_ref,omitempty"`
+	ActionContractArtifactRefs []string          `json:"action_contract_artifact_refs,omitempty"`
+	LifecycleObservationRefs   []string          `json:"lifecycle_observation_refs,omitempty"`
 }
 
 func BuildEvidenceBundle(summary Summary) EvidenceBundle {
@@ -116,6 +123,21 @@ func buildCompositionCorrelationRefs(summary Summary) []CompositionCorrelationRe
 		ref.PolicyCoverageStatus = firstNonEmptyValue(ref.PolicyCoverageStatus, strings.TrimSpace(composition.PolicyCoverageStatus))
 		if gaitCoverage := compositionGaitCoverageSummary(composition.GaitCoverage); len(gaitCoverage) > 0 {
 			ref.GaitCoverageSummary = gaitCoverage
+		}
+		if contract := composition.ProposedActionContract; contract != nil {
+			ref.ProposedActionContractID = firstNonEmptyValue(ref.ProposedActionContractID, strings.TrimSpace(contract.ContractID))
+			ref.ContractFamilyID = firstNonEmptyValue(ref.ContractFamilyID, strings.TrimSpace(contract.ContractFamilyID))
+			if ref.ContractRevision == 0 {
+				ref.ContractRevision = contract.Revision
+			}
+			ref.ContractContentDigest = firstNonEmptyValue(ref.ContractContentDigest, strings.TrimSpace(contract.ContractContentDigest))
+			ref.SupersedesRef = firstNonEmptyValue(ref.SupersedesRef, strings.TrimSpace(contract.SupersedesRef))
+			for _, observation := range contract.LifecycleObservations {
+				ref.LifecycleObservationRefs = append(ref.LifecycleObservationRefs, observation.ObservationID)
+				ref.ActionContractArtifactRefs = append(ref.ActionContractArtifactRefs, observation.EvidenceRefs...)
+			}
+			ref.LifecycleObservationRefs = uniqueSortedStrings(ref.LifecycleObservationRefs)
+			ref.ActionContractArtifactRefs = uniqueSortedStrings(ref.ActionContractArtifactRefs)
 		}
 		refsByID[compositionID] = ref
 	}

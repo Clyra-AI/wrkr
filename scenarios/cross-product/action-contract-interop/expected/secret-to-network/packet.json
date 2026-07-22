@@ -1,7 +1,7 @@
 {
   "schema_id": "https://wrkr.dev/schemas/v1/report/action-contract-packet.schema.json",
   "schema_version": "1",
-  "packet_id": "pacpkt-0d5a36b9cadbd355",
+  "packet_id": "pacpkt-4611e5399b5c85b9",
   "template": "action-contract-packet",
   "section_order": [
     "identity",
@@ -17,11 +17,11 @@
     "next_step"
   ],
   "identity": {
-    "artifact_id": "paca-603a73492e7a2f5e",
-    "contract_id": "pac-9f69559f67f9c080",
+    "artifact_id": "paca-e29630c61873abe6",
+    "contract_id": "pac-3d718739c1914c4f",
     "contract_family_id": "pacf-f1ebb01ae13ce9bf",
-    "contract_content_digest": "sha256:9af69452c7227c8c6f527d8e0c27d56270c97cf2a1055a2f69721d22a49a38e4",
-    "canonical_content_digest": "sha256:603a73492e7a2f5e6b910879d12e781e34387340a3d4dc63ecec425757aec4dc",
+    "contract_content_digest": "sha256:7194462741f8c6f95e4463d56bea9d99ce3666b68b9a87d08432391f2508dc24",
+    "canonical_content_digest": "sha256:e29630c61873abe6841c696c7630a748443b30c860327ab57520d9d31082f092",
     "contract_version": "3",
     "revision": 1,
     "share_profile": "internal",
@@ -81,6 +81,7 @@
       "requirement_id": "pacr-df1a9edce4333f58",
       "kind": "affected_system_owner",
       "required_constraint": "affected_system_owner:required",
+      "observed_value": "owner:system:@local/demo",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
@@ -88,13 +89,12 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
-        "authority:affected_system_owner:missing",
         "authority:affected_system_owner:unknown"
       ]
     },
@@ -109,10 +109,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "authority:business_owner:missing",
@@ -120,10 +120,9 @@
       ]
     },
     {
-      "requirement_id": "pacr-bfca75df506b6442",
+      "requirement_id": "pacr-ff39fdf73a19c65a",
       "kind": "credential_subject_constraint",
-      "required_constraint": "subject:built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
-      "observed_value": "built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a",
+      "required_constraint": "credential_subject:required",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
@@ -131,12 +130,13 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
+        "authority:credential_subject_constraint:missing",
         "authority:credential_subject_constraint:unknown"
       ]
     },
@@ -152,20 +152,20 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "authority:delegation_root:unknown"
       ]
     },
     {
-      "requirement_id": "pacr-9930dad60e58de07",
+      "requirement_id": "pacr-1e822b4b44b7bfe9",
       "kind": "originating_intent",
-      "required_constraint": "composition:cap-110b7a48410900f0",
-      "observed_value": "secret_to_network",
+      "required_constraint": "originating_task_or_intent:required",
+      "observed_value": "intent:mcp integration",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
@@ -173,20 +173,19 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "authority:originating_intent:unknown"
       ]
     },
     {
-      "requirement_id": "pacr-196a0029ff06ba3b",
+      "requirement_id": "pacr-534ec8f882bb7859",
       "kind": "permitted_agent_role",
-      "required_constraint": "roles:external_sink,source",
-      "observed_value": "external_sink,source",
+      "required_constraint": "permitted_agent_role:required",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
@@ -194,12 +193,13 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
+        "authority:permitted_agent_role:missing",
         "authority:permitted_agent_role:unknown"
       ]
     },
@@ -207,6 +207,7 @@
       "requirement_id": "pacr-985a0005058f38e5",
       "kind": "policy_authority",
       "required_constraint": "policy_authority:required",
+      "observed_value": "policy:gait://release-control",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
@@ -214,13 +215,12 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
-        "authority:policy_authority:missing",
         "authority:policy_authority:unknown"
       ]
     },
@@ -228,7 +228,6 @@
       "requirement_id": "pacr-37582334526ef3c5",
       "kind": "requester_identity",
       "required_constraint": "requester_identity:required",
-      "observed_value": "stage:cas-3fb346f96b15e310",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
@@ -236,12 +235,13 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
+        "authority:requester_identity:missing",
         "authority:requester_identity:unknown"
       ]
     },
@@ -256,10 +256,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "authority:separation_of_duties:missing",
@@ -272,7 +272,7 @@
     "requirement_ids": [
       "pacp-c1e4062e25a98c76",
       "pacr-37582334526ef3c5",
-      "pacr-bfca75df506b6442"
+      "pacr-ff39fdf73a19c65a"
     ],
     "evidence_state": "unknown",
     "freshness_state": "unknown",
@@ -296,10 +296,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:credential_mode:unknown"
@@ -321,10 +321,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:effect_contract:missing",
@@ -349,10 +349,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:environment:unknown"
@@ -375,10 +375,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:expected_effect:unknown"
@@ -400,10 +400,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:forbidden_effect:missing",
@@ -427,10 +427,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:freshness:not_fresh",
@@ -441,8 +441,8 @@
       "requirement_id": "pacp-e8b88ec8fb850e44",
       "kind": "policy_digest",
       "required_constraint": "policy_digest:required",
-      "observed_value": "sha256:a5ddbab28d6035e1c3ab13d260c3f02bad65d30934da739fafc23048603e0dad",
-      "observed_result": "sha256:a5ddbab28d6035e1c3ab13d260c3f02bad65d30934da739fafc23048603e0dad",
+      "observed_value": "sha256:5ab243ed873402f27d5c600d28e33936b7d939c2251e1c02a4bd89f512c2b4fe",
+      "observed_result": "sha256:5ab243ed873402f27d5c600d28e33936b7d939c2251e1c02a4bd89f512c2b4fe",
       "acceptable_producers": [
         "control_declaration",
         "gait_policy"
@@ -455,10 +455,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:policy_digest:unknown"
@@ -469,6 +469,7 @@
       "kind": "producer",
       "required_constraint": "producer:approved",
       "acceptable_producers": [
+        "ci",
         "control_declaration",
         "gait_policy"
       ],
@@ -480,10 +481,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:producer:missing",
@@ -507,10 +508,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:required_check:missing",
@@ -533,10 +534,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:sandbox:missing",
@@ -560,10 +561,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:target:unknown"
@@ -585,10 +586,10 @@
         "approval_status=unapproved",
         "baseline:discovered_surface",
         "deploy-control",
+        "intent:mcp integration",
         "matched_target:built_in:deploy_workflow",
         "mutable_endpoint_semantic:deploy",
-        "mutable_endpoint_semantic:production_mutation",
-        "permission:mcp.access"
+        "mutable_endpoint_semantic:production_mutation"
       ],
       "reason_codes": [
         "precondition:validation_contract:missing",
@@ -609,16 +610,6 @@
     "required": false,
     "evidence_state": "verified",
     "freshness_state": "unknown",
-    "evidence_refs": [
-      ".gait/policy.yaml",
-      "approval_status=unapproved",
-      "baseline:discovered_surface",
-      "deploy-control",
-      "matched_target:built_in:deploy_workflow",
-      "mutable_endpoint_semantic:deploy",
-      "mutable_endpoint_semantic:production_mutation",
-      "permission:mcp.access"
-    ],
     "reason_codes": [
       "confirmation:not_required"
     ]
@@ -633,7 +624,7 @@
     "separation_of_duties": [
       "requester_must_not_approve"
     ],
-    "scope_digest": "sha256:892da39ff4b2b90abffdc747691166a40f56601580c45128b88338fc52972be9",
+    "scope_digest": "sha256:0e69a3b8e17ceaaa1f241b1728fc0b9f44e9108c722abd7b68a90cb39491a301",
     "validity_window": "PT24H",
     "reapproval_triggers": [
       "contract_content_change",
@@ -641,16 +632,6 @@
     ],
     "evidence_state": "verified",
     "freshness_state": "unknown",
-    "evidence_refs": [
-      ".gait/policy.yaml",
-      "approval_status=unapproved",
-      "baseline:discovered_surface",
-      "deploy-control",
-      "matched_target:built_in:deploy_workflow",
-      "mutable_endpoint_semantic:deploy",
-      "mutable_endpoint_semantic:production_mutation",
-      "permission:mcp.access"
-    ],
     "reason_codes": [
       "approval:not_required"
     ]
@@ -667,16 +648,6 @@
     ],
     "evidence_state": "verified",
     "freshness_state": "unknown",
-    "evidence_refs": [
-      ".gait/policy.yaml",
-      "approval_status=unapproved",
-      "baseline:discovered_surface",
-      "deploy-control",
-      "matched_target:built_in:deploy_workflow",
-      "mutable_endpoint_semantic:deploy",
-      "mutable_endpoint_semantic:production_mutation",
-      "permission:mcp.access"
-    ],
     "reason_codes": [
       "compensation:not_required"
     ]
@@ -688,7 +659,6 @@
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "reason_codes": [
-        "authority:affected_system_owner:missing",
         "authority:affected_system_owner:unknown"
       ]
     },
@@ -703,11 +673,12 @@
       ]
     },
     {
-      "requirement_id": "pacr-bfca75df506b6442",
+      "requirement_id": "pacr-ff39fdf73a19c65a",
       "kind": "authority:credential_subject_constraint",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "reason_codes": [
+        "authority:credential_subject_constraint:missing",
         "authority:credential_subject_constraint:unknown"
       ]
     },
@@ -721,7 +692,7 @@
       ]
     },
     {
-      "requirement_id": "pacr-9930dad60e58de07",
+      "requirement_id": "pacr-1e822b4b44b7bfe9",
       "kind": "authority:originating_intent",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
@@ -730,11 +701,12 @@
       ]
     },
     {
-      "requirement_id": "pacr-196a0029ff06ba3b",
+      "requirement_id": "pacr-534ec8f882bb7859",
       "kind": "authority:permitted_agent_role",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "reason_codes": [
+        "authority:permitted_agent_role:missing",
         "authority:permitted_agent_role:unknown"
       ]
     },
@@ -744,7 +716,6 @@
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "reason_codes": [
-        "authority:policy_authority:missing",
         "authority:policy_authority:unknown"
       ]
     },
@@ -754,6 +725,7 @@
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "reason_codes": [
+        "authority:requester_identity:missing",
         "authority:requester_identity:unknown"
       ]
     },
@@ -913,123 +885,108 @@
   },
   "truncations": [
     {
-      "field": "approval_requirement.evidence_refs",
-      "omitted_count": 6,
-      "reason": "item_cap"
-    },
-    {
-      "field": "authority_requirements.pacr-196a0029ff06ba3b.evidence_refs",
-      "omitted_count": 6,
+      "field": "authority_requirements.pacr-1e822b4b44b7bfe9.evidence_refs",
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-37582334526ef3c5.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
+      "reason": "item_cap"
+    },
+    {
+      "field": "authority_requirements.pacr-534ec8f882bb7859.evidence_refs",
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-77a91a5d884609db.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-985a0005058f38e5.evidence_refs",
-      "omitted_count": 6,
-      "reason": "item_cap"
-    },
-    {
-      "field": "authority_requirements.pacr-9930dad60e58de07.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-9fbb747ec221020d.evidence_refs",
-      "omitted_count": 6,
-      "reason": "item_cap"
-    },
-    {
-      "field": "authority_requirements.pacr-bfca75df506b6442.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-df1a9edce4333f58.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-eb142f1e80dbf354.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
-      "field": "compensation_requirement.evidence_refs",
-      "omitted_count": 6,
-      "reason": "item_cap"
-    },
-    {
-      "field": "confirmation_requirement.evidence_refs",
-      "omitted_count": 6,
+      "field": "authority_requirements.pacr-ff39fdf73a19c65a.evidence_refs",
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-023911ca32ab295e.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-27a4bcfeae5f0ee0.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-6377b2020e999ba5.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-7dff3acf9ea3ad1b.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-84b68ba57822f176.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-8e55dfaf69f07a02.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-b28c78e6ec3ec93e.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-c1e4062e25a98c76.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-cea9561fb612c48d.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-e8b88ec8fb850e44.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-f80dd381e63e83b0.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-ffdd4bb0e947a53d.evidence_refs",
-      "omitted_count": 6,
+      "omitted_count": 9,
       "reason": "item_cap"
     }
   ],

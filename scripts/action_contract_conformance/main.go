@@ -279,10 +279,13 @@ func applyScenarioMutation(composition *risk.ComposedActionPath, scenario scenar
 	case "supersession":
 		predecessor := risk.CloneProposedActionContract(contract)
 		observations := scenarioLifecycleObservations(scenario.ScenarioID)
-		successor, err := risk.BuildProposedActionContractRevision(*composition, predecessor, observations)
+		successorInput := *composition
+		successorInput.EvidenceRefs = append(append([]string(nil), composition.EvidenceRefs...), "revision_change:"+scenario.ScenarioID)
+		successor, err := risk.BuildProposedActionContractRevision(successorInput, predecessor, observations)
 		if err != nil {
 			return fmt.Errorf("build supersession revision: %w", err)
 		}
+		*composition = successorInput
 		composition.ProposedActionContract = successor
 		return nil
 	default:

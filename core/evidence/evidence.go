@@ -182,6 +182,11 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := state.IncompleteSourceError(resolvedStatePath, snapshot); err != nil {
 		return BuildResult{}, classifyError(ErrorClassInvalidInput, err)
 	}
+	runtimeLifecycleBundle, _, err := ingest.LoadOptional(resolvedStatePath)
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load imported Action Contract lifecycle evidence: %w", err)
+	}
+	snapshot = ingest.ApplyActionContractLifecycleEvidence(snapshot, runtimeLifecycleBundle)
 	chainPath := proofemit.ChainPath(resolvedStatePath)
 	if _, err := os.Stat(chainPath); err != nil {
 		if os.IsNotExist(err) {

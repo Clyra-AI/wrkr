@@ -375,7 +375,7 @@ func TestProposedActionContractIncludesCompositionTransitionsAndReportOnly(t *te
 		t.Fatalf("expected absent expiry reason code, got %v", contract.ReasonCodes)
 	}
 	if contract.ReadinessState != proposedActionContractReadinessNeedsEvidence {
-		t.Fatalf("expected schema-valid needs-evidence readiness, got %q", contract.ReadinessState)
+		t.Fatalf("expected schema-valid needs-evidence readiness, got %q reasons=%v preconditions=%+v", contract.ReadinessState, contract.ReasonCodes, contract.Preconditions)
 	}
 	if contract.RequiredCredentialMode != proposedCredentialModeScoped {
 		t.Fatalf("expected schema-valid scoped credential mode, got %q", contract.RequiredCredentialMode)

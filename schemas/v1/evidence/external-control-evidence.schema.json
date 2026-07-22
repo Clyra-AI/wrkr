@@ -140,6 +140,8 @@
             "branch_protection",
             "protected_environment",
             "deployment_approval",
+            "action_outcome",
+            "proof_verification",
             "required_check",
             "security_gate",
             "workflow_permission",
@@ -163,6 +165,37 @@
         },
         "branch": {
           "type": "string"
+        },
+        "proposed_action_contract_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_family_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "action_contract_artifact_ref": {
+          "type": "string"
+        },
+        "action_contract_event": {
+          "type": "string",
+          "enum": ["gait_activation_request", "gait_activation_receipt", "gait_rejection", "supersession", "gait_execution", "gait_effect", "axym_verification"]
+        },
+        "producer": {
+          "type": "string",
+          "enum": ["gait", "axym"]
+        },
+        "evidence_state": {
+          "type": "string",
+          "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {"type": "string"}
         }
       },
       "anyOf": [
@@ -173,6 +206,8 @@
         {"required": ["proof_ref"]},
         {"required": ["graph_node_refs"]},
         {"required": ["graph_edge_refs"]},
+        {"required": ["proposed_action_contract_ref", "action_contract_event", "producer"]},
+        {"required": ["contract_family_id", "contract_revision", "action_contract_event", "producer"]},
         {
           "required": ["repo", "location"]
         },

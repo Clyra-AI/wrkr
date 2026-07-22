@@ -14,7 +14,7 @@ description: "Compatibility expectations for Wrkr command contracts, schema surf
 | Schema assets in `schemas/v1` | Backward-compatible additive changes |
 | `composed_action_paths` and proposed Action Contracts | Additive v1 surfaces; pairwise IDs remain supported, bounded multi-stage pattern IDs/fields are additive, stable IDs exclude volatile path IDs, and contracts remain report-only |
 | Proposed Action Contract v2 | Frozen reader-compatible schema; never silently rewritten to v3 |
-| Proposed Action Contract v3 | Typed authority, precondition, confirmation, approval, compensation, revision, and imported-lifecycle contract |
+| Proposed Action Contract v3 | Typed authority, precondition, confirmation, approval, compensation, revision, and imported-lifecycle contract; external records correlate by exact contract ID or family/revision and preserve producer/evidence state |
 | Action Contract artifact v1 | Opt-in JCS-digested portable envelope from `wrkr export action-contracts` |
 | Action Contract packet v1 | Opt-in single-contract JSON/Markdown buyer projection from the normalized portable artifact; excluded from default reports |
 | Action Contract conformance fixture v1 | Exact production-generated artifact and packet bytes pinned by producer/schema versions and SHA-256 digests; deliberate updates only |

@@ -13,6 +13,7 @@ import (
 	exportappendix "github.com/Clyra-AI/wrkr/core/export/appendix"
 	exportinventory "github.com/Clyra-AI/wrkr/core/export/inventory"
 	exporttickets "github.com/Clyra-AI/wrkr/core/export/tickets"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -145,6 +146,11 @@ func runExportActionContracts(args []string, stdout io.Writer, stderr io.Writer)
 	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
 		return code
 	}
+	runtimeBundle, _, err := ingest.LoadOptional(resolvedStatePath)
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	snapshot = ingest.ApplyActionContractLifecycleEvidence(snapshot, runtimeBundle)
 	collection, err := exportactioncontracts.Build(snapshot, exportactioncontracts.BuildOptions{
 		ShareProfile: profile,
 		ContractID:   strings.TrimSpace(*contractID),

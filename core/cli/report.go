@@ -188,6 +188,11 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
 		return code
 	}
+	runtimeBundle, _, runtimeBundleErr := ingest.LoadOptional(resolvedStatePath)
+	if runtimeBundleErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", runtimeBundleErr.Error(), exitRuntime)
+	}
+	snapshot = ingest.ApplyActionContractLifecycleEvidence(snapshot, runtimeBundle)
 	if template == reportcore.TemplateActionContractPacket {
 		return runActionContractPacketReport(snapshot, shareProfile, strings.TrimSpace(*contractID), *jsonOut, *md, *mdPath, stdout, stderr)
 	}

@@ -93,6 +93,25 @@ func TestBuildEvidenceBundleCarriesCompactCompositionRefs(t *testing.T) {
 	}
 }
 
+func TestBuildEvidenceBundleCarriesActionContractArtifactRefs(t *testing.T) {
+	t.Parallel()
+	contract := &risk.ProposedActionContract{
+		ContractID: "pac-evidence", ContractFamilyID: "pacf-evidence", ContractContentDigest: "sha256:evidence", Revision: 2, SupersedesRef: "pac-prior",
+		LifecycleObservations: risk.NormalizeProposedActionLifecycleObservations([]risk.ProposedActionLifecycleObservation{{Kind: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh", EvidenceRefs: []string{"paca-gait-receipt"}}}),
+	}
+	bundle := BuildEvidenceBundle(Summary{ComposedActionPaths: []risk.ComposedActionPath{{CompositionID: "cap-evidence", ProposedActionContract: contract}}})
+	if len(bundle.CompositionRefs) != 1 {
+		t.Fatalf("expected one contract correlation, got %+v", bundle.CompositionRefs)
+	}
+	ref := bundle.CompositionRefs[0]
+	if ref.ProposedActionContractID != contract.ContractID || ref.ContractFamilyID != contract.ContractFamilyID || ref.ContractRevision != 2 || ref.SupersedesRef != "pac-prior" {
+		t.Fatalf("expected explicit immutable contract refs, got %+v", ref)
+	}
+	if !reflect.DeepEqual(ref.ActionContractArtifactRefs, []string{"paca-gait-receipt"}) || len(ref.LifecycleObservationRefs) != 1 {
+		t.Fatalf("expected lifecycle artifact and observation refs, got %+v", ref)
+	}
+}
+
 func TestValidateShareableArtifactsFailsClosedOnResidualSensitiveTokens(t *testing.T) {
 	t.Parallel()
 

@@ -265,6 +265,22 @@ func TestControlPathGraphStableIDs(t *testing.T) {
 	}
 }
 
+func TestControlPathGraphCompositionEvidenceRefsRemainDeterministic(t *testing.T) {
+	t.Parallel()
+	input := ControlPathInput{
+		PathID: "apc-composition", AgentID: "wrkr:codex:acme", Org: "acme", Repo: "acme/release", ToolType: "codex", Location: ".github/workflows/release.yml",
+		PolicyRefs: []string{"policy:z", "policy:a"}, AttackPathRefs: []string{"atk:z", "atk:a"}, SourceFindingKeys: []string{"finding:z", "finding:a"}, MatchedProductionTargets: []string{"prod:cluster"}, DeployWrite: true, ProductionWrite: true,
+	}
+	first := BuildControlPathGraph([]ControlPathInput{input})
+	input.PolicyRefs = []string{"policy:a", "policy:z"}
+	input.AttackPathRefs = []string{"atk:a", "atk:z"}
+	input.SourceFindingKeys = []string{"finding:a", "finding:z"}
+	second := BuildControlPathGraph([]ControlPathInput{input})
+	if first == nil || second == nil || !reflect.DeepEqual(first, second) {
+		t.Fatalf("composition correlation evidence ordering changed graph identity: first=%+v second=%+v", first, second)
+	}
+}
+
 func TestControlPathGraphLinksIdentityCredentialToolWorkflowTargetAction(t *testing.T) {
 	t.Parallel()
 

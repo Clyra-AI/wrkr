@@ -10,36 +10,41 @@ import (
 )
 
 const (
-	DriftCategoryNewWritePaths                       = "new_write_paths"
-	DriftCategoryNewDeployPaths                      = "new_deploy_paths"
-	DriftCategoryNewCredentials                      = "new_credentials"
-	DriftCategoryNewUnknownApproval                  = "new_unknown_approval_evidence"
-	DriftCategoryResolvedGaps                        = "resolved_gaps"
-	DriftCategoryWorsenedPaths                       = "worsened_paths"
-	DriftCategoryNewContradictions                   = "new_contradictions"
-	DriftCategoryPathsReadyForControl                = "paths_ready_for_control"
-	DriftCategoryRemovedPaths                        = "removed_paths"
-	DriftCategoryChangedAuthority                    = "changed_authority"
-	DriftCategoryChangedEvidence                     = "changed_evidence"
-	DriftCategoryChangedTargetClass                  = "changed_target_class"
-	DriftCategoryIntroducedCompositions              = "introduced_compositions"
-	DriftCategoryRemovedCompositions                 = "removed_compositions"
-	DriftCategoryChangedCompositionMembers           = "changed_composition_members"
-	DriftCategoryNewCompositionSinks                 = "newly_introduced_sinks"
-	DriftCategoryCompositionCoverageDegraded         = "composition_coverage_degraded"
-	DriftCategoryCompositionEvidenceDegraded         = "composition_evidence_degraded"
-	DriftCategoryNewlyUngovernedCompositions         = "newly_ungoverned_compositions"
-	DriftCategoryWorsenedCompositionRecommendation   = "worsened_composition_recommendation"
-	DriftCategoryAlternateRouteAppeared              = "alternate_route_appeared"
-	DriftCategoryCompositionOutcomeChanged           = "composition_outcome_changed"
-	DriftCategoryCompositionReachabilityChanged      = "composition_reachability_changed"
-	DriftComparisonStatusOK                          = "ok"
-	DriftComparisonStatusBaselineMissing             = "baseline_action_paths_unavailable"
-	DriftComparisonStatusCurrentMissing              = "current_action_paths_unavailable"
-	DriftComparisonStatusBaselineCompositionsMissing = "baseline_compositions_unavailable"
-	DriftComparisonStatusCurrentCompositionsMissing  = "current_compositions_unavailable"
-	DriftComparisonStatusIncomplete                  = "comparison_incomplete"
-	driftExampleLimit                                = 5
+	DriftCategoryNewWritePaths                        = "new_write_paths"
+	DriftCategoryNewDeployPaths                       = "new_deploy_paths"
+	DriftCategoryNewCredentials                       = "new_credentials"
+	DriftCategoryNewUnknownApproval                   = "new_unknown_approval_evidence"
+	DriftCategoryResolvedGaps                         = "resolved_gaps"
+	DriftCategoryWorsenedPaths                        = "worsened_paths"
+	DriftCategoryNewContradictions                    = "new_contradictions"
+	DriftCategoryPathsReadyForControl                 = "paths_ready_for_control"
+	DriftCategoryRemovedPaths                         = "removed_paths"
+	DriftCategoryChangedAuthority                     = "changed_authority"
+	DriftCategoryChangedEvidence                      = "changed_evidence"
+	DriftCategoryChangedTargetClass                   = "changed_target_class"
+	DriftCategoryIntroducedCompositions               = "introduced_compositions"
+	DriftCategoryRemovedCompositions                  = "removed_compositions"
+	DriftCategoryChangedCompositionMembers            = "changed_composition_members"
+	DriftCategoryNewCompositionSinks                  = "newly_introduced_sinks"
+	DriftCategoryCompositionCoverageDegraded          = "composition_coverage_degraded"
+	DriftCategoryCompositionEvidenceDegraded          = "composition_evidence_degraded"
+	DriftCategoryNewlyUngovernedCompositions          = "newly_ungoverned_compositions"
+	DriftCategoryWorsenedCompositionRecommendation    = "worsened_composition_recommendation"
+	DriftCategoryAlternateRouteAppeared               = "alternate_route_appeared"
+	DriftCategoryCompositionOutcomeChanged            = "composition_outcome_changed"
+	DriftCategoryCompositionReachabilityChanged       = "composition_reachability_changed"
+	DriftCategoryActionContractRevisionChanged        = "action_contract_revision_changed"
+	DriftCategoryActionContractActivationChanged      = "action_contract_activation_evidence_changed"
+	DriftCategoryActionContractRejectionChanged       = "action_contract_rejection_evidence_changed"
+	DriftCategoryActionContractExecutionEffectChanged = "action_contract_execution_effect_evidence_changed"
+	DriftCategoryActionContractVerificationChanged    = "action_contract_verification_reference_changed"
+	DriftComparisonStatusOK                           = "ok"
+	DriftComparisonStatusBaselineMissing              = "baseline_action_paths_unavailable"
+	DriftComparisonStatusCurrentMissing               = "current_action_paths_unavailable"
+	DriftComparisonStatusBaselineCompositionsMissing  = "baseline_compositions_unavailable"
+	DriftComparisonStatusCurrentCompositionsMissing   = "current_compositions_unavailable"
+	DriftComparisonStatusIncomplete                   = "comparison_incomplete"
+	driftExampleLimit                                 = 5
 )
 
 type ActionPathState struct {
@@ -361,6 +366,36 @@ var driftCategoryPlanOrder = []categoryMetadata{
 			"Review reachability-state changes before carrying forward a prior Action Contract decision.",
 			"Require imported runtime proof before treating a possible or incomplete route as observed execution.",
 		},
+	},
+	{
+		category:    DriftCategoryActionContractRevisionChanged,
+		severity:    "high",
+		priority:    "P0",
+		recommended: []string{"Validate the exact proposed Action Contract revision chain before carrying forward approval evidence."},
+	},
+	{
+		category:    DriftCategoryActionContractActivationChanged,
+		severity:    "high",
+		priority:    "P0",
+		recommended: []string{"Review imported Gait activation evidence for the exact immutable contract revision."},
+	},
+	{
+		category:    DriftCategoryActionContractRejectionChanged,
+		severity:    "high",
+		priority:    "P0",
+		recommended: []string{"Review imported Gait rejection evidence and keep activation state contradictory when sources disagree."},
+	},
+	{
+		category:    DriftCategoryActionContractExecutionEffectChanged,
+		severity:    "high",
+		priority:    "P0",
+		recommended: []string{"Review imported execution and effect evidence without treating static reachability as execution."},
+	},
+	{
+		category:    DriftCategoryActionContractVerificationChanged,
+		severity:    "medium",
+		priority:    "P1",
+		recommended: []string{"Review changed Axym verification references before refreshing the baseline."},
 	},
 }
 
