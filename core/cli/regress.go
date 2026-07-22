@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -60,6 +61,10 @@ func runRegressInit(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, scanPath, snapshot); handled {
 		return code
+	}
+	snapshot, err = applyRegressRuntimeLifecycleEvidence(scanPath, snapshot)
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 
 	baseline := regress.BuildBaseline(snapshot, time.Now().UTC().Truncate(time.Second))
@@ -133,6 +138,10 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
 		return code
 	}
+	snapshot, err = applyRegressRuntimeLifecycleEvidence(resolvedStatePath, snapshot)
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
 
 	result := regress.Compare(baseline, snapshot)
 	result.BaselinePath = filepath.Clean(resolvedBaselinePath)
@@ -190,4 +199,12 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 
 func defaultBaselinePath(scanPath string) string {
 	return filepath.Join(filepath.Dir(scanPath), regress.DefaultBaselineFilename)
+}
+
+func applyRegressRuntimeLifecycleEvidence(statePath string, snapshot state.Snapshot) (state.Snapshot, error) {
+	runtimeBundle, _, err := ingest.LoadOptional(statePath)
+	if err != nil {
+		return state.Snapshot{}, err
+	}
+	return ingest.ApplyActionContractLifecycleEvidence(snapshot, runtimeBundle), nil
 }

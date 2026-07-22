@@ -49,6 +49,39 @@ func TestActionContractLifecycleRejectsWrongProducerAndMissingContractCorrelatio
 	}
 }
 
+func TestActionContractLifecycleCorrelationRequiresMatchingFamilyRevision(t *testing.T) {
+	t.Parallel()
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-family-revision", PathIDs: []string{"apc-family-revision"}, OutcomeClass: "production_deploy", TargetIdentity: "prod",
+		EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh,
+		Stages: []risk.CompositionStage{{StageID: "source", Role: risk.CompositionStageRoleSource}, {StageID: "sink", Role: risk.CompositionStageRolePrivilegedSink}},
+	}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	snapshot := state.Snapshot{RiskReport: &risk.Report{
+		ActionPaths: []risk.ActionPath{{PathID: "apc-family-revision", AgentID: "wrkr:workflow-release:acme", Repo: "acme/release", Location: ".github/workflows/release.yml"}},
+		ComposedActionPaths: []risk.ComposedActionPath{
+			composition,
+		},
+	}}
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+
+	mismatched := Correlate(snapshot, "runtime-evidence.json", Bundle{GeneratedAt: now.Format(time.RFC3339), Records: []Record{{
+		RecordKind: RecordKindExternalControl, SourceType: "signed_declaration", Source: "gait-export", ObservedAt: now.Format(time.RFC3339), EvidenceClass: EvidenceClassApproval,
+		ContractFamilyID: composition.ProposedActionContract.ContractFamilyID, ContractRevision: composition.ProposedActionContract.Revision + 1, ActionContractEvent: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified,
+	}}})
+	if mismatched.MatchedRecords != 0 || mismatched.UnmatchedRecords != 1 {
+		t.Fatalf("stale family revision must remain unmatched, got %+v", mismatched)
+	}
+
+	matched := Correlate(snapshot, "runtime-evidence.json", Bundle{GeneratedAt: now.Format(time.RFC3339), Records: []Record{{
+		RecordKind: RecordKindExternalControl, SourceType: "signed_declaration", Source: "gait-export", ObservedAt: now.Format(time.RFC3339), EvidenceClass: EvidenceClassApproval,
+		ContractFamilyID: composition.ProposedActionContract.ContractFamilyID, ContractRevision: composition.ProposedActionContract.Revision, ActionContractEvent: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified,
+	}}})
+	if matched.MatchedRecords != 1 || matched.UnmatchedRecords != 0 {
+		t.Fatalf("matching family revision should correlate, got %+v", matched)
+	}
+}
+
 func TestActionContractLifecycleRecordIDsPreserveLegacyShape(t *testing.T) {
 	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
 	bundle, err := Normalize(Bundle{GeneratedAt: now, Records: []Record{

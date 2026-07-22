@@ -11,6 +11,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -424,6 +425,11 @@ func LoadComparableBaseline(path string) (Baseline, error) {
 		if err != nil {
 			return Baseline{}, err
 		}
+		runtimeBundle, _, err := ingest.LoadOptional(path)
+		if err != nil {
+			return Baseline{}, err
+		}
+		snapshot = ingest.ApplyActionContractLifecycleEvidence(snapshot, runtimeBundle)
 		return BuildBaselineFromSnapshot(snapshot), nil
 	default:
 		return Baseline{}, fmt.Errorf("parse baseline: expected regress baseline artifact or scan snapshot")

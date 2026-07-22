@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -482,6 +483,9 @@ type statePathMatch struct {
 	ActionClasses            []string
 	PolicyRefs               []string
 	MatchedProductionTargets []string
+	ContractID               string
+	ContractFamilyID         string
+	ContractRevision         int
 }
 
 type workflowMetadata struct {
@@ -568,7 +572,8 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		}
 	}
 	for _, composition := range snapshot.RiskReport.ComposedActionPaths {
-		if composition.ProposedActionContract == nil {
+		contract := composition.ProposedActionContract
+		if contract == nil {
 			continue
 		}
 		match := statePathMatch{}
@@ -581,18 +586,27 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		if match.PathID == "" {
 			continue
 		}
-		for _, ref := range []string{composition.ProposedActionContract.ContractID, composition.ProposedActionContract.ContractFamilyID} {
-			if strings.TrimSpace(ref) != "" {
-				index.byContractRef[strings.TrimSpace(ref)] = match
-			}
+		match.ContractID = strings.TrimSpace(contract.ContractID)
+		match.ContractFamilyID = strings.TrimSpace(contract.ContractFamilyID)
+		match.ContractRevision = contract.Revision
+		if match.ContractID != "" {
+			index.byContractRef[match.ContractID] = match
+		}
+		if key := contractFamilyRevisionKey(match.ContractFamilyID, match.ContractRevision); key != "" {
+			index.byContractRef[key] = match
 		}
 	}
 	return index
 }
 
 func (index pathMatchIndex) match(record Record) (string, statePathMatch) {
-	for _, ref := range []string{record.ProposedActionContractRef, record.ContractFamilyID} {
-		if matched, ok := index.byContractRef[strings.TrimSpace(ref)]; ok && strings.TrimSpace(ref) != "" {
+	if ref := strings.TrimSpace(record.ProposedActionContractRef); ref != "" {
+		if matched, ok := index.byContractRef[ref]; ok && contractRevisionMatchesRecord(record, matched) {
+			return matched.PathID, matched
+		}
+	}
+	if key := contractFamilyRevisionKey(record.ContractFamilyID, record.ContractRevision); key != "" {
+		if matched, ok := index.byContractRef[key]; ok {
 			return matched.PathID, matched
 		}
 	}
@@ -636,6 +650,24 @@ func (index pathMatchIndex) match(record Record) (string, statePathMatch) {
 		return "", statePathMatch{}
 	}
 	return best.PathID, best
+}
+
+func contractFamilyRevisionKey(familyID string, revision int) string {
+	familyID = strings.TrimSpace(familyID)
+	if familyID == "" || revision < 1 {
+		return ""
+	}
+	return familyID + "@revision:" + strconv.Itoa(revision)
+}
+
+func contractRevisionMatchesRecord(record Record, matched statePathMatch) bool {
+	if record.ContractFamilyID != "" && matched.ContractFamilyID != "" && strings.TrimSpace(record.ContractFamilyID) != matched.ContractFamilyID {
+		return false
+	}
+	if record.ContractRevision > 0 && matched.ContractRevision > 0 && record.ContractRevision != matched.ContractRevision {
+		return false
+	}
+	return true
 }
 
 func bestMatch(candidates []statePathMatch, record Record) (statePathMatch, bool) {
