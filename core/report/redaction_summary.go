@@ -560,6 +560,7 @@ func sanitizeProposedActionContractPublic(in *risk.ProposedActionContract) *risk
 	}
 	for idx := range out.LifecycleObservations {
 		out.LifecycleObservations[idx].EvidenceRefs = redactStringSlice(out.LifecycleObservations[idx].EvidenceRefs, "evidence")
+		out.LifecycleObservations[idx].ActionContractArtifactRefs = redactStringSlice(out.LifecycleObservations[idx].ActionContractArtifactRefs, "artifact")
 		out.LifecycleObservations[idx].ProofRefs = redactStringSlice(out.LifecycleObservations[idx].ProofRefs, "proof")
 	}
 	risk.RefreshProposedActionContractIdentity(out)

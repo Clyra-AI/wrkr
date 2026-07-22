@@ -127,15 +127,16 @@ type ProposedActionCompensation struct {
 // ProposedActionLifecycleObservation records evidence imported from Gait or
 // Axym. It is evidence about a downstream event, never a Wrkr transition.
 type ProposedActionLifecycleObservation struct {
-	ObservationID  string   `json:"observation_id"`
-	Kind           string   `json:"kind"`
-	Producer       string   `json:"producer"`
-	EvidenceState  string   `json:"evidence_state"`
-	FreshnessState string   `json:"freshness_state"`
-	ObservedAt     string   `json:"observed_at,omitempty"`
-	EvidenceRefs   []string `json:"evidence_refs,omitempty"`
-	ProofRefs      []string `json:"proof_refs,omitempty"`
-	ReasonCodes    []string `json:"reason_codes,omitempty"`
+	ObservationID              string   `json:"observation_id"`
+	Kind                       string   `json:"kind"`
+	Producer                   string   `json:"producer"`
+	EvidenceState              string   `json:"evidence_state"`
+	FreshnessState             string   `json:"freshness_state"`
+	ObservedAt                 string   `json:"observed_at,omitempty"`
+	EvidenceRefs               []string `json:"evidence_refs,omitempty"`
+	ActionContractArtifactRefs []string `json:"action_contract_artifact_refs,omitempty"`
+	ProofRefs                  []string `json:"proof_refs,omitempty"`
+	ReasonCodes                []string `json:"reason_codes,omitempty"`
 }
 
 type ProposedActionTransition struct {

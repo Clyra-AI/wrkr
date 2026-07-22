@@ -134,7 +134,7 @@ func buildCompositionCorrelationRefs(summary Summary) []CompositionCorrelationRe
 			ref.SupersedesRef = firstNonEmptyValue(ref.SupersedesRef, strings.TrimSpace(contract.SupersedesRef))
 			for _, observation := range contract.LifecycleObservations {
 				ref.LifecycleObservationRefs = append(ref.LifecycleObservationRefs, observation.ObservationID)
-				ref.ActionContractArtifactRefs = append(ref.ActionContractArtifactRefs, observation.EvidenceRefs...)
+				ref.ActionContractArtifactRefs = append(ref.ActionContractArtifactRefs, lifecycleActionContractArtifactRefs(observation)...)
 			}
 			ref.LifecycleObservationRefs = uniqueSortedStrings(ref.LifecycleObservationRefs)
 			ref.ActionContractArtifactRefs = uniqueSortedStrings(ref.ActionContractArtifactRefs)
@@ -154,6 +154,33 @@ func buildCompositionCorrelationRefs(summary Summary) []CompositionCorrelationRe
 		out = append(out, refsByID[id])
 	}
 	return out
+}
+
+func lifecycleActionContractArtifactRefs(observation risk.ProposedActionLifecycleObservation) []string {
+	if len(observation.ActionContractArtifactRefs) > 0 {
+		return uniqueSortedStrings(observation.ActionContractArtifactRefs)
+	}
+	refs := []string{}
+	for _, ref := range observation.EvidenceRefs {
+		if looksActionContractArtifactRef(ref) {
+			refs = append(refs, ref)
+		}
+	}
+	return uniqueSortedStrings(refs)
+}
+
+func looksActionContractArtifactRef(ref string) bool {
+	ref = strings.TrimSpace(ref)
+	switch {
+	case strings.HasPrefix(ref, "paca-"):
+		return true
+	case strings.HasPrefix(ref, "axym:artifact:"):
+		return true
+	case strings.HasPrefix(ref, "axym:bundle:"):
+		return true
+	default:
+		return false
+	}
 }
 
 func compositionGaitCoverageSummary(coverage *risk.GaitCoverage) map[string]string {

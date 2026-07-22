@@ -120,17 +120,23 @@ func NormalizeProposedActionLifecycleObservations(in []ProposedActionLifecycleOb
 		item.FreshnessState = proposedContractFreshnessState(item.FreshnessState)
 		item.ObservedAt = strings.TrimSpace(item.ObservedAt)
 		item.EvidenceRefs = dedupeSortedStrings(item.EvidenceRefs)
+		item.ActionContractArtifactRefs = dedupeSortedStrings(item.ActionContractArtifactRefs)
 		item.ProofRefs = dedupeSortedStrings(item.ProofRefs)
 		item.ReasonCodes = dedupeSortedStrings(item.ReasonCodes)
 		if !validLifecycleObservationKind(item.Kind) || item.Producer == "" {
 			item.EvidenceState = EvidenceStateContradictory
 			item.ReasonCodes = dedupeSortedStrings(append(item.ReasonCodes, "lifecycle:invalid_observation"))
 		}
-		item.ObservationID = "pacl-" + stableProposedContractHash(strings.Join([]string{item.Kind, item.Producer, strings.Join(item.EvidenceRefs, ","), strings.Join(item.ProofRefs, ",")}, "|"))
+		identityParts := []string{item.Kind, item.Producer, strings.Join(item.EvidenceRefs, ","), strings.Join(item.ProofRefs, ",")}
+		if len(item.ActionContractArtifactRefs) > 0 {
+			identityParts = []string{item.Kind, item.Producer, strings.Join(item.EvidenceRefs, ","), strings.Join(item.ActionContractArtifactRefs, ","), strings.Join(item.ProofRefs, ",")}
+		}
+		item.ObservationID = "pacl-" + stableProposedContractHash(strings.Join(identityParts, "|"))
 		if existing, ok := byID[item.ObservationID]; ok {
 			existing.EvidenceState = mergeLifecycleEvidenceState(existing.EvidenceState, item.EvidenceState)
 			existing.FreshnessState = mergeLifecycleFreshnessState(existing.FreshnessState, item.FreshnessState)
 			existing.EvidenceRefs = dedupeSortedStrings(append(existing.EvidenceRefs, item.EvidenceRefs...))
+			existing.ActionContractArtifactRefs = dedupeSortedStrings(append(existing.ActionContractArtifactRefs, item.ActionContractArtifactRefs...))
 			existing.ProofRefs = dedupeSortedStrings(append(existing.ProofRefs, item.ProofRefs...))
 			existing.ReasonCodes = dedupeSortedStrings(append(existing.ReasonCodes, item.ReasonCodes...))
 			byID[item.ObservationID] = existing
@@ -212,6 +218,7 @@ func cloneProposedActionLifecycleObservations(in []ProposedActionLifecycleObserv
 	out := append([]ProposedActionLifecycleObservation(nil), in...)
 	for idx := range out {
 		out[idx].EvidenceRefs = append([]string(nil), in[idx].EvidenceRefs...)
+		out[idx].ActionContractArtifactRefs = append([]string(nil), in[idx].ActionContractArtifactRefs...)
 		out[idx].ProofRefs = append([]string(nil), in[idx].ProofRefs...)
 		out[idx].ReasonCodes = append([]string(nil), in[idx].ReasonCodes...)
 	}

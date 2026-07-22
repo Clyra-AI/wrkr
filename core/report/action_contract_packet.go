@@ -379,6 +379,7 @@ func normalizePacketLifecycle(values []risk.ProposedActionLifecycleObservation, 
 	for index := range out {
 		field := "lifecycle_observations." + strings.TrimSpace(out[index].ObservationID)
 		out[index].EvidenceRefs = capPacketStrings(field+".evidence_refs", out[index].EvidenceRefs, actionContractPacketReferenceCap, truncations)
+		out[index].ActionContractArtifactRefs = capPacketStrings(field+".action_contract_artifact_refs", out[index].ActionContractArtifactRefs, actionContractPacketReferenceCap, truncations)
 		out[index].ProofRefs = capPacketStrings(field+".proof_refs", out[index].ProofRefs, actionContractPacketReferenceCap, truncations)
 		out[index].ReasonCodes = capPacketStrings(field+".reason_codes", out[index].ReasonCodes, actionContractPacketReferenceCap, truncations)
 	}
