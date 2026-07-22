@@ -85,7 +85,7 @@
     },
     "lifecycleObservation": {
       "type": "object", "required": ["observation_id", "kind", "producer", "evidence_state", "freshness_state"],
-      "properties": {"observation_id": {"type": "string"}, "kind": {"type": "string", "enum": ["proposal_creation", "gait_activation_request", "gait_activation_receipt", "gait_rejection", "supersession", "gait_execution", "gait_effect", "axym_verification"]}, "producer": {"type": "string"}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "observed_at": {"type": "string", "format": "date-time"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "proof_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
+      "properties": {"observation_id": {"type": "string"}, "kind": {"type": "string", "enum": ["proposal_creation", "gait_activation_request", "gait_activation_receipt", "gait_rejection", "supersession", "gait_execution", "gait_effect", "axym_verification"]}, "producer": {"type": "string"}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "observed_at": {"type": "string", "format": "date-time"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "action_contract_artifact_refs": {"type": "array", "items": {"type": "string"}}, "proof_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
     }
   }
 }

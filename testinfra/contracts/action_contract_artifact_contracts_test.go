@@ -26,7 +26,9 @@ func TestActionContractArtifactSchemaValidatesPortableV3Envelope(t *testing.T) {
 		"preconditions":            []any{map[string]any{"requirement_id": "pacp-target", "kind": "target", "required_constraint": "target:bounded", "evidence_state": "unknown", "freshness_state": "unknown"}},
 		"confirmation_requirement": map[string]any{"mode": "not_required", "required": false, "evidence_state": "verified", "freshness_state": "unknown"},
 		"approval_requirement":     map[string]any{"required": false, "minimum_approvals": 0, "scope_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "evidence_state": "verified", "freshness_state": "unknown"},
-		"compensation_requirement": map[string]any{"required": false, "kind": "not_required", "verification_required": false, "evidence_state": "verified", "freshness_state": "unknown"}, "maximum_delegation_depth": 1, "report_only": true,
+		"compensation_requirement": map[string]any{"required": false, "kind": "not_required", "verification_required": false, "evidence_state": "verified", "freshness_state": "unknown"},
+		"lifecycle_observations":   []any{map[string]any{"observation_id": "pacl-activation", "kind": "gait_activation_receipt", "producer": "gait", "evidence_state": "verified", "freshness_state": "fresh", "evidence_refs": []any{"runtime-record-1"}, "action_contract_artifact_refs": []any{"paca-0123456789abcdef"}}},
+		"maximum_delegation_depth": 1, "report_only": true,
 	}
 	fixture := map[string]any{
 		"schema_id": "https://wrkr.dev/schemas/v1/proposed-action-contract-artifact.schema.json", "schema_version": "1", "artifact_id": "paca-0123456789abcdef", "contract_id": "pac-0123456789abcdef", "contract_family_id": "pacf-0123", "revision": 1,

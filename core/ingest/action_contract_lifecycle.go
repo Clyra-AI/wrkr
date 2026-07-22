@@ -106,14 +106,15 @@ func applyLifecycleToCompositions(compositions []risk.ComposedActionPath, bundle
 				proofRefs = append(proofRefs, record.ProofRef)
 			}
 			observations = append(observations, risk.ProposedActionLifecycleObservation{
-				Kind:           record.ActionContractEvent,
-				Producer:       record.Producer,
-				EvidenceState:  record.EvidenceState,
-				FreshnessState: record.FreshnessState,
-				ObservedAt:     record.ObservedAt,
-				EvidenceRefs:   evidenceRefs,
-				ProofRefs:      proofRefs,
-				ReasonCodes:    append([]string(nil), record.ReasonCodes...),
+				Kind:                       record.ActionContractEvent,
+				Producer:                   record.Producer,
+				EvidenceState:              record.EvidenceState,
+				FreshnessState:             record.FreshnessState,
+				ObservedAt:                 record.ObservedAt,
+				EvidenceRefs:               evidenceRefs,
+				ActionContractArtifactRefs: mergeStrings(record.ActionContractArtifactRef),
+				ProofRefs:                  proofRefs,
+				ReasonCodes:                append([]string(nil), record.ReasonCodes...),
 			})
 			refs = append(refs, contract.ContractID, contract.ContractFamilyID, "revision:"+strconv.Itoa(contract.Revision), record.ActionContractArtifactRef, record.RecordID)
 		}

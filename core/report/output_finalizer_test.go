@@ -97,7 +97,11 @@ func TestBuildEvidenceBundleCarriesActionContractArtifactRefs(t *testing.T) {
 	t.Parallel()
 	contract := &risk.ProposedActionContract{
 		ContractID: "pac-evidence", ContractFamilyID: "pacf-evidence", ContractContentDigest: "sha256:evidence", Revision: 2, SupersedesRef: "pac-prior",
-		LifecycleObservations: risk.NormalizeProposedActionLifecycleObservations([]risk.ProposedActionLifecycleObservation{{Kind: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh", EvidenceRefs: []string{"paca-gait-receipt"}}}),
+		LifecycleObservations: risk.NormalizeProposedActionLifecycleObservations([]risk.ProposedActionLifecycleObservation{{
+			Kind: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh",
+			EvidenceRefs:               []string{"runtime-record-1", "pac-evidence", "pacf-evidence", "paca-legacy-receipt"},
+			ActionContractArtifactRefs: []string{"paca-gait-receipt"},
+		}}),
 	}
 	bundle := BuildEvidenceBundle(Summary{ComposedActionPaths: []risk.ComposedActionPath{{CompositionID: "cap-evidence", ProposedActionContract: contract}}})
 	if len(bundle.CompositionRefs) != 1 {
@@ -108,7 +112,7 @@ func TestBuildEvidenceBundleCarriesActionContractArtifactRefs(t *testing.T) {
 		t.Fatalf("expected explicit immutable contract refs, got %+v", ref)
 	}
 	if !reflect.DeepEqual(ref.ActionContractArtifactRefs, []string{"paca-gait-receipt"}) || len(ref.LifecycleObservationRefs) != 1 {
-		t.Fatalf("expected lifecycle artifact and observation refs, got %+v", ref)
+		t.Fatalf("expected lifecycle artifact refs to stay separate from generic evidence refs, got %+v", ref)
 	}
 }
 

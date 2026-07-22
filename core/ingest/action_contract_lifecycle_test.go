@@ -82,6 +82,37 @@ func TestActionContractLifecycleCorrelationRequiresMatchingFamilyRevision(t *tes
 	}
 }
 
+func TestActionContractLifecycleCorrelationMatchesContractWithoutActionPathIDs(t *testing.T) {
+	t.Parallel()
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-contract-only", OutcomeClass: "production_deploy", TargetIdentity: "prod",
+		EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh,
+		Stages: []risk.CompositionStage{{StageID: "source", Role: risk.CompositionStageRoleSource}, {StageID: "sink", Role: risk.CompositionStageRolePrivilegedSink}},
+	}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	snapshot := state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{composition}}}
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+
+	summary := Correlate(snapshot, "runtime-evidence.json", Bundle{GeneratedAt: now.Format(time.RFC3339), Records: []Record{
+		{
+			RecordKind: RecordKindExternalControl, SourceType: "signed_declaration", Source: "gait-export-exact", ObservedAt: now.Format(time.RFC3339), EvidenceClass: EvidenceClassApproval,
+			ProposedActionContractRef: composition.ProposedActionContract.ContractID, ContractFamilyID: composition.ProposedActionContract.ContractFamilyID, ContractRevision: composition.ProposedActionContract.Revision,
+			ActionContractArtifactRef: "paca-gait-receipt", ActionContractEvent: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified,
+		},
+		{
+			RecordKind: RecordKindExternalControl, SourceType: "signed_declaration", Source: "gait-export-family", ObservedAt: now.Add(time.Second).Format(time.RFC3339), EvidenceClass: EvidenceClassApproval,
+			ContractFamilyID: composition.ProposedActionContract.ContractFamilyID, ContractRevision: composition.ProposedActionContract.Revision,
+			ActionContractArtifactRef: "paca-gait-effect", ActionContractEvent: risk.LifecycleObservationEffect, Producer: "gait", EvidenceState: risk.EvidenceStateVerified,
+		},
+	}})
+	if summary.MatchedRecords != 2 || summary.UnmatchedRecords != 0 {
+		t.Fatalf("contract-only lifecycle records should correlate, got %+v", summary)
+	}
+	if len(summary.Correlations) != 1 || summary.Correlations[0].PathID != composition.CompositionID || summary.Correlations[0].Status != CorrelationStatusMatched {
+		t.Fatalf("expected matched composition fallback correlation, got %+v", summary.Correlations)
+	}
+}
+
 func TestActionContractLifecycleRecordIDsPreserveLegacyShape(t *testing.T) {
 	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
 	bundle, err := Normalize(Bundle{GeneratedAt: now, Records: []Record{

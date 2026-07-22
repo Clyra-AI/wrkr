@@ -585,8 +585,18 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 			}
 		}
 		if match.PathID == "" {
+			match = statePathMatch{
+				PathID:                   firstNonEmpty(strings.TrimSpace(composition.CompositionID), strings.TrimSpace(contract.ContractID), contractFamilyRevisionKey(contract.ContractFamilyID, contract.Revision)),
+				ResolutionKey:            firstNonEmpty(strings.TrimSpace(composition.ResolutionKey), strings.TrimSpace(contract.ResolutionKey)),
+				EnvironmentNames:         mergeStrings(composition.Environment),
+				ActionClasses:            mergeStrings(composition.OutcomeClass),
+				MatchedProductionTargets: mergeStrings(composition.TargetIdentity, composition.AffectedAsset),
+			}
+		}
+		if match.PathID == "" {
 			continue
 		}
+		match.ResolutionKey = firstNonEmpty(match.ResolutionKey, strings.TrimSpace(composition.ResolutionKey), strings.TrimSpace(contract.ResolutionKey))
 		match.ContractID = strings.TrimSpace(contract.ContractID)
 		match.ContractFamilyID = strings.TrimSpace(contract.ContractFamilyID)
 		match.ContractRevision = contract.Revision
