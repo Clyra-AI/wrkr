@@ -138,6 +138,7 @@ func newCompositionState(composition risk.ComposedActionPath) CompositionState {
 				out.ContractVerification = append(out.ContractVerification, value)
 			}
 			out.EvidenceRefs = append(out.EvidenceRefs, observation.EvidenceRefs...)
+			out.EvidenceRefs = append(out.EvidenceRefs, observation.ActionContractArtifactRefs...)
 			out.EvidenceRefs = append(out.EvidenceRefs, observation.ProofRefs...)
 		}
 	}
@@ -396,6 +397,7 @@ func lifecycleObservationDriftValue(observation risk.ProposedActionLifecycleObse
 		strings.TrimSpace(observation.EvidenceState),
 		strings.TrimSpace(observation.FreshnessState),
 		strings.Join(mergeSortedStrings(observation.EvidenceRefs, nil), ","),
+		strings.Join(mergeSortedStrings(observation.ActionContractArtifactRefs, nil), ","),
 		strings.Join(mergeSortedStrings(observation.ProofRefs, nil), ","),
 	}, "|")
 }
