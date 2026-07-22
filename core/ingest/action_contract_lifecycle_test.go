@@ -113,6 +113,34 @@ func TestActionContractLifecycleCorrelationMatchesContractWithoutActionPathIDs(t
 	}
 }
 
+func TestActionContractCorrelationOnlyRecordDoesNotRequireLifecycleEvent(t *testing.T) {
+	t.Parallel()
+	composition := risk.ComposedActionPath{
+		CompositionID: "cap-contract-correlation-only", OutcomeClass: "production_deploy", TargetIdentity: "prod",
+		EvidenceState: risk.EvidenceStateVerified, FreshnessState: evidencepolicy.FreshnessStateFresh,
+		Stages: []risk.CompositionStage{{StageID: "source", Role: risk.CompositionStageRoleSource}, {StageID: "sink", Role: risk.CompositionStageRolePrivilegedSink}},
+	}
+	composition.ProposedActionContract = risk.BuildProposedActionContract(composition)
+	snapshot := state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{composition}}}
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+
+	bundle, err := Normalize(Bundle{GeneratedAt: now.Format(time.RFC3339), Records: []Record{{
+		RecordKind: RecordKindExternalControl, SourceType: "signed_declaration", Source: "control-owner", ObservedAt: now.Format(time.RFC3339),
+		EvidenceClass: EvidenceClassOwnerAssignment, ProposedActionContractRef: composition.ProposedActionContract.ContractID,
+	}}})
+	if err != nil {
+		t.Fatalf("normalize contract-correlated non-lifecycle evidence: %v", err)
+	}
+	summary := Correlate(snapshot, "runtime-evidence.json", bundle)
+	if summary.MatchedRecords != 1 || summary.UnmatchedRecords != 0 {
+		t.Fatalf("contract-correlated non-lifecycle evidence should match, got %+v", summary)
+	}
+	projected := ApplyActionContractLifecycleEvidence(snapshot, bundle)
+	if got := projected.RiskReport.ComposedActionPaths[0].ProposedActionContract.LifecycleObservations; len(got) != 0 {
+		t.Fatalf("correlation-only evidence must not create lifecycle observations: %+v", got)
+	}
+}
+
 func TestActionContractLifecycleRecordIDsPreserveLegacyShape(t *testing.T) {
 	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
 	bundle, err := Normalize(Bundle{GeneratedAt: now, Records: []Record{

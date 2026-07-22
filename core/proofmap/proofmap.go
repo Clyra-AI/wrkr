@@ -324,6 +324,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 		for _, observation := range contract.LifecycleObservations {
 			lifecycleRefs = append(lifecycleRefs, observation.ObservationID)
 			lifecycleRefs = append(lifecycleRefs, observation.EvidenceRefs...)
+			lifecycleRefs = append(lifecycleRefs, observation.ActionContractArtifactRefs...)
 			lifecycleRefs = append(lifecycleRefs, observation.ProofRefs...)
 			lifecycleKinds = append(lifecycleKinds, observation.Kind)
 		}

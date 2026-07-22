@@ -204,6 +204,31 @@ func TestActionContractLifecycleDriftClassifiesRevisionAndDownstreamEvidence(t *
 	}
 }
 
+func TestActionContractLifecycleArtifactRefsParticipateInDrift(t *testing.T) {
+	baselineComposition := regressTestComposition("cap-contract-artifact", "rk-deploy", "prod:checkout", "production_deploy")
+	baselineComposition.ProposedActionContract = risk.BuildProposedActionContract(baselineComposition)
+	baselineComposition.ProposedActionContract.LifecycleObservations = risk.NormalizeProposedActionLifecycleObservations([]risk.ProposedActionLifecycleObservation{{
+		Kind: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh",
+		EvidenceRefs: []string{"gait:receipt"}, ProofRefs: []string{"proof:gait"}, ActionContractArtifactRefs: []string{"paca-old"},
+	}})
+	currentComposition := baselineComposition
+	currentComposition.ProposedActionContract = risk.CloneProposedActionContract(baselineComposition.ProposedActionContract)
+	currentComposition.ProposedActionContract.LifecycleObservations = risk.NormalizeProposedActionLifecycleObservations([]risk.ProposedActionLifecycleObservation{{
+		Kind: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh",
+		EvidenceRefs: []string{"gait:receipt"}, ProofRefs: []string{"proof:gait"}, ActionContractArtifactRefs: []string{"paca-new"},
+	}})
+
+	baseline := BuildBaseline(state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{baselineComposition}}}, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+	result := Compare(baseline, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{currentComposition}}})
+	category, ok := driftCategoryByName(result.DriftCategories, DriftCategoryActionContractActivationChanged)
+	if !ok {
+		t.Fatalf("expected lifecycle artifact-ref drift category, got %+v", result.DriftCategories)
+	}
+	if !containsStringValue(category.EvidenceRefs, "paca-old") || !containsStringValue(category.EvidenceRefs, "paca-new") {
+		t.Fatalf("expected artifact refs in lifecycle drift evidence refs, got %+v", category.EvidenceRefs)
+	}
+}
+
 func regressTestComposition(compositionID, sinkResolutionKey, targetIdentity, outcomeClass string) risk.ComposedActionPath {
 	return risk.ComposedActionPath{
 		CompositionID:        compositionID,
@@ -249,10 +274,15 @@ func regressTestComposition(compositionID, sinkResolutionKey, targetIdentity, ou
 }
 
 func hasDriftCategory(categories []DriftCategorySummary, want string) bool {
+	_, ok := driftCategoryByName(categories, want)
+	return ok
+}
+
+func driftCategoryByName(categories []DriftCategorySummary, want string) (DriftCategorySummary, bool) {
 	for _, category := range categories {
 		if category.Category == want {
-			return true
+			return category, true
 		}
 	}
-	return false
+	return DriftCategorySummary{}, false
 }

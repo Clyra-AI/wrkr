@@ -13,15 +13,15 @@ func normalizeActionContractLifecycleRecord(record *Record) error {
 	if record == nil {
 		return nil
 	}
-	hasLifecycle := record.ActionContractEvent != "" || record.ProposedActionContractRef != "" || record.ContractFamilyID != "" || record.ContractRevision != 0 || record.ActionContractArtifactRef != "" || record.Producer != "" || record.EvidenceState != "" || len(record.ReasonCodes) > 0
-	if !hasLifecycle {
+	hasLifecyclePayload := record.ActionContractEvent != "" || record.ActionContractArtifactRef != "" || record.Producer != "" || record.EvidenceState != "" || len(record.ReasonCodes) > 0
+	if record.ContractRevision < 0 {
+		return fmt.Errorf("action contract lifecycle evidence contract_revision must be positive")
+	}
+	if !hasLifecyclePayload {
 		return nil
 	}
 	if record.ProposedActionContractRef == "" && (record.ContractFamilyID == "" || record.ContractRevision < 1) {
 		return fmt.Errorf("action contract lifecycle evidence requires proposed_action_contract_ref or contract_family_id with positive contract_revision")
-	}
-	if record.ContractRevision < 0 {
-		return fmt.Errorf("action contract lifecycle evidence contract_revision must be positive")
 	}
 	if !validImportedLifecycleEvent(record.ActionContractEvent) {
 		return fmt.Errorf("unsupported Action Contract lifecycle event %q", record.ActionContractEvent)
