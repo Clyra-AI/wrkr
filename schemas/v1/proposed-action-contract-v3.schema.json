@@ -81,7 +81,7 @@
     },
     "compensation": {
       "type": "object", "required": ["required", "kind", "verification_required", "evidence_state", "freshness_state"],
-      "properties": {"required": {"type": "boolean"}, "kind": {"type": "string", "enum": ["documented_recovery", "not_required"]}, "procedure_ref": {"type": "string"}, "target": {"type": "string"}, "execution_window": {"type": "string"}, "verification_required": {"type": "boolean"}, "acceptable_producers": {"type": "array", "items": {"type": "string"}}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
+      "properties": {"required": {"type": "boolean"}, "kind": {"type": "string", "enum": ["documented_recovery", "rollback", "restore", "irreversible_escalation", "not_required"]}, "procedure_ref": {"type": "string"}, "target": {"type": "string"}, "execution_window": {"type": "string"}, "verification_required": {"type": "boolean"}, "acceptable_producers": {"type": "array", "items": {"type": "string"}}, "evidence_state": {"$ref": "#/$defs/evidenceState"}, "freshness_state": {"$ref": "#/$defs/freshnessState"}, "evidence_refs": {"type": "array", "items": {"type": "string"}}, "reason_codes": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false
     },
     "lifecycleObservation": {
       "type": "object", "required": ["observation_id", "kind", "producer", "evidence_state", "freshness_state"],
