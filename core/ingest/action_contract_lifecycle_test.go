@@ -87,6 +87,8 @@ func TestActionContractLifecycleRecordIDsPreserveLegacyShape(t *testing.T) {
 	bundle, err := Normalize(Bundle{GeneratedAt: now, Records: []Record{
 		{Source: "demo-app", ObservedAt: now, EvidenceClass: EvidenceClassApproval, PathID: "demo-app"},
 		{Source: "gait-export", ObservedAt: now, EvidenceClass: EvidenceClassApproval, ProposedActionContractRef: "pac-123", ActionContractEvent: risk.LifecycleObservationActivationReceipt, Producer: "gait"},
+		{Source: "gait-export-family-r1", ObservedAt: now, EvidenceClass: EvidenceClassApproval, ContractFamilyID: "pacf-123", ContractRevision: 1, ActionContractEvent: risk.LifecycleObservationActivationReceipt, Producer: "gait"},
+		{Source: "gait-export-family-r2", ObservedAt: now, EvidenceClass: EvidenceClassApproval, ContractFamilyID: "pacf-123", ContractRevision: 2, ActionContractEvent: risk.LifecycleObservationActivationReceipt, Producer: "gait"},
 	}})
 	if err != nil {
 		t.Fatalf("normalize records: %v", err)
@@ -100,5 +102,14 @@ func TestActionContractLifecycleRecordIDsPreserveLegacyShape(t *testing.T) {
 	}
 	if got, want := bySource["gait-export"].RecordID, "pac-123:approval:"+risk.LifecycleObservationActivationReceipt+":"+now; got != want {
 		t.Fatalf("lifecycle record id missing event identity: got %q want %q", got, want)
+	}
+	if got, want := bySource["gait-export-family-r1"].RecordID, "pacf-123@revision:1:approval:"+risk.LifecycleObservationActivationReceipt+":"+now; got != want {
+		t.Fatalf("family lifecycle record id missing revision identity: got %q want %q", got, want)
+	}
+	if got, want := bySource["gait-export-family-r2"].RecordID, "pacf-123@revision:2:approval:"+risk.LifecycleObservationActivationReceipt+":"+now; got != want {
+		t.Fatalf("family lifecycle record id missing revision identity: got %q want %q", got, want)
+	}
+	if bySource["gait-export-family-r1"].RecordID == bySource["gait-export-family-r2"].RecordID {
+		t.Fatal("family lifecycle record ids must be unique per contract revision")
 	}
 }

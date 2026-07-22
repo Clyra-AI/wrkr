@@ -432,11 +432,12 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 		}
 	}
 	if record.RecordID == "" {
+		contractRef := recordContractIdentityRef(record)
 		if record.RecordKind == RecordKindExternalControl {
 			parts := []string{
 				record.RecordKind,
 				record.SourcePrecedenceKey,
-				firstNonEmpty(record.ProposedActionContractRef, record.ContractFamilyID, record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source),
+				firstNonEmpty(contractRef, record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source),
 				record.EvidenceClass,
 			}
 			if record.ActionContractEvent != "" {
@@ -445,7 +446,7 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 			record.RecordID = strings.Join(append(parts, record.ObservedAt), ":")
 		} else {
 			parts := []string{
-				firstNonEmpty(record.ProposedActionContractRef, record.ContractFamilyID, record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source),
+				firstNonEmpty(contractRef, record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source),
 				record.EvidenceClass,
 			}
 			if record.ActionContractEvent != "" {
@@ -660,6 +661,16 @@ func contractFamilyRevisionKey(familyID string, revision int) string {
 	return familyID + "@revision:" + strconv.Itoa(revision)
 }
 
+func recordContractIdentityRef(record Record) string {
+	if ref := strings.TrimSpace(record.ProposedActionContractRef); ref != "" {
+		return ref
+	}
+	if key := contractFamilyRevisionKey(record.ContractFamilyID, record.ContractRevision); key != "" {
+		return key
+	}
+	return strings.TrimSpace(record.ContractFamilyID)
+}
+
 func contractRevisionMatchesRecord(record Record, matched statePathMatch) bool {
 	if record.ContractFamilyID != "" && matched.ContractFamilyID != "" && strings.TrimSpace(record.ContractFamilyID) != matched.ContractFamilyID {
 		return false
@@ -864,8 +875,7 @@ func fallbackCorrelationKey(record Record) string {
 		repoScopedKey(record.Repo, record.Service),
 		strings.TrimSpace(record.PolicyRef),
 		strings.TrimSpace(record.ProofRef),
-		strings.TrimSpace(record.ProposedActionContractRef),
-		strings.TrimSpace(record.ContractFamilyID),
+		recordContractIdentityRef(record),
 		strings.TrimSpace(record.RecordID),
 	)
 }

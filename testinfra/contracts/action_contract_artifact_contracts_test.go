@@ -35,6 +35,25 @@ func TestActionContractArtifactSchemaValidatesPortableV3Envelope(t *testing.T) {
 	if err := compiled.Validate(fixture); err != nil {
 		t.Fatalf("portable artifact fixture must validate: %v", err)
 	}
+	for _, kind := range []string{"documented_recovery", "rollback", "restore", "irreversible_escalation", "not_required"} {
+		required := kind != "not_required"
+		evidenceState := "verified"
+		if kind == "irreversible_escalation" {
+			evidenceState = "contradictory"
+		}
+		contract["compensation_requirement"] = map[string]any{
+			"required": required, "kind": kind, "verification_required": required,
+			"evidence_state": evidenceState, "freshness_state": "unknown",
+		}
+		if err := compiled.Validate(fixture); err != nil {
+			t.Fatalf("compensation kind %q must remain schema-compatible: %v", kind, err)
+		}
+	}
+	contract["compensation_requirement"] = map[string]any{"required": false, "kind": "custom_script", "verification_required": false, "evidence_state": "verified", "freshness_state": "unknown"}
+	if err := compiled.Validate(fixture); err == nil {
+		t.Fatal("artifact must reject unsupported compensation kind")
+	}
+	contract["compensation_requirement"] = map[string]any{"required": false, "kind": "not_required", "verification_required": false, "evidence_state": "verified", "freshness_state": "unknown"}
 	contract["contract_version"] = "2"
 	if err := compiled.Validate(fixture); err == nil {
 		t.Fatal("artifact must reject embedded v2 contract")
