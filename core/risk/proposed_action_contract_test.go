@@ -277,6 +277,16 @@ func TestConfirmationApprovalRequirementAndCompensationFailClosed(t *testing.T) 
 		}
 	})
 
+	t.Run("scope digest accepts sha256 prefix", func(t *testing.T) {
+		composition := fullySatisfiedActionContractComposition()
+		draft := BuildProposedActionContract(composition)
+		composition.EvidenceRefs = append(composition.EvidenceRefs, "approval_scope_digest:"+draft.ApprovalRequirement.ScopeDigest)
+		contract := BuildProposedActionContract(composition)
+		if contract.ApprovalRequirement.EvidenceState != EvidenceStateVerified || contract.ReadinessState != ActionContractReadinessReadyForReportOnly {
+			t.Fatalf("prefixed scope digest should satisfy approval scope: %+v", contract)
+		}
+	})
+
 	if contract := buildActionContractWithScope(fullySatisfiedActionContractComposition()); contract.ReadinessState != ActionContractReadinessReadyForReportOnly {
 		t.Fatalf("satisfied structured activation requirements should be ready for report only: %+v", contract)
 	}

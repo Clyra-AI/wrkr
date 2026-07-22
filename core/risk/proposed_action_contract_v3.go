@@ -315,6 +315,7 @@ func finalizeProposedApprovalScope(contract *ProposedActionContract, composition
 	approval := contract.ApprovalRequirement
 	observed := firstMatchingRef(proposedContractEvidenceRefs(composition), "approval_scope_digest:")
 	observed = strings.TrimSpace(strings.TrimPrefix(strings.ToLower(observed), "approval_scope_digest:"))
+	observed = strings.TrimSpace(strings.TrimPrefix(observed, "sha256:"))
 	expected := strings.TrimSpace(strings.TrimPrefix(strings.ToLower(approval.ScopeDigest), "sha256:"))
 	switch {
 	case observed == "":
