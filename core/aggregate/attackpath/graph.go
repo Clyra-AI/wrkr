@@ -1102,8 +1102,8 @@ func controlPathApprovalIdentityStatus(path ControlPathInput) string {
 }
 
 func controlPathPolicyIdentityLabel(path ControlPathInput) string {
-	if len(path.PolicyRefs) > 0 {
-		return strings.TrimSpace(path.PolicyRefs[0])
+	if refs := uniqueSortedStrings(path.PolicyRefs); len(refs) > 0 {
+		return strings.TrimSpace(refs[0])
 	}
 	if strings.TrimSpace(path.ControlResolutionState) != "" {
 		return strings.TrimSpace(path.ControlResolutionState)
@@ -1122,8 +1122,8 @@ func controlPathPolicyIdentityStatus(path ControlPathInput) string {
 }
 
 func controlPathDeploymentLabel(path ControlPathInput) string {
-	if len(path.MatchedProductionTargets) > 0 {
-		return strings.TrimSpace(path.MatchedProductionTargets[0])
+	if targets := uniqueSortedStrings(path.MatchedProductionTargets); len(targets) > 0 {
+		return strings.TrimSpace(targets[0])
 	}
 	if path.DeployWrite || path.ProductionWrite {
 		return "unknown_deployment_path"

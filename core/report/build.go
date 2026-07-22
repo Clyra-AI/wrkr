@@ -40,6 +40,13 @@ import (
 // BuildSummary composes deterministic report sections from scan, risk, score, lifecycle, regress, and proof data.
 // Non-goal guardrail: this path must remain deterministic and non-generative.
 func BuildSummary(in BuildInput) (Summary, error) {
+	if strings.TrimSpace(in.StatePath) != "" {
+		bundle, _, err := ingest.LoadOptional(in.StatePath)
+		if err != nil {
+			return Summary{}, fmt.Errorf("load imported Action Contract lifecycle evidence: %w", err)
+		}
+		in.Snapshot = ingest.ApplyActionContractLifecycleEvidence(in.Snapshot, bundle)
+	}
 	template := in.Template
 	if template == "" {
 		template = TemplateOperator

@@ -162,7 +162,14 @@
         "gait_coverage_summary": {
           "type": "object",
           "additionalProperties": {"type": "string"}
-        }
+        },
+        "proposed_action_contract_id": {"type": "string"},
+        "contract_family_id": {"type": "string"},
+        "contract_revision": {"type": "integer", "minimum": 1},
+        "contract_content_digest": {"type": "string"},
+        "supersedes_ref": {"type": "string"},
+        "action_contract_artifact_refs": {"type": "array", "items": {"type": "string"}},
+        "lifecycle_observation_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     }

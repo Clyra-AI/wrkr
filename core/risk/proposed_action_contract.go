@@ -184,6 +184,11 @@ func BuildProposedActionContract(composition ComposedActionPath) *ProposedAction
 	contract.ConfirmationRequirement = proposedConfirmationRequirement(composition)
 	contract.ApprovalRequirement = proposedApprovalRequirement(composition)
 	contract.CompensationRequirement = proposedCompensationRequirement(composition)
+	contract.ContractFamilyID = proposedContractFamilyID(contract)
+	if contract.ApprovalRequirement != nil {
+		contract.ApprovalRequirement.ScopeDigest = proposedApprovalScopeDigest(contract)
+		finalizeProposedApprovalScope(contract, composition)
+	}
 	contract.AuthorityReadinessState, contract.ReasonCodes = proposedAuthorityReadiness(contract.AuthorityRequirements, contract.ReasonCodes)
 	contract.ReadinessState, contract.ReasonCodes = proposedActionContractV3Readiness(contract, readiness, contract.ReasonCodes)
 	if strings.TrimSpace(contract.ExpiresAt) == "" {
@@ -616,14 +621,32 @@ func proposedApprovalScopeDigest(contract *ProposedActionContract) string {
 	if contract == nil {
 		return ""
 	}
+	authority := make([]map[string]any, 0, len(contract.AuthorityRequirements))
+	for _, requirement := range contract.AuthorityRequirements {
+		authority = append(authority, map[string]any{
+			"requirement_id":      strings.TrimSpace(requirement.RequirementID),
+			"kind":                strings.TrimSpace(requirement.Kind),
+			"required_constraint": strings.TrimSpace(requirement.RequiredConstraint),
+		})
+	}
+	preconditions := make([]map[string]any, 0, len(contract.Preconditions))
+	for _, precondition := range contract.Preconditions {
+		preconditions = append(preconditions, map[string]any{
+			"requirement_id":       strings.TrimSpace(precondition.RequirementID),
+			"kind":                 strings.TrimSpace(precondition.Kind),
+			"required_constraint":  strings.TrimSpace(precondition.RequiredConstraint),
+			"acceptable_producers": dedupeSortedStrings(precondition.AcceptableProducers),
+			"max_age":              strings.TrimSpace(precondition.MaxAge),
+		})
+	}
 	payload := map[string]any{
 		"contract_family_id":       strings.TrimSpace(contract.ContractFamilyID),
 		"revision":                 contract.Revision,
 		"composition_ref":          strings.TrimSpace(contract.CompositionRef),
 		"resolution_key":           strings.TrimSpace(contract.ResolutionKey),
 		"target_constraints":       contract.TargetConstraints,
-		"authority_requirements":   contract.AuthorityRequirements,
-		"preconditions":            contract.Preconditions,
+		"authority_requirements":   authority,
+		"preconditions":            preconditions,
 		"allowed_transitions":      contract.AllowedTransitions,
 		"prohibited_transitions":   contract.ProhibitedTransitions,
 		"approval_transitions":     contract.ApprovalRequiredTransitions,

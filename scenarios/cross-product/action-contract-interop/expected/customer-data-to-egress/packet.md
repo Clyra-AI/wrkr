@@ -4,14 +4,14 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Contract and Artifact Identity
 
-- Packet: pacpkt-9a4d740747ac39d4
-- Artifact: paca-bbaba1fc508e21ae
-- Contract: pac-df3e7ad71c8ff97b
+- Packet: pacpkt-f8f4fab3f412b01a
+- Artifact: paca-52c5b8b751de2460
+- Contract: pac-a1fca3a904d2d74f
 - Family: pacf-e23713ce8893f35c
 - Revision: 1
 - Supersedes: none
-- Contract digest: sha256:f6334b210b3086f7f3d7e104fb3b84543c4c66c99fce0a8f2759926c1ff024e1
-- Artifact digest: sha256:bbaba1fc508e21ae4cff1e4668cf97b63367e6f08e059c38e1acfcd528490b7c
+- Contract digest: sha256:118e6e21f3c4fcf273c4101b926863aa27450014df9bb2fb61d078d808dcc41d
+- Artifact digest: sha256:52c5b8b751de2460bfbb2868918826afcfd03e733fa19186e981941354b2e509
 - Share profile: internal
 - Source scan refs: saved_scan:v1
 - Creation evidence: wch-91a21be2ceb5, wch-b994b4ec715e
@@ -31,22 +31,22 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Authority Requirements
 
-- `pacr-a4bdc949eaad9c4c` affected_system_owner: required=affected_system_owner:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-3166070f4672b095` business_owner: required=business_owner:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-8e48fa96f1ed5293` credential_subject_constraint: required=subject:built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a observed=built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-96ff1d0e53c55655` delegation_root: required=delegation_root:required observed=authority-b29daa99b287a631 evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-623233d18274f3d0` originating_intent: required=composition:cap-0b34926aa0a8d7d1 observed=sensitive_read_to_egress evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-e9aa5c9846905ea3` permitted_agent_role: required=roles:external_sink,source observed=external_sink,source evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-8d6aed260bc01053` policy_authority: required=policy_authority:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-8d80e37c9abc01b9` requester_identity: required=requester_identity:required observed=stage:cas-6f18acfc4d46a22c evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
-- `pacr-26619ec37de99aec` separation_of_duties: required=requester_must_not_approve observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy, mutable_endpoint_semantic:production_mutation, permission:deploy.write
+- `pacr-a4bdc949eaad9c4c` affected_system_owner: required=affected_system_owner:required observed=owner:system:@local/demo evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-3166070f4672b095` business_owner: required=business_owner:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-b9fe356efabde989` credential_subject_constraint: required=credential_subject:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-96ff1d0e53c55655` delegation_root: required=delegation_root:required observed=authority-b29daa99b287a631 evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-5e5ee94abc102c65` originating_intent: required=originating_task_or_intent:required observed=intent:deploy control evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-579900eb3b2d53e5` permitted_agent_role: required=permitted_agent_role:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-8d6aed260bc01053` policy_authority: required=policy_authority:required observed=policy:gait://release-control evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-8d80e37c9abc01b9` requester_identity: required=requester_identity:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
+- `pacr-26619ec37de99aec` separation_of_duties: required=requester_must_not_approve observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, deploy-control, intent:deploy control, intent:mcp integration, matched_target:built_in:deploy_workflow, mutable_endpoint_semantic:deploy
 
 ## Credential Posture
 
 - Required mode: ephemeral
 - Evidence: unknown
 - Freshness: unknown
-- Requirement refs: pacp-13dbf78718fdaa5f, pacr-8d80e37c9abc01b9, pacr-8e48fa96f1ed5293
+- Requirement refs: pacp-13dbf78718fdaa5f, pacr-8d80e37c9abc01b9, pacr-b9fe356efabde989
 - Wrkr activation grant: false
 
 ## Readiness Checks
@@ -57,8 +57,8 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 - `pacp-1cbc019327bf1354` expected_effect: required=effect:data_egress observed=data_egress result=data_egress evidence=unknown freshness=unknown producers=action_path
 - `pacp-4690e9900499f4a5` forbidden_effect: required=effect:not_unbounded observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=control_declaration, gait_policy
 - `pacp-ed70870b3ac4a843` freshness: required=fresh observed=unknown result=unknown evidence=unknown freshness=unknown producers=evidence_policy
-- `pacp-5afb4bb9dad2c634` policy_digest: required=policy_digest:required observed=sha256:0cc8fccb07377946636ef6a08731103e648422e5884acc4c4619026f2183df41 result=sha256:0cc8fccb07377946636ef6a08731103e648422e5884acc4c4619026f2183df41 evidence=unknown freshness=unknown producers=control_declaration, gait_policy
-- `pacp-2287b403a530fc9b` producer: required=producer:approved observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=control_declaration, gait_policy
+- `pacp-5afb4bb9dad2c634` policy_digest: required=policy_digest:required observed=sha256:177a3d5e883bea48caf239da2bed7259f239e548d52808875566190c2060d703 result=sha256:177a3d5e883bea48caf239da2bed7259f239e548d52808875566190c2060d703 evidence=unknown freshness=unknown producers=control_declaration, gait_policy
+- `pacp-2287b403a530fc9b` producer: required=producer:approved observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=ci, control_declaration, gait_policy
 - `pacp-e0d2df8d59c09de8` required_check: required=check:required observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=ci, control_declaration, gait_policy
 - `pacp-f93a7c7e8e061325` sandbox: required=sandbox:required observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=control_declaration, gait_policy
 - `pacp-1191a2f2fb249216` target: required=target:bounded observed=built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a result=built_in:deploy_workflow+endpoint:(surface=mcp,operation=deploy-control)+endpoint_group:meg-a0626bd85b5a evidence=unknown freshness=unknown producers=action_path
@@ -81,14 +81,14 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Evidence Gaps
 
-- `pacr-a4bdc949eaad9c4c` authority:affected_system_owner: evidence=unknown freshness=unknown reasons=authority:affected_system_owner:missing, authority:affected_system_owner:unknown
+- `pacr-a4bdc949eaad9c4c` authority:affected_system_owner: evidence=unknown freshness=unknown reasons=authority:affected_system_owner:unknown
 - `pacr-3166070f4672b095` authority:business_owner: evidence=unknown freshness=unknown reasons=authority:business_owner:missing, authority:business_owner:unknown
-- `pacr-8e48fa96f1ed5293` authority:credential_subject_constraint: evidence=unknown freshness=unknown reasons=authority:credential_subject_constraint:unknown
+- `pacr-b9fe356efabde989` authority:credential_subject_constraint: evidence=unknown freshness=unknown reasons=authority:credential_subject_constraint:missing, authority:credential_subject_constraint:unknown
 - `pacr-96ff1d0e53c55655` authority:delegation_root: evidence=unknown freshness=unknown reasons=authority:delegation_root:unknown
-- `pacr-623233d18274f3d0` authority:originating_intent: evidence=unknown freshness=unknown reasons=authority:originating_intent:unknown
-- `pacr-e9aa5c9846905ea3` authority:permitted_agent_role: evidence=unknown freshness=unknown reasons=authority:permitted_agent_role:unknown
-- `pacr-8d6aed260bc01053` authority:policy_authority: evidence=unknown freshness=unknown reasons=authority:policy_authority:missing, authority:policy_authority:unknown
-- `pacr-8d80e37c9abc01b9` authority:requester_identity: evidence=unknown freshness=unknown reasons=authority:requester_identity:unknown
+- `pacr-5e5ee94abc102c65` authority:originating_intent: evidence=unknown freshness=unknown reasons=authority:originating_intent:unknown
+- `pacr-579900eb3b2d53e5` authority:permitted_agent_role: evidence=unknown freshness=unknown reasons=authority:permitted_agent_role:missing, authority:permitted_agent_role:unknown
+- `pacr-8d6aed260bc01053` authority:policy_authority: evidence=unknown freshness=unknown reasons=authority:policy_authority:unknown
+- `pacr-8d80e37c9abc01b9` authority:requester_identity: evidence=unknown freshness=unknown reasons=authority:requester_identity:missing, authority:requester_identity:unknown
 - `pacr-26619ec37de99aec` authority:separation_of_duties: evidence=unknown freshness=unknown reasons=authority:separation_of_duties:missing, authority:separation_of_duties:unknown
 - `pacp-13dbf78718fdaa5f` precondition:credential_mode: evidence=unknown freshness=unknown reasons=precondition:credential_mode:unknown
 - `pacp-a93d1426ceaa825c` precondition:effect_contract: evidence=unknown freshness=unknown reasons=precondition:effect_contract:missing, precondition:effect_contract:unknown
@@ -109,19 +109,19 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Presentation Limits
 
-- approval_requirement.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-26619ec37de99aec.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-3166070f4672b095.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-623233d18274f3d0.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-8d6aed260bc01053.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-8d80e37c9abc01b9.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-8e48fa96f1ed5293.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-96ff1d0e53c55655.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-a4bdc949eaad9c4c.evidence_refs: reason=item_cap omitted=10
-- authority_requirements.pacr-e9aa5c9846905ea3.evidence_refs: reason=item_cap omitted=10
-- compensation_requirement.evidence_refs: reason=item_cap omitted=10
-- confirmation_requirement.evidence_refs: reason=item_cap omitted=10
-- truncations: 12 additional presentation-limit records omitted
+- authority_requirements.pacr-26619ec37de99aec.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-3166070f4672b095.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-579900eb3b2d53e5.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-5e5ee94abc102c65.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-8d6aed260bc01053.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-8d80e37c9abc01b9.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-96ff1d0e53c55655.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-a4bdc949eaad9c4c.evidence_refs: reason=item_cap omitted=14
+- authority_requirements.pacr-b9fe356efabde989.evidence_refs: reason=item_cap omitted=14
+- readiness_checks.pacp-09eb6ad8fd5ca2e9.evidence_refs: reason=item_cap omitted=14
+- readiness_checks.pacp-1191a2f2fb249216.evidence_refs: reason=item_cap omitted=14
+- readiness_checks.pacp-13dbf78718fdaa5f.evidence_refs: reason=item_cap omitted=14
+- truncations: 9 additional presentation-limit records omitted
 
 ## Next Action
 

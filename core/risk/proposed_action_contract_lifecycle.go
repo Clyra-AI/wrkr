@@ -62,6 +62,9 @@ func ValidateProposedActionContractRevision(contract *ProposedActionContract, pr
 	if strings.TrimSpace(contract.ContractFamilyID) == "" || strings.TrimSpace(contract.ContractContentDigest) == "" || strings.TrimSpace(contract.ContractID) == "" {
 		return fmt.Errorf("revision requires contract identity fields")
 	}
+	if err := validateProposedActionContractIdentity(contract, "contract"); err != nil {
+		return err
+	}
 	if predecessor == nil {
 		if contract.Revision != 1 || strings.TrimSpace(contract.SupersedesRef) != "" {
 			return fmt.Errorf("revision %d requires an explicit predecessor", contract.Revision)
@@ -70,6 +73,9 @@ func ValidateProposedActionContractRevision(contract *ProposedActionContract, pr
 	}
 	if predecessor.Revision < 1 || strings.TrimSpace(predecessor.ContractFamilyID) == "" || strings.TrimSpace(predecessor.ContractContentDigest) == "" || strings.TrimSpace(predecessor.ContractID) == "" {
 		return fmt.Errorf("invalid predecessor identity")
+	}
+	if err := validateProposedActionContractIdentity(predecessor, "predecessor"); err != nil {
+		return err
 	}
 	if strings.TrimSpace(contract.ContractFamilyID) != strings.TrimSpace(predecessor.ContractFamilyID) {
 		return fmt.Errorf("predecessor family mismatch")
@@ -82,6 +88,22 @@ func ValidateProposedActionContractRevision(contract *ProposedActionContract, pr
 	}
 	if strings.TrimSpace(predecessor.ContractContentDigest) == "" {
 		return fmt.Errorf("predecessor content digest is required")
+	}
+	normalized := CloneProposedActionContract(contract)
+	normalized.Revision = predecessor.Revision
+	normalized.SupersedesRef = predecessor.SupersedesRef
+	RefreshProposedActionContractIdentity(normalized)
+	if normalized.ContractContentDigest == predecessor.ContractContentDigest {
+		return fmt.Errorf("successor must contain an immutable content change")
+	}
+	return nil
+}
+
+func validateProposedActionContractIdentity(contract *ProposedActionContract, label string) error {
+	clone := CloneProposedActionContract(contract)
+	RefreshProposedActionContractIdentity(clone)
+	if clone.ContractFamilyID != contract.ContractFamilyID || clone.ContractContentDigest != contract.ContractContentDigest || clone.ContractID != contract.ContractID {
+		return fmt.Errorf("%s immutable identity does not match its content", label)
 	}
 	return nil
 }
@@ -121,6 +143,24 @@ func NormalizeProposedActionLifecycleObservations(in []ProposedActionLifecycleOb
 		out = append(out, item)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ObservationID < out[j].ObservationID })
+	hasActivation, hasRejection := false, false
+	for _, item := range out {
+		switch item.Kind {
+		case LifecycleObservationActivationReceipt:
+			hasActivation = true
+		case LifecycleObservationRejection:
+			hasRejection = true
+		}
+	}
+	if hasActivation && hasRejection {
+		for idx := range out {
+			if out[idx].Kind != LifecycleObservationActivationReceipt && out[idx].Kind != LifecycleObservationRejection {
+				continue
+			}
+			out[idx].EvidenceState = EvidenceStateContradictory
+			out[idx].ReasonCodes = dedupeSortedStrings(append(out[idx].ReasonCodes, "lifecycle:contradictory_downstream_state"))
+		}
+	}
 	return out
 }
 

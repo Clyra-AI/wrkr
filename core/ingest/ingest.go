@@ -51,40 +51,48 @@ type Bundle struct {
 }
 
 type Record struct {
-	RecordKind          string   `json:"record_kind,omitempty"`
-	SourceType          string   `json:"source_type,omitempty"`
-	SourcePrecedenceKey string   `json:"source_precedence_key,omitempty"`
-	RecordID            string   `json:"record_id"`
-	PathID              string   `json:"path_id,omitempty"`
-	ResolutionKey       string   `json:"resolution_key,omitempty"`
-	AgentID             string   `json:"agent_id,omitempty"`
-	Tool                string   `json:"tool,omitempty"`
-	Repo                string   `json:"repo,omitempty"`
-	Service             string   `json:"service,omitempty"`
-	Workflow            string   `json:"workflow,omitempty"`
-	Environment         string   `json:"environment,omitempty"`
-	Path                string   `json:"path,omitempty"`
-	Location            string   `json:"location,omitempty"`
-	Target              string   `json:"target,omitempty"`
-	ActionClasses       []string `json:"action_classes,omitempty"`
-	PolicyRef           string   `json:"policy_ref,omitempty"`
-	ProofRef            string   `json:"proof_ref,omitempty"`
-	GraphNodeRefs       []string `json:"graph_node_refs,omitempty"`
-	GraphEdgeRefs       []string `json:"graph_edge_refs,omitempty"`
-	Source              string   `json:"source"`
-	Issuer              string   `json:"issuer,omitempty"`
-	ObservedAt          string   `json:"observed_at"`
-	ValidUntil          string   `json:"valid_until,omitempty"`
-	MaxAge              string   `json:"max_age,omitempty"`
-	Confidence          string   `json:"confidence,omitempty"`
-	FreshnessState      string   `json:"freshness_state,omitempty"`
-	RedactionHints      []string `json:"redaction_hints,omitempty"`
-	EvidenceClass       string   `json:"evidence_class"`
-	Status              string   `json:"status,omitempty"`
-	EvidenceRefs        []string `json:"evidence_refs,omitempty"`
-	Owner               string   `json:"owner,omitempty"`
-	RequiredChecks      []string `json:"required_checks,omitempty"`
-	Branch              string   `json:"branch,omitempty"`
+	RecordKind                string   `json:"record_kind,omitempty"`
+	SourceType                string   `json:"source_type,omitempty"`
+	SourcePrecedenceKey       string   `json:"source_precedence_key,omitempty"`
+	RecordID                  string   `json:"record_id"`
+	PathID                    string   `json:"path_id,omitempty"`
+	ResolutionKey             string   `json:"resolution_key,omitempty"`
+	AgentID                   string   `json:"agent_id,omitempty"`
+	Tool                      string   `json:"tool,omitempty"`
+	Repo                      string   `json:"repo,omitempty"`
+	Service                   string   `json:"service,omitempty"`
+	Workflow                  string   `json:"workflow,omitempty"`
+	Environment               string   `json:"environment,omitempty"`
+	Path                      string   `json:"path,omitempty"`
+	Location                  string   `json:"location,omitempty"`
+	Target                    string   `json:"target,omitempty"`
+	ActionClasses             []string `json:"action_classes,omitempty"`
+	PolicyRef                 string   `json:"policy_ref,omitempty"`
+	ProofRef                  string   `json:"proof_ref,omitempty"`
+	GraphNodeRefs             []string `json:"graph_node_refs,omitempty"`
+	GraphEdgeRefs             []string `json:"graph_edge_refs,omitempty"`
+	Source                    string   `json:"source"`
+	Issuer                    string   `json:"issuer,omitempty"`
+	ObservedAt                string   `json:"observed_at"`
+	ValidUntil                string   `json:"valid_until,omitempty"`
+	MaxAge                    string   `json:"max_age,omitempty"`
+	Confidence                string   `json:"confidence,omitempty"`
+	FreshnessState            string   `json:"freshness_state,omitempty"`
+	RedactionHints            []string `json:"redaction_hints,omitempty"`
+	EvidenceClass             string   `json:"evidence_class"`
+	Status                    string   `json:"status,omitempty"`
+	EvidenceRefs              []string `json:"evidence_refs,omitempty"`
+	Owner                     string   `json:"owner,omitempty"`
+	RequiredChecks            []string `json:"required_checks,omitempty"`
+	Branch                    string   `json:"branch,omitempty"`
+	ProposedActionContractRef string   `json:"proposed_action_contract_ref,omitempty"`
+	ContractFamilyID          string   `json:"contract_family_id,omitempty"`
+	ContractRevision          int      `json:"contract_revision,omitempty"`
+	ActionContractArtifactRef string   `json:"action_contract_artifact_ref,omitempty"`
+	ActionContractEvent       string   `json:"action_contract_event,omitempty"`
+	Producer                  string   `json:"producer,omitempty"`
+	EvidenceState             string   `json:"evidence_state,omitempty"`
+	ReasonCodes               []string `json:"reason_codes,omitempty"`
 }
 
 type Correlation struct {
@@ -367,8 +375,18 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 	record.Owner = normalizeOwnerValue(record.Owner)
 	record.RequiredChecks = mergeStrings(record.RequiredChecks...)
 	record.Branch = strings.TrimSpace(record.Branch)
+	record.ProposedActionContractRef = strings.TrimSpace(record.ProposedActionContractRef)
+	record.ContractFamilyID = strings.TrimSpace(record.ContractFamilyID)
+	record.ActionContractArtifactRef = strings.TrimSpace(record.ActionContractArtifactRef)
+	record.ActionContractEvent = strings.TrimSpace(record.ActionContractEvent)
+	record.Producer = strings.TrimSpace(record.Producer)
+	record.EvidenceState = strings.TrimSpace(record.EvidenceState)
+	record.ReasonCodes = mergeStrings(record.ReasonCodes...)
+	if err := normalizeActionContractLifecycleRecord(&record); err != nil {
+		return Record{}, err
+	}
 	record.SourcePrecedenceKey = sourcePrecedenceSortKey(record)
-	label := firstNonEmpty(record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source)
+	label := firstNonEmpty(record.ProposedActionContractRef, record.ContractFamilyID, record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source)
 	if record.Source == "" {
 		return Record{}, fmt.Errorf("runtime evidence record source is required for %s", fallbackRecordLabel(label))
 	}
@@ -414,15 +432,25 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 	}
 	if record.RecordID == "" {
 		if record.RecordKind == RecordKindExternalControl {
-			record.RecordID = strings.Join([]string{
+			parts := []string{
 				record.RecordKind,
 				record.SourcePrecedenceKey,
-				firstNonEmpty(record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source),
+				firstNonEmpty(record.ProposedActionContractRef, record.ContractFamilyID, record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source),
 				record.EvidenceClass,
-				record.ObservedAt,
-			}, ":")
+			}
+			if record.ActionContractEvent != "" {
+				parts = append(parts, record.ActionContractEvent)
+			}
+			record.RecordID = strings.Join(append(parts, record.ObservedAt), ":")
 		} else {
-			record.RecordID = firstNonEmpty(record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source) + ":" + record.EvidenceClass + ":" + record.ObservedAt
+			parts := []string{
+				firstNonEmpty(record.ProposedActionContractRef, record.ContractFamilyID, record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source),
+				record.EvidenceClass,
+			}
+			if record.ActionContractEvent != "" {
+				parts = append(parts, record.ActionContractEvent)
+			}
+			record.RecordID = strings.Join(append(parts, record.ObservedAt), ":")
 		}
 	}
 	return record, nil
@@ -438,6 +466,7 @@ type pathMatchIndex struct {
 	byServiceOnly   map[string][]statePathMatch
 	byPolicyRef     map[string][]statePathMatch
 	byGraphRef      map[string][]statePathMatch
+	byContractRef   map[string]statePathMatch
 }
 
 type statePathMatch struct {
@@ -470,6 +499,7 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		byServiceOnly:   map[string][]statePathMatch{},
 		byPolicyRef:     map[string][]statePathMatch{},
 		byGraphRef:      map[string][]statePathMatch{},
+		byContractRef:   map[string]statePathMatch{},
 	}
 	if snapshot.RiskReport == nil {
 		return index
@@ -537,10 +567,35 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 			}
 		}
 	}
+	for _, composition := range snapshot.RiskReport.ComposedActionPaths {
+		if composition.ProposedActionContract == nil {
+			continue
+		}
+		match := statePathMatch{}
+		for _, pathID := range composition.PathIDs {
+			if candidate, ok := index.byPathID[strings.TrimSpace(pathID)]; ok {
+				match = candidate
+				break
+			}
+		}
+		if match.PathID == "" {
+			continue
+		}
+		for _, ref := range []string{composition.ProposedActionContract.ContractID, composition.ProposedActionContract.ContractFamilyID} {
+			if strings.TrimSpace(ref) != "" {
+				index.byContractRef[strings.TrimSpace(ref)] = match
+			}
+		}
+	}
 	return index
 }
 
 func (index pathMatchIndex) match(record Record) (string, statePathMatch) {
+	for _, ref := range []string{record.ProposedActionContractRef, record.ContractFamilyID} {
+		if matched, ok := index.byContractRef[strings.TrimSpace(ref)]; ok && strings.TrimSpace(ref) != "" {
+			return matched.PathID, matched
+		}
+	}
 	if matched, ok := index.byPathID[record.PathID]; ok && strings.TrimSpace(record.PathID) != "" {
 		return matched.PathID, matched
 	}
@@ -760,6 +815,8 @@ func recordHasCorrelationKey(record Record) bool {
 		strings.TrimSpace(record.PolicyRef) != "" ||
 		strings.TrimSpace(record.ProofRef) != "" ||
 		strings.TrimSpace(record.Target) != "" ||
+		strings.TrimSpace(record.ProposedActionContractRef) != "" ||
+		(strings.TrimSpace(record.ContractFamilyID) != "" && record.ContractRevision > 0) ||
 		len(record.GraphNodeRefs) > 0 ||
 		len(record.GraphEdgeRefs) > 0
 }
@@ -775,6 +832,8 @@ func fallbackCorrelationKey(record Record) string {
 		repoScopedKey(record.Repo, record.Service),
 		strings.TrimSpace(record.PolicyRef),
 		strings.TrimSpace(record.ProofRef),
+		strings.TrimSpace(record.ProposedActionContractRef),
+		strings.TrimSpace(record.ContractFamilyID),
 		strings.TrimSpace(record.RecordID),
 	)
 }

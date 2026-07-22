@@ -173,6 +173,37 @@ func TestCompositionDriftPairsMultiStageMemberChurnWithinRouteFamily(t *testing.
 	}
 }
 
+func TestActionContractLifecycleDriftClassifiesRevisionAndDownstreamEvidence(t *testing.T) {
+	baselineComposition := regressTestComposition("cap-contract", "rk-deploy", "prod:checkout", "production_deploy")
+	baselineComposition.ProposedActionContract = risk.BuildProposedActionContract(baselineComposition)
+	currentComposition := baselineComposition
+	currentComposition.ProposedActionContract = risk.CloneProposedActionContract(baselineComposition.ProposedActionContract)
+	currentComposition.ProposedActionContract.Revision = 2
+	currentComposition.ProposedActionContract.SupersedesRef = baselineComposition.ProposedActionContract.ContractID
+	risk.RefreshProposedActionContractIdentity(currentComposition.ProposedActionContract)
+	currentComposition.ProposedActionContract.LifecycleObservations = risk.NormalizeProposedActionLifecycleObservations([]risk.ProposedActionLifecycleObservation{
+		{Kind: risk.LifecycleObservationActivationReceipt, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh", EvidenceRefs: []string{"gait:receipt"}},
+		{Kind: risk.LifecycleObservationRejection, Producer: "gait", EvidenceState: risk.EvidenceStateContradictory, FreshnessState: "fresh", EvidenceRefs: []string{"gait:rejection"}},
+		{Kind: risk.LifecycleObservationExecution, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh", EvidenceRefs: []string{"gait:execution"}},
+		{Kind: risk.LifecycleObservationEffect, Producer: "gait", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh", EvidenceRefs: []string{"gait:effect"}},
+		{Kind: risk.LifecycleObservationAxymVerification, Producer: "axym", EvidenceState: risk.EvidenceStateVerified, FreshnessState: "fresh", EvidenceRefs: []string{"axym:bundle"}},
+	})
+
+	baseline := BuildBaseline(state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{baselineComposition}}}, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+	result := Compare(baseline, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{currentComposition}}})
+	for _, category := range []string{
+		DriftCategoryActionContractRevisionChanged,
+		DriftCategoryActionContractActivationChanged,
+		DriftCategoryActionContractRejectionChanged,
+		DriftCategoryActionContractExecutionEffectChanged,
+		DriftCategoryActionContractVerificationChanged,
+	} {
+		if !hasDriftCategory(result.DriftCategories, category) {
+			t.Fatalf("expected %s classification, got %+v", category, result.DriftCategories)
+		}
+	}
+}
+
 func regressTestComposition(compositionID, sinkResolutionKey, targetIdentity, outcomeClass string) risk.ComposedActionPath {
 	return risk.ComposedActionPath{
 		CompositionID:        compositionID,

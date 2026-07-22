@@ -39,10 +39,11 @@ type SecurityVisibilityContext struct {
 }
 
 const (
-	maxFindingRiskProofRecords = 25
-	maxAttackPathProofRecords  = 25
-	maxActionPathProofRecords  = 25
-	maxDecisionTraceRecords    = 25
+	maxFindingRiskProofRecords    = 25
+	maxAttackPathProofRecords     = 25
+	maxActionPathProofRecords     = 25
+	maxActionContractProofRecords = 25
+	maxDecisionTraceRecords       = 25
 )
 
 func hasSecurityVisibilityReference(summary agginventory.SecurityVisibilitySummary) bool {
@@ -303,6 +304,51 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 				"rank":              idx + 1,
 				"canonical_finding": "action_path_governance",
 				"action_path_id":    path.PathID,
+			},
+		}))
+	}
+	contractCompositions := append([]risk.ComposedActionPath(nil), report.ComposedActionPaths...)
+	sort.Slice(contractCompositions, func(i, j int) bool {
+		return strings.TrimSpace(contractCompositions[i].CompositionID) < strings.TrimSpace(contractCompositions[j].CompositionID)
+	})
+	if len(contractCompositions) > maxActionContractProofRecords {
+		contractCompositions = contractCompositions[:maxActionContractProofRecords]
+	}
+	for idx, composition := range contractCompositions {
+		contract := composition.ProposedActionContract
+		if contract == nil || strings.TrimSpace(contract.ContractID) == "" {
+			continue
+		}
+		lifecycleRefs := []string{}
+		lifecycleKinds := []string{}
+		for _, observation := range contract.LifecycleObservations {
+			lifecycleRefs = append(lifecycleRefs, observation.ObservationID)
+			lifecycleRefs = append(lifecycleRefs, observation.EvidenceRefs...)
+			lifecycleRefs = append(lifecycleRefs, observation.ProofRefs...)
+			lifecycleKinds = append(lifecycleKinds, observation.Kind)
+		}
+		event := map[string]any{
+			"assessment_type":         "proposed_action_contract_creation",
+			"contract_id":             strings.TrimSpace(contract.ContractID),
+			"contract_family_id":      strings.TrimSpace(contract.ContractFamilyID),
+			"contract_content_digest": strings.TrimSpace(contract.ContractContentDigest),
+			"contract_version":        strings.TrimSpace(contract.ContractVersion),
+			"revision":                contract.Revision,
+			"composition_ref":         strings.TrimSpace(contract.CompositionRef),
+			"supersedes_ref":          strings.TrimSpace(contract.SupersedesRef),
+			"report_only":             contract.ReportOnly,
+			"lifecycle_kinds":         uniqueSortedStrings(lifecycleKinds),
+			"lifecycle_refs":          uniqueSortedStrings(lifecycleRefs),
+		}
+		records = append(records, sanitizeMappedRecord(MappedRecord{
+			RecordType: "risk_assessment",
+			Timestamp:  canonicalTime(now),
+			Event:      event,
+			Metadata: map[string]any{
+				"rank":                         idx + 1,
+				"canonical_finding":            "proposed_action_contract_creation",
+				"proposed_action_contract_ref": strings.TrimSpace(contract.ContractID),
+				"composition_ref":              strings.TrimSpace(composition.CompositionID),
 			},
 		}))
 	}

@@ -1819,6 +1819,36 @@ func compositionEvidenceRefs(paths []ActionPath) []string {
 		out = append(out, path.RiskClassificationValidationRefs...)
 		out = append(out, path.EvidencePacketRefs...)
 		out = append(out, path.SourceFindingKeys...)
+		if strings.TrimSpace(path.Purpose) != "" {
+			out = append(out, "intent:"+strings.TrimSpace(path.Purpose))
+		}
+		if strings.TrimSpace(path.OperationalOwner) != "" {
+			out = append(out, "owner:system:"+strings.TrimSpace(path.OperationalOwner))
+		}
+		for _, policyRef := range path.PolicyRefs {
+			if strings.TrimSpace(policyRef) != "" {
+				out = append(out, "policy:"+strings.TrimSpace(policyRef))
+			}
+		}
+		if path.CredentialProvenance != nil && strings.TrimSpace(path.CredentialProvenance.Subject) != "" {
+			out = append(out, "provenance_subject:"+strings.TrimSpace(path.CredentialProvenance.Subject))
+		}
+		for _, credential := range path.Credentials {
+			if credential != nil && strings.TrimSpace(credential.Subject) != "" {
+				out = append(out, "provenance_subject:"+strings.TrimSpace(credential.Subject))
+			}
+		}
+		for _, binding := range path.AuthorityBindings {
+			if binding != nil && strings.TrimSpace(binding.Subject) != "" {
+				out = append(out, "binding_subject:"+strings.TrimSpace(binding.Subject))
+			}
+		}
+		if path.StandingPrivilege || (path.CredentialAuthority != nil && path.CredentialAuthority.StandingAccess) {
+			out = append(out, "authority_standing:true")
+		}
+		if path.SharedExecutionIdentity {
+			out = append(out, "credential:shared")
+		}
 	}
 	return dedupeSortedStrings(out)
 }

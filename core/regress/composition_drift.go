@@ -35,6 +35,15 @@ type CompositionState struct {
 	ObservedExecution         bool     `json:"observed_execution,omitempty"`
 	CorrelationRefs           []string `json:"correlation_refs,omitempty"`
 	AlternateRouteRefs        []string `json:"alternate_route_refs,omitempty"`
+	ActionContractID          string   `json:"action_contract_id,omitempty"`
+	ActionContractFamilyID    string   `json:"action_contract_family_id,omitempty"`
+	ActionContractRevision    int      `json:"action_contract_revision,omitempty"`
+	ActionContractSupersedes  string   `json:"action_contract_supersedes,omitempty"`
+	ActionContractDigest      string   `json:"action_contract_digest,omitempty"`
+	ContractActivation        []string `json:"action_contract_activation,omitempty"`
+	ContractRejection         []string `json:"action_contract_rejection,omitempty"`
+	ContractExecutionEffect   []string `json:"action_contract_execution_effect,omitempty"`
+	ContractVerification      []string `json:"action_contract_verification,omitempty"`
 }
 
 type compositionPair struct {
@@ -110,6 +119,28 @@ func newCompositionState(composition risk.ComposedActionPath) CompositionState {
 		CorrelationRefs:           compositionCorrelationRefs(composition),
 		AlternateRouteRefs:        mergeSortedStrings(composition.AlternateRouteRefs, nil),
 	}
+	if contract := composition.ProposedActionContract; contract != nil {
+		out.ActionContractID = strings.TrimSpace(contract.ContractID)
+		out.ActionContractFamilyID = strings.TrimSpace(contract.ContractFamilyID)
+		out.ActionContractRevision = contract.Revision
+		out.ActionContractSupersedes = strings.TrimSpace(contract.SupersedesRef)
+		out.ActionContractDigest = strings.TrimSpace(contract.ContractContentDigest)
+		for _, observation := range contract.LifecycleObservations {
+			value := lifecycleObservationDriftValue(observation)
+			switch observation.Kind {
+			case risk.LifecycleObservationActivationRequest, risk.LifecycleObservationActivationReceipt:
+				out.ContractActivation = append(out.ContractActivation, value)
+			case risk.LifecycleObservationRejection:
+				out.ContractRejection = append(out.ContractRejection, value)
+			case risk.LifecycleObservationExecution, risk.LifecycleObservationEffect:
+				out.ContractExecutionEffect = append(out.ContractExecutionEffect, value)
+			case risk.LifecycleObservationAxymVerification:
+				out.ContractVerification = append(out.ContractVerification, value)
+			}
+			out.EvidenceRefs = append(out.EvidenceRefs, observation.EvidenceRefs...)
+			out.EvidenceRefs = append(out.EvidenceRefs, observation.ProofRefs...)
+		}
+	}
 	out.CompositionFamilyKey = compositionFamilyKey(out)
 	return normalizeCompositionState(out)
 }
@@ -140,6 +171,14 @@ func normalizeCompositionState(in CompositionState) CompositionState {
 	in.ReachabilityState = strings.TrimSpace(in.ReachabilityState)
 	in.CorrelationRefs = mergeSortedStrings(in.CorrelationRefs, nil)
 	in.AlternateRouteRefs = mergeSortedStrings(in.AlternateRouteRefs, nil)
+	in.ActionContractID = strings.TrimSpace(in.ActionContractID)
+	in.ActionContractFamilyID = strings.TrimSpace(in.ActionContractFamilyID)
+	in.ActionContractSupersedes = strings.TrimSpace(in.ActionContractSupersedes)
+	in.ActionContractDigest = strings.TrimSpace(in.ActionContractDigest)
+	in.ContractActivation = mergeSortedStrings(in.ContractActivation, nil)
+	in.ContractRejection = mergeSortedStrings(in.ContractRejection, nil)
+	in.ContractExecutionEffect = mergeSortedStrings(in.ContractExecutionEffect, nil)
+	in.ContractVerification = mergeSortedStrings(in.ContractVerification, nil)
 	if in.CompositionFamilyKey == "" {
 		in.CompositionFamilyKey = compositionFamilyKey(in)
 	}
@@ -333,6 +372,32 @@ func addMatchedCompositionDriftExamples(buckets map[string]*driftBucket, pair co
 	if strings.TrimSpace(pair.Baseline.ReachabilityState) != strings.TrimSpace(pair.Current.ReachabilityState) || pair.Baseline.ObservedExecution != pair.Current.ObservedExecution {
 		addCompositionDriftCategoryExample(buckets[DriftCategoryCompositionReachabilityChanged], pair.Current, pair.Baseline, "composition possible/incomplete/observed reachability changed since baseline")
 	}
+	if pair.Baseline.ActionContractID != pair.Current.ActionContractID || pair.Baseline.ActionContractFamilyID != pair.Current.ActionContractFamilyID || pair.Baseline.ActionContractRevision != pair.Current.ActionContractRevision || pair.Baseline.ActionContractSupersedes != pair.Current.ActionContractSupersedes || pair.Baseline.ActionContractDigest != pair.Current.ActionContractDigest {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryActionContractRevisionChanged], pair.Current, pair.Baseline, "proposed Action Contract immutable revision identity changed since baseline")
+	}
+	if strings.Join(pair.Baseline.ContractActivation, ",") != strings.Join(pair.Current.ContractActivation, ",") {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryActionContractActivationChanged], pair.Current, pair.Baseline, "imported Gait activation evidence changed since baseline")
+	}
+	if strings.Join(pair.Baseline.ContractRejection, ",") != strings.Join(pair.Current.ContractRejection, ",") {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryActionContractRejectionChanged], pair.Current, pair.Baseline, "imported Gait rejection evidence changed since baseline")
+	}
+	if strings.Join(pair.Baseline.ContractExecutionEffect, ",") != strings.Join(pair.Current.ContractExecutionEffect, ",") {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryActionContractExecutionEffectChanged], pair.Current, pair.Baseline, "imported Gait execution or effect evidence changed since baseline")
+	}
+	if strings.Join(pair.Baseline.ContractVerification, ",") != strings.Join(pair.Current.ContractVerification, ",") {
+		addCompositionDriftCategoryExample(buckets[DriftCategoryActionContractVerificationChanged], pair.Current, pair.Baseline, "imported Axym verification references changed since baseline")
+	}
+}
+
+func lifecycleObservationDriftValue(observation risk.ProposedActionLifecycleObservation) string {
+	return strings.Join([]string{
+		strings.TrimSpace(observation.Kind),
+		strings.TrimSpace(observation.Producer),
+		strings.TrimSpace(observation.EvidenceState),
+		strings.TrimSpace(observation.FreshnessState),
+		strings.Join(mergeSortedStrings(observation.EvidenceRefs, nil), ","),
+		strings.Join(mergeSortedStrings(observation.ProofRefs, nil), ","),
+	}, "|")
 }
 
 func addCompositionDriftCategoryExample(bucket *driftBucket, current CompositionState, baseline CompositionState, detail string) {

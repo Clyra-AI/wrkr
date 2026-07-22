@@ -31,7 +31,7 @@ Runtime and external-control records are normalized and sorted deterministically
 
 External-control sidecars should validate against `schemas/v1/evidence/external-control-evidence.schema.json` and use `record_kind=external_control` plus a deterministic `source_type` such as `provider_export`, `signed_declaration`, `repo_policy`, `app_catalog`, `ticket_export`, or `customer_owner_map`.
 
-Each record must also provide at least one deterministic correlation key: `path_id`, `resolution_key`, `agent_id`, `repo` + `location`, `repo` + `workflow`, `repo` + `environment`, `service`, `policy_ref`, `proof_ref`, `target`, or graph refs.
+Each record must also provide at least one deterministic correlation key: `path_id`, `resolution_key`, `agent_id`, `repo` + `location`, `repo` + `workflow`, `repo` + `environment`, `service`, `policy_ref`, `proof_ref`, `target`, graph refs, `proposed_action_contract_ref`, or `contract_family_id` plus positive `contract_revision`.
 
 Normalized evidence classes:
 
@@ -54,6 +54,8 @@ Normalized evidence classes:
 - `other` for explicit legacy/unknown carry-through
 
 Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `environment`, `path`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, `issuer`, `valid_until`, `max_age`, `confidence`, `freshness_state`, `redaction_hints`, `owner`, `required_checks`, `branch`, and `evidence_refs`.
+
+Action Contract lifecycle records additionally use `action_contract_event`, `producer`, optional `action_contract_artifact_ref`, `evidence_state`, and `reason_codes`. Supported imported events are `gait_activation_request`, `gait_activation_receipt`, `gait_rejection`, `supersession`, `gait_execution`, `gait_effect`, and `axym_verification`. Gait is authoritative for the Gait events and Axym for verification; wrong-producer, unsupported-event, missing-contract, and nonpositive-revision records fail closed. These observations decorate export, packet, report, evidence, proof, and regress projections without changing the saved contract ID, content digest, approval scope digest, or revision.
 
 Wrkr normalizes external-control records with deterministic source precedence and freshness metadata. Correlation summaries now preserve additive `freshness_state` / `freshness_states` so stale or expired evidence is visible without silently verifying a control. Imported provider records can now correlate directly by additive `resolution_key` when path locations churn but the underlying governable path is still equivalent.
 These imports stay local-file based and deterministic; Wrkr correlates them without live provider calls.
