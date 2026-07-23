@@ -439,8 +439,17 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := validateRepoExternalControlEvidence(manifestOut); err != nil {
 		return emitScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
 	}
+	profileDef, profileErr := profilemodel.Builtin(*profileName)
+	if profileErr != nil {
+		return emitScanError("unsafe_operation_blocked", profileErr.Error(), exitUnsafeBlocked)
+	}
+	profileDef, profileErr = profilemodel.WithOverrides(profileDef, strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
+	if profileErr != nil {
+		return emitScanError("policy_schema_violation", profileErr.Error(), exitPolicyViolation)
+	}
+	analysisFindings := risk.ApplyFindingProfile(profileDef.Name, findings)
 	scanMethodology := buildScanMethodology(manifestOut, findings, scanStartedAt, now)
-	riskReport := risk.Score(findings, 5, now)
+	riskReport := risk.Score(analysisFindings, 5, now)
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
@@ -465,7 +474,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	contexts := enrichFindingContexts(findings, baseContexts, identityByAgent)
 
-	repoExposure := aggexposure.Build(findings, repoRisk)
+	repoExposure := aggexposure.Build(analysisFindings, repoRisk)
 	agentBindings := agentresolver.Resolve(findings)
 	agentDeployments := agentdeploy.Resolve(findings)
 	inventoryOut := agginventory.Build(agginventory.BuildInput{
@@ -505,12 +514,13 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		findings = append(findings, approvedtools.CompareLocalInventory(&localInventory, approvedConfigured, strings.TrimSpace(*approvedToolsPath))...)
 		inventoryOut.LocalGovernance = localInventory.LocalGovernance
 		source.SortFindings(findings)
-		riskReport = risk.Score(findings, 5, now)
+		analysisFindings = risk.ApplyFindingProfile(profileDef.Name, findings)
+		riskReport = risk.Score(analysisFindings, 5, now)
 		repoRisk = map[string]float64{}
 		for _, repo := range riskReport.Repos {
 			repoRisk[repo.Org+"::"+repo.Repo] = repo.Score
 		}
-		repoExposure = aggexposure.Build(findings, repoRisk)
+		repoExposure = aggexposure.Build(analysisFindings, repoRisk)
 		inventoryOut.RepoExposureSummaries = append([]aggexposure.RepoExposureSummary(nil), repoExposure...)
 	}
 	agginventory.ApplySecurityVisibility(&inventoryOut, buildSecurityVisibilityReference(previousSnapshot, statePath, strings.TrimSpace(*baselinePath)))
@@ -535,7 +545,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets file %s has no configured targets; production_write budget is not configured", productionTargetsFile))
 		}
 	}
-	inventoryOut.PrivilegeBudget, inventoryOut.AgentPrivilegeMap = privilegebudget.Build(inventoryOut.Tools, inventoryOut.Agents, findings, productionTargets)
+	inventoryOut.PrivilegeBudget, inventoryOut.AgentPrivilegeMap = privilegebudget.Build(inventoryOut.Tools, inventoryOut.Agents, analysisFindings, productionTargets)
 	inventoryOut.PrivilegeBudget.ProductionWrite.Status = productionWriteStatus
 	inventoryOut.PrivilegeBudget.ProductionWrite.Configured = productionWriteStatus == agginventory.ProductionTargetsStatusConfigured
 	if !inventoryOut.PrivilegeBudget.ProductionWrite.Configured {
@@ -548,26 +558,18 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	agginventory.ApplyCanonicalStores(&inventoryOut)
 	progress.PhaseSubstep("analysis", "action_paths", 2, 6)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
-	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, findings)
+	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, analysisFindings)
 	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
 	riskReport.ActionPaths = risk.DecorateControlMetadata(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
 	riskReport.ActionPaths = risk.ProjectActionPaths(riskReport.ActionPaths)
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 
-	profileDef, profileErr := profilemodel.Builtin(*profileName)
-	if profileErr != nil {
-		return emitScanError("unsafe_operation_blocked", profileErr.Error(), exitUnsafeBlocked)
-	}
-	profileDef, profileErr = profilemodel.WithOverrides(profileDef, strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
-	if profileErr != nil {
-		return emitScanError("policy_schema_violation", profileErr.Error(), exitPolicyViolation)
-	}
 	var previousProfile *profileeval.Result
 	if previousSnapshot != nil && previousSnapshot.Profile != nil {
 		copyResult := *previousSnapshot.Profile
 		previousProfile = &copyResult
 	}
-	profileResult := profileeval.Evaluate(profileDef, findings, previousProfile)
+	profileResult := profileeval.Evaluate(profileDef, analysisFindings, previousProfile)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileResult.ProfileName, riskReport.ActionPaths)
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
@@ -575,7 +577,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	scanQuality := scanquality.Build(scanquality.Input{
 		Mode:           scanMode,
 		Scopes:         scopes,
-		Findings:       findings,
+		Findings:       analysisFindings,
 		DetectorErrors: detectorErrors,
 	})
 	artifactFindings := summarizeArtifactFindings(findings, scanMode)
@@ -600,7 +602,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	controlBacklog := controlbacklog.Build(controlbacklog.Input{
 		Mode:             scanMode,
 		GeneratedAt:      now,
-		Findings:         findings,
+		Findings:         analysisFindings,
 		Inventory:        &inventoryOut,
 		Identities:       nextManifest.Identities,
 		LifecycleGaps:    lifecycleGaps,
@@ -618,8 +620,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		previousScore = &copyResult
 	}
 	postureScore := score.Compute(score.Input{
-		Findings:        findings,
-		PolicyOutcomes:  outputsignal.BuildPolicyOutcomes(findings),
+		Findings:        analysisFindings,
+		PolicyOutcomes:  outputsignal.BuildPolicyOutcomes(analysisFindings),
 		Identities:      nextManifest.Identities,
 		ProfileResult:   profileResult,
 		TransitionCount: driftTransitionCount(transitions),
@@ -636,7 +638,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Target:                     manifestOut.Target,
 		Targets:                    manifestOut.Targets,
 		Findings:                   artifactFindings,
-		PolicyOutcomes:             outputsignal.BuildPolicyOutcomes(artifactFindings),
+		PolicyOutcomes:             outputsignal.BuildPolicyOutcomes(analysisFindings),
 		Inventory:                  &inventoryOut,
 		ControlBacklog:             &controlBacklog,
 		LifecycleGaps:              lifecycleGaps,
@@ -742,7 +744,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err != nil {
 		return emitRolledBackScanFailure(err)
 	}
-	complianceSummary, err := compliance.BuildRollupSummary(findings, proofChain)
+	complianceSummary, err := compliance.BuildRollupSummary(analysisFindings, proofChain)
 	if err != nil {
 		return emitRolledBackScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
 	}
@@ -774,7 +776,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		PostureScore:            postureScore,
 		ComplianceSummary:       complianceSummary,
 		Findings:                artifactFindings,
-		Warnings:                reportcore.MCPVisibilityWarnings(findings),
+		Warnings:                reportcore.MCPVisibilityWarnings(analysisFindings),
 		ProductionTargetWarning: productionTargetWarnings,
 		DetectorErrors:          detectorErrors,
 		PartialResult:           len(manifestOut.Failures) > 0,

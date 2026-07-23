@@ -8,46 +8,76 @@
     "ci_autonomy",
     "ci_autonomy"
   ],
-  "action_path_count": 2,
+  "action_path_count": 5,
   "action_paths": [
     {
-      "path_id": "apc-911d5b0cdab4",
-      "repo": "example-sandbox",
-      "tool_type": "compiled_action",
-      "recommended_action": "control",
-      "owner_source": "multi_repo_conflict",
-      "ownership_status": "unresolved",
-      "business_state_surface": "deploy"
-    },
-    {
-      "path_id": "apc-ea49974b9122",
+      "path_id": "apc-85bd65c9e75a",
       "repo": "example-sandbox",
       "tool_type": "ci_agent",
       "recommended_action": "control",
-      "owner_source": "multi_repo_conflict",
-      "ownership_status": "unresolved",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "deploy"
+    },
+    {
+      "path_id": "apc-e4586f2763de",
+      "repo": "live-control",
+      "tool_type": "ci_agent",
+      "recommended_action": "control",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "deploy"
+    },
+    {
+      "path_id": "apc-7a0c1629022b",
+      "repo": "test-harness",
+      "tool_type": "ci_agent",
+      "recommended_action": "control",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "deploy"
+    },
+    {
+      "path_id": "apc-80ca4e6949c6",
+      "repo": "vendor-shadow",
+      "tool_type": "ci_agent",
+      "recommended_action": "control",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "deploy"
+    },
+    {
+      "path_id": "apc-87b78f283748",
+      "repo": "venv-shadow",
+      "tool_type": "ci_agent",
+      "recommended_action": "control",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
       "business_state_surface": "deploy"
     }
   ],
   "control_first": {
     "summary": {
-      "total_paths": 2,
-      "write_capable_paths": 2,
-      "production_target_backed_paths": 2,
-      "govern_first_paths": 2
+      "total_paths": 5,
+      "write_capable_paths": 5,
+      "production_target_backed_paths": 5,
+      "govern_first_paths": 5
     },
     "path": {
-      "path_id": "apc-911d5b0cdab4",
+      "path_id": "apc-85bd65c9e75a",
       "repo": "example-sandbox",
-      "tool_type": "compiled_action",
+      "tool_type": "ci_agent",
       "recommended_action": "control",
       "business_state_surface": "deploy"
     }
   },
   "activation": {
-    "eligible_count": 2,
-    "message": "Review 2 govern-first candidate path(s) first.",
+    "eligible_count": 5,
+    "message": "Review 5 govern-first candidate path(s) first.",
     "item_classes": [
+      "production_target_backed",
+      "production_target_backed",
+      "production_target_backed",
       "production_target_backed",
       "production_target_backed"
     ]

@@ -142,7 +142,12 @@
         "required_checks": {"type": "array", "items": {"type": "string"}},
         "owners": {"type": "array", "items": {"type": "string"}},
         "unmatched_reasons": {"type": "array", "items": {"type": "string"}},
-        "latest_observed_at": {"type": "string"}
+        "latest_observed_at": {"type": "string"},
+        "containment_status": {"type": "string", "enum": ["contained", "partially_contained", "unresolved", "out_of_scope"]},
+        "containment_scope_refs": {"type": "array", "items": {"type": "string"}},
+        "acknowledged_boundary_refs": {"type": "array", "items": {"type": "string"}},
+        "unresolved_boundary_refs": {"type": "array", "items": {"type": "string"}},
+        "out_of_scope_boundary_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": true
     },

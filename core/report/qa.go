@@ -21,13 +21,22 @@ var unsupportedBuyerArtifactPhrases = []string{
 
 var buyerPrimaryInternalTokens = []string{
 	"approval_evidence_unknown",
+	"blocked_by_contradiction",
+	"ci_cd_workflow",
 	"proof_evidence_unknown",
 	"control_first",
+	"expected_outcome",
+	"github_pat",
+	"plain_source_code",
 	"prod_or_customer_impacting",
+	"privileged_sink",
+	"production_deploy",
 	"production_impacting",
 	"report_only",
 	"recommended_control",
 	"not_collected",
+	"static_secret",
+	"unknown_durable",
 }
 
 const buyerPrimaryMaxLineLength = 520
@@ -111,12 +120,31 @@ func validateBuyerPrimaryText(name string, text string) []string {
 		issues = append(issues, fmt.Sprintf("%s primary lead repeats raw proof evidence gap wording", name))
 	}
 	for _, card := range buyerPrimaryLeadCards(primary) {
-		if weakBlockedCredentialLead(strings.ToLower(card)) {
+		lowerCard := strings.ToLower(card)
+		if buyerLeadCardNeedsEvidenceClassification(lowerCard) && !buyerLeadCardHasEvidenceClassification(lowerCard) {
+			issues = append(issues, fmt.Sprintf("%s primary lead card does not label evidence as confirmed, inferred, or unresolved", name))
+		}
+		if weakBlockedCredentialLead(lowerCard) {
 			issues = append(issues, fmt.Sprintf("%s primary lead starts blocked standing-credential guidance with accept-risk before reduction", name))
 			break
 		}
 	}
 	return issues
+}
+
+func buyerLeadCardNeedsEvidenceClassification(lower string) bool {
+	return strings.Contains(lower, "inspect first:") ||
+		strings.Contains(lower, "inspect next:") ||
+		strings.Contains(lower, "inspect:")
+}
+
+func buyerLeadCardHasEvidenceClassification(lower string) bool {
+	for _, label := range []string{"confirmed path", "inferred relationship", "unresolved context"} {
+		if strings.Contains(lower, label) {
+			return true
+		}
+	}
+	return false
 }
 
 func buyerPrimarySection(text string) string {

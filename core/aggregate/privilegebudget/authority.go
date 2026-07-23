@@ -112,7 +112,12 @@ func classifyCredentialTargetMetadata(
 	authSurfaces []string,
 	signals findingSignals,
 ) (string, string, string, []string) {
-	parts := []string{credentialSubject(provenance)}
+	subject := credentialSubject(provenance)
+	if targetSystem, likelyScope, scopeConfidence, reasons := classifyCredentialTargetText(subject); targetSystem != "" || likelyScope != "" {
+		return targetSystem, likelyScope, scopeConfidence, reasons
+	}
+
+	parts := []string{subject}
 	parts = append(parts, authSurfaces...)
 	parts = append(parts, signals.EvidenceKV["credential_subject"]...)
 	parts = append(parts, signals.EvidenceKV["workflow_secret_refs"]...)
@@ -121,7 +126,14 @@ func classifyCredentialTargetMetadata(
 	if text == "" {
 		return "", "", "", nil
 	}
+	return classifyCredentialTargetText(text)
+}
 
+func classifyCredentialTargetText(text string) (string, string, string, []string) {
+	text = normalizeToken(text)
+	if text == "" {
+		return "", "", "", nil
+	}
 	type targetMatch struct {
 		system     string
 		scope      string
@@ -137,8 +149,9 @@ func classifyCredentialTargetMetadata(
 		{[]string{"pagerduty", "opsgenie"}, targetMatch{"incident_response", "incident_response", "high", []string{"target_system:incident_response", "scope:incident_response"}}},
 		{[]string{"datadog", "sentry", "newrelic", "grafana", "honeycomb"}, targetMatch{"observability", "observability_write", "high", []string{"target_system:observability", "scope:observability_write"}}},
 		{[]string{"jira", "atlassian", "linear", "asana"}, targetMatch{"issue_tracking", "issue_tracking_write", "high", []string{"target_system:issue_tracking", "scope:issue_tracking_write"}}},
-		{[]string{"github", "gitlab", "bitbucket", "gh_"}, targetMatch{"source_control", "source_control_write", "medium", []string{"target_system:source_control", "scope:source_control_write"}}},
+		{[]string{"cosign", "sigstore"}, targetMatch{"artifact_signing", "artifact_sign", "high", []string{"target_system:artifact_signing", "scope:artifact_sign"}}},
 		{[]string{"npm", "pypi", "rubygems", "dockerhub", "ghcr", "package"}, targetMatch{"package_registry", "package_publish", "high", []string{"target_system:package_registry", "scope:package_publish"}}},
+		{[]string{"github", "gitlab", "bitbucket", "gh_"}, targetMatch{"source_control", "source_control_write", "medium", []string{"target_system:source_control", "scope:source_control_write"}}},
 		{[]string{"vercel", "netlify", "render", "fly", "railway", "heroku", "argo", "spacelift"}, targetMatch{"deployment_platform", "deploy_write", "high", []string{"target_system:deployment_platform", "scope:deploy_write"}}},
 		{[]string{"vault", "doppler", "1password", "secretsmanager", "secret_manager"}, targetMatch{"secrets_manager", "secret_management", "medium", []string{"target_system:secrets_manager", "scope:secret_management"}}},
 		{[]string{"aws", "gcp", "azure", "terraform", "cloudformation", "kubernetes", "oidc", "workload_identity"}, targetMatch{bindingProvider(text), "cloud_or_infra_access", "medium", []string{"target_system:" + bindingProvider(text), "scope:cloud_or_infra_access"}}},

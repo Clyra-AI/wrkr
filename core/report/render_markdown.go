@@ -204,36 +204,41 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s boundary=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s autonomy=%s readiness=%s recommended_control=%s control=%s approval=%s proof=%s runtime=%s session=%s confidence=%s evidence=%s completeness=%s(%d) policy=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s\n",
 				markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType, bomItemEligible(item), bomItemBindingState(item)),
 				item.Repo,
 				item.Location,
 				item.Owner,
-				firstNonEmptyValue(item.BoundaryLabel, BoundaryLabelReportOnly),
-				item.ConfidenceLane,
-				item.ActionPathType,
-				item.ControlState,
-				item.RiskZone,
-				item.TargetClass,
-				item.ReviewBurden,
-				item.Queue,
-				item.ControlPriority,
-				item.RiskTier,
+			))
+			builder.WriteString(fmt.Sprintf("  posture: boundary=%s; relationship=%s; surface=%s; state=%s; zone=%s; target=%s; review=%s\n",
+				humanizeEnum(firstNonEmptyValue(item.BoundaryLabel, BoundaryLabelReportOnly)),
+				humanizeEnum(item.ConfidenceLane),
+				humanizeEnum(item.ActionPathType),
+				humanizeEnum(item.ControlState),
+				humanizeEnum(item.RiskZone),
+				humanizeEnum(item.TargetClass),
+				humanizeEnum(item.ReviewBurden),
+			))
+			builder.WriteString(fmt.Sprintf("  control: queue=%s; priority=%s; tier=%s; autonomy=%s; readiness=%s; recommendation=%s; resolution=%s\n",
+				humanizeEnum(item.Queue),
+				humanizeEnum(item.ControlPriority),
+				humanizeEnum(item.RiskTier),
 				risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
 				risk.BuyerDelegationReadinessLabel(item.DelegationReadinessState),
 				risk.BuyerRecommendedControlLabel(item.RecommendedControl),
 				risk.BuyerControlResolutionLabel(item.ControlResolutionState),
+			))
+			builder.WriteString(fmt.Sprintf("  evidence: %s; %s; %s; session %s; confidence %s; strength %s; completeness %s (%d)\n",
 				risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
 				risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
 				markdownBOMRuntimeEvidenceLabel(item),
-				firstNonEmptyValue(item.RuntimeSessionStatus, "not_collected"),
-				item.Confidence,
-				item.EvidenceStrength,
+				humanizeEnum(firstNonEmptyValue(item.RuntimeSessionStatus, "not_collected")),
+				humanizeEnum(item.Confidence),
+				humanizeEnum(item.EvidenceStrength),
 				risk.BuyerEvidenceCompletenessLabel(item.EvidenceCompleteness),
 				markdownCompletenessScore(item.EvidenceCompleteness),
-				item.PolicyStatus,
-				item.Remediation,
 			))
+			builder.WriteString(fmt.Sprintf("  policy=%s next=%s\n", humanizeEnum(item.PolicyStatus), item.Remediation))
 			if len(item.RiskClassificationValidationReasons) > 0 {
 				builder.WriteString(fmt.Sprintf("  classification_validation=%s\n", strings.Join(item.RiskClassificationValidationReasons, ", ")))
 			}
@@ -282,6 +287,15 @@ func RenderMarkdown(summary Summary) string {
 					markdownGaitCoverageStatus(item.GaitCoverage.ActionOutcome.Status),
 					markdownGaitCoverageStatus(item.GaitCoverage.ProofVerification.Status),
 				))
+				if item.GaitCoverage.Containment != nil {
+					builder.WriteString(fmt.Sprintf("  containment=%s scope_refs=%d acknowledged_boundaries=%d unresolved_boundaries=%d out_of_scope_boundaries=%d\n",
+						humanizeEnum(item.GaitCoverage.Containment.Status),
+						len(item.GaitCoverage.Containment.ScopeRefs),
+						len(item.GaitCoverage.Containment.AcknowledgedBoundaryRefs),
+						len(item.GaitCoverage.Containment.UnresolvedBoundaryRefs),
+						len(item.GaitCoverage.Containment.OutOfScopeBoundaryRefs),
+					))
+				}
 			}
 			if len(item.DecisionTraceRefs) > 0 {
 				builder.WriteString(fmt.Sprintf("  decision_traces=%s\n", strings.Join(item.DecisionTraceRefs, ", ")))
@@ -652,18 +666,24 @@ func markdownGaitCoverageStatus(status string) string {
 
 func markdownActionPathLabel(lane string, actionPathType string, eligible bool, bindingState string) string {
 	if !eligible {
-		switch strings.TrimSpace(actionPathType) {
-		case risk.ActionPathTypeAgentInstruction:
-			return "instruction control surface"
-		case risk.ActionPathTypeDependencyOnlySignal:
+		if strings.TrimSpace(actionPathType) == risk.ActionPathTypeDependencyOnlySignal {
 			return "dependency-only context"
-		default:
-			if strings.TrimSpace(bindingState) == risk.ActionBindingStateUnboundContext {
-				return "target surface context"
-			}
+		}
+		if strings.TrimSpace(actionPathType) == risk.ActionPathTypeAgentInstruction {
+			return "agent surface only"
+		}
+		if strings.TrimSpace(bindingState) == risk.ActionBindingStateUnboundContext {
+			return "target surface only"
 		}
 	}
 	switch strings.TrimSpace(actionPathType) {
+	case risk.ActionPathTypeCICDWorkflow:
+		switch strings.TrimSpace(lane) {
+		case risk.ConfidenceLaneConfirmedActionPath:
+			return "confirmed CI path"
+		case risk.ConfidenceLaneLikelyActionPath, risk.ConfidenceLaneSemanticReviewCandidate:
+			return "inferred relationship"
+		}
 	case risk.ActionPathTypeAIAssistedWorkflow:
 		switch strings.TrimSpace(lane) {
 		case risk.ConfidenceLaneLikelyActionPath:
@@ -696,12 +716,10 @@ func markdownActionPathLabel(lane string, actionPathType string, eligible bool, 
 	switch strings.TrimSpace(lane) {
 	case "confirmed_action_path":
 		return "confirmed action path"
-	case "semantic_review_candidate":
-		return "review candidate"
+	case "semantic_review_candidate", "likely_action_path":
+		return "inferred relationship"
 	case "context_only":
 		return "context-only evidence"
-	case "likely_action_path":
-		return "likely action path"
 	default:
 		return "action-path evidence"
 	}
@@ -779,6 +797,7 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 type buyerDiagnosticCard struct {
 	Inspect            string
 	Why                string
+	EvidenceClass      string
 	EvidenceFound      string
 	EvidenceUnresolved string
 	RecommendedAction  string
@@ -803,10 +822,9 @@ func renderBuyerDiagnosticCards(builder *strings.Builder, summary Summary) {
 			prefix,
 			card.Inspect,
 		)
-		fmt.Fprintf(builder, "  Why: %s.\n",
+		fmt.Fprintf(builder, "  Why: %s. Evidence: %s; %s; unresolved: %s.%s\n",
 			firstNonEmptyValue(card.Why, "This remains one of the highest-signal governable paths in the scan."),
-		)
-		fmt.Fprintf(builder, "  Evidence: %s; unresolved: %s.%s\n",
+			firstNonEmptyValue(card.EvidenceClass, "unresolved context"),
 			firstNonEmptyValue(card.EvidenceFound, "evidence summary unavailable"),
 			firstNonEmptyValue(card.EvidenceUnresolved, "none"),
 			related,
@@ -926,15 +944,16 @@ func diagnosticCardFromPrimaryView(view *AgentActionBOMPrimaryView, summarizeEvi
 	if view == nil {
 		return buyerDiagnosticCard{}
 	}
-	evidenceFound := fmt.Sprintf("control=%s approval=%s proof=%s runtime=%s", risk.BuyerControlResolutionLabel(view.ControlResolutionState), buyerLeadEvidenceStateLabel("approval", view.ApprovalEvidenceState), buyerLeadEvidenceStateLabel("proof", view.ProofEvidenceState), buyerLeadEvidenceStateLabel("runtime", view.RuntimeEvidenceState))
+	evidenceFound := fmt.Sprintf("%s; %s; %s; %s", risk.BuyerControlResolutionLabel(view.ControlResolutionState), buyerLeadEvidenceStateLabel("approval", view.ApprovalEvidenceState), buyerLeadEvidenceStateLabel("proof", view.ProofEvidenceState), buyerLeadEvidenceStateLabel("runtime", view.RuntimeEvidenceState))
 	evidenceUnresolved := strings.Join(view.UnresolvedEvidence, ", ")
 	if summarizeEvidenceGaps {
-		evidenceFound = fmt.Sprintf("control=%s runtime=%s", risk.BuyerControlResolutionLabel(view.ControlResolutionState), risk.BuyerEvidenceStateLabel("runtime", view.RuntimeEvidenceState))
+		evidenceFound = fmt.Sprintf("%s; %s", risk.BuyerControlResolutionLabel(view.ControlResolutionState), risk.BuyerEvidenceStateLabel("runtime", view.RuntimeEvidenceState))
 		evidenceUnresolved = summarizedLeadUnresolvedEvidence(view.UnresolvedEvidence)
 	}
 	return buyerDiagnosticCard{
 		Inspect:            fmt.Sprintf("%s in %s via %s", firstNonEmptyValue(view.PathMap.Tool, "unknown tool"), firstNonEmptyValue(view.PathMap.RepoPR, "unknown repo"), firstNonEmptyValue(view.PathMap.Workflow, "unknown workflow")),
 		Why:                fmt.Sprintf("%s path with %s posture", humanizeEnum(firstNonEmptyValue(view.PathMap.Target, "unknown")), humanizeEnum(firstNonEmptyValue(view.DelegationReadinessState, "unknown"))),
+		EvidenceClass:      firstNonEmptyValue(view.EvidenceClassification, "unresolved context"),
 		EvidenceFound:      evidenceFound,
 		EvidenceUnresolved: evidenceUnresolved,
 		RecommendedAction:  strings.Join(view.RecommendedNextActions, " | "),
@@ -944,22 +963,23 @@ func diagnosticCardFromPrimaryView(view *AgentActionBOMPrimaryView, summarizeEvi
 func diagnosticCardFromItem(view *AgentActionBOMPrimaryView, item AgentActionBOMItem, summarizeEvidenceGaps bool) buyerDiagnosticCard {
 	card := diagnosticCardFromPrimaryView(view, summarizeEvidenceGaps)
 	if authority := workflowAuthoritySummary(item); authority != "" {
-		card.Why = fmt.Sprintf("%s with %s", firstNonEmptyValue(card.Why, "High-signal governable path"), authority)
+		card.Why = fmt.Sprintf("%s with %s", firstNonEmptyValue(card.Why, "High-signal governable path"), humanizeAuthorityText(authority))
 	}
 	return card
 }
 
 func diagnosticCardFromHighlight(highlight WorkflowHighlight, item AgentActionBOMItem, summarizeEvidenceGaps bool) buyerDiagnosticCard {
 	unresolved := primaryViewUnresolvedEvidence(item)
-	evidenceFound := fmt.Sprintf("%s; approval=%s; proof=%s; runtime=%s", firstNonEmptyValue(highlight.EvidenceSummary, "evidence summary unavailable"), buyerLeadEvidenceTextLabel(highlight.ApprovalPath), buyerLeadEvidenceTextLabel(highlight.ProofStatus), buyerLeadEvidenceTextLabel(highlight.RuntimeStatus))
+	evidenceFound := fmt.Sprintf("%s; %s; %s; %s", firstNonEmptyValue(highlight.EvidenceSummary, "evidence summary unavailable"), buyerLeadEvidenceTextLabel(highlight.ApprovalPath), buyerLeadEvidenceTextLabel(highlight.ProofStatus), buyerLeadEvidenceTextLabel(highlight.RuntimeStatus))
 	evidenceUnresolved := firstNonEmptyValue(strings.Join(unresolved, ", "), "none")
 	if summarizeEvidenceGaps {
-		evidenceFound = fmt.Sprintf("%s; runtime=%s", firstNonEmptyValue(highlight.EvidenceSummary, "evidence summary unavailable"), buyerLeadEvidenceTextLabel(highlight.RuntimeStatus))
+		evidenceFound = fmt.Sprintf("%s; %s", firstNonEmptyValue(highlight.EvidenceSummary, "evidence summary unavailable"), buyerLeadEvidenceTextLabel(highlight.RuntimeStatus))
 		evidenceUnresolved = summarizedLeadUnresolvedEvidence(unresolved)
 	}
 	return buyerDiagnosticCard{
-		Inspect:            fmt.Sprintf("%s in %s via %s", firstNonEmptyValue(highlight.PathType, "workflow path"), firstNonEmptyValue(highlight.Repo, "unknown repo"), firstNonEmptyValue(highlight.Workflow, "unknown workflow")),
-		Why:                fmt.Sprintf("%s path with %s and %s", humanizeEnum(firstNonEmptyValue(highlight.TargetClass, "unknown")), humanizeEnum(firstNonEmptyValue(highlight.DelegationReadiness, "unknown")), firstNonEmptyValue(highlight.Authority, "limited authority context")),
+		Inspect:            fmt.Sprintf("%s in %s via %s", humanizeEnum(firstNonEmptyValue(highlight.PathType, "workflow path")), firstNonEmptyValue(highlight.Repo, "unknown repo"), firstNonEmptyValue(highlight.Workflow, "unknown workflow")),
+		Why:                fmt.Sprintf("%s path with %s and %s", humanizeEnum(firstNonEmptyValue(highlight.TargetClass, "unknown")), humanizeEnum(firstNonEmptyValue(highlight.DelegationReadiness, "unknown")), humanizeAuthorityText(firstNonEmptyValue(highlight.Authority, "limited authority context"))),
+		EvidenceClass:      primaryViewEvidenceClassification(item),
 		EvidenceFound:      evidenceFound,
 		EvidenceUnresolved: evidenceUnresolved,
 		RecommendedAction:  firstNonEmptyValue(highlight.Recommendation, workflowRecommendation(item), "review this workflow path"),
@@ -991,7 +1011,11 @@ func renderEvidenceOnboardingNote(builder *strings.Builder, summary Summary) {
 	if builder == nil || !shouldRenderEvidenceOnboarding(summary) {
 		return
 	}
-	builder.WriteString("- Evidence onboarding: approval/proof evidence was not imported or observed for most governable paths; review the top authority paths first, then attach path-specific approval, proof, or control declaration evidence before treating them as governed.\n")
+	prefix := "Evidence onboarding"
+	if summary.RepeatUsageSignals != nil && strings.TrimSpace(summary.RepeatUsageSignals.Status) == "first_run" {
+		prefix = "First-run evidence onboarding"
+	}
+	fmt.Fprintf(builder, "- %s: approval/proof evidence was not imported or observed for most governable paths; review the top authority paths first, then attach path-specific approval, proof, or control declaration evidence before treating them as governed.\n", prefix)
 }
 
 func shouldRenderEvidenceOnboarding(summary Summary) bool {
@@ -1294,7 +1318,8 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		humanizeActionText(firstNonEmptyValue(view.PathMap.Action, "unknown action")),
 		humanizeEnum(firstNonEmptyValue(view.PathMap.Target, "unknown target")),
 	)
-	fmt.Fprintf(builder, "- Visible controls: %s; approval %s; owner %s; proof %s; runtime %s; target %s; credential %s; evidence %s (%d); recommended control %s.\n",
+	fmt.Fprintf(builder, "- Evidence classification: %s. Visible controls: %s; %s; %s; %s; %s; %s; %s; %s (%d); recommended control %s.\n",
+		firstNonEmptyValue(view.EvidenceClassification, "unresolved context"),
 		risk.BuyerControlResolutionLabel(view.ControlResolutionState),
 		buyerLeadEvidenceStateLabel("approval", view.ApprovalEvidenceState),
 		buyerLeadEvidenceStateLabel("owner", view.OwnerEvidenceState),
@@ -1313,10 +1338,10 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		fmt.Fprintf(builder, "- Recommended action contract: %s.\n", contract)
 	}
 	if view.ProposedActionContract != nil {
-		fmt.Fprintf(builder, "- Proposed Action Contract: %s expected_outcome=%s readiness=%s report-only=%t.\n",
+		fmt.Fprintf(builder, "- Proposed Action Contract: %s; expected outcome=%s; readiness=%s; report only=%t.\n",
 			strings.TrimSpace(view.ProposedActionContract.ContractID),
-			firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ExpectedOutcomeClass), strings.TrimSpace(view.ExpectedOutcome), "unknown"),
-			firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ReadinessState), "unknown"),
+			humanizeEnum(firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ExpectedOutcomeClass), strings.TrimSpace(view.ExpectedOutcome), "unknown")),
+			humanizeEnum(firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ReadinessState), "unknown")),
 			view.ProposedActionContract.ReportOnly,
 		)
 	}
@@ -1342,7 +1367,7 @@ func markdownCompositionStageMap(stages []AgentActionBOMCompositionStage) string
 	}
 	parts := make([]string, 0, len(stages))
 	for _, stage := range stages {
-		label := strings.TrimSpace(stage.Role)
+		label := humanizeEnum(stage.Role)
 		if label == "" {
 			label = "stage"
 		}
@@ -1700,6 +1725,9 @@ func humanizeEnum(value string) string {
 	}
 	value = strings.ReplaceAll(value, "_", " ")
 	value = strings.ReplaceAll(value, "-", " ")
+	value = strings.ReplaceAll(value, "ci cd", "CI/CD")
+	value = strings.ReplaceAll(value, "github pat", "GitHub PAT")
+	value = strings.ReplaceAll(value, "unknown durable", "unknown durable credential")
 	return value
 }
 
@@ -1710,7 +1738,11 @@ func humanizeActionText(value string) string {
 }
 
 func humanizeAuthorityText(value string) string {
-	value = humanizeEnum(value)
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "unknown"
+	}
+	value = strings.ReplaceAll(value, "_", " ")
 	value = strings.ReplaceAll(value, "github pat", "GitHub PAT")
 	value = strings.ReplaceAll(value, "github workflow token", "GitHub workflow token")
 	value = strings.ReplaceAll(value, "jit", "JIT")
@@ -1754,28 +1786,100 @@ func renderExecutiveRollupSection(builder *strings.Builder, title string, rollup
 		title = "Executive rollup"
 	}
 	builder.WriteString("## " + title + "\n\n")
-	fmt.Fprintf(builder, "- total_groups=%d total_paths=%d\n", rollup.TotalGroups, rollup.TotalPaths)
+	fmt.Fprintf(builder, "- Summary: %d grouped exposures across %d action paths.\n", rollup.TotalGroups, rollup.TotalPaths)
 	for _, group := range rollup.Groups {
-		fmt.Fprintf(builder, "- group=%s count=%d severity=%s priority=%s closure=%s evidence=%s owner=%s repo_cluster=%s contradictions=%s examples=%s\n",
-			group.GroupID,
+		fmt.Fprintf(builder, "- %s affecting %s: %d %s; %s severity; %s priority; %s closure.\n",
+			humanizeActionText(firstNonEmptyValue(group.Dimensions.ActionClass, "grouped exposure")),
+			humanizeEnum(firstNonEmptyValue(group.Dimensions.TargetClass, "unknown target")),
 			group.Count,
-			group.HighestSeverity,
-			group.HighestPriority,
-			group.Dimensions.ClosureAction,
-			group.Dimensions.EvidenceState,
-			group.Dimensions.OwnerState,
-			group.Dimensions.RepoCluster,
-			group.Dimensions.ContradictionState,
-			strings.Join(group.TopExampleRefs, ", "),
+			pluralSuffix(group.Count, "path", "paths"),
+			humanizeEnum(group.HighestSeverity),
+			humanizeEnum(group.HighestPriority),
+			humanizeEnum(group.Dimensions.ClosureAction),
+		)
+		confirmed, inferred, unresolved := executiveRollupEvidenceLabels(group)
+		fmt.Fprintf(builder, "  Evidence: confirmed path: %s; inferred relationship: %s; unresolved context: %s; contradictions %s. Examples: %s.\n",
+			confirmed,
+			inferred,
+			unresolved,
+			humanizeEnum(group.Dimensions.ContradictionState),
+			firstNonEmptyValue(strings.Join(group.TopExampleRefs, ", "), "none"),
 		)
 		if strings.TrimSpace(group.ClosureRecommendation) != "" {
-			fmt.Fprintf(builder, "  recommendation=%s\n", group.ClosureRecommendation)
+			fmt.Fprintf(builder, "  Recommendation: %s.\n", strings.TrimSuffix(group.ClosureRecommendation, "."))
 		}
 		if len(group.Rationale) > 0 {
-			fmt.Fprintf(builder, "  rationale=%s\n", strings.Join(group.Rationale, " | "))
+			fmt.Fprintf(builder, "  Rationale: %s.\n", strings.Join(humanizeExecutiveRationale(group.Rationale), " | "))
 		}
 	}
 	builder.WriteString("\n")
+}
+
+func executiveRollupEvidenceLabels(group controlbacklog.ExecutiveRollupGroup) (string, string, string) {
+	confirmed := make([]string, 0, 3)
+	inferred := make([]string, 0, 2)
+	unresolved := make([]string, 0, 3)
+
+	switch strings.TrimSpace(group.Dimensions.DetectorConfidence) {
+	case risk.ConfidenceLaneConfirmedActionPath:
+		confirmed = append(confirmed, "action path detected")
+	case risk.ConfidenceLaneLikelyActionPath, risk.ConfidenceLaneSemanticReviewCandidate:
+		inferred = append(inferred, "action relationship")
+	default:
+		unresolved = append(unresolved, "path classification")
+	}
+
+	switch strings.TrimSpace(group.Dimensions.EvidenceState) {
+	case risk.EvidenceStateVerified:
+		confirmed = append(confirmed, "evidence verified")
+	case risk.EvidenceStateDeclared:
+		confirmed = append(confirmed, "evidence declared")
+	case risk.EvidenceStateInferred:
+		inferred = append(inferred, "evidence state")
+	case risk.EvidenceStateContradictory:
+		unresolved = append(unresolved, "evidence contradiction")
+	default:
+		unresolved = append(unresolved, "evidence state unknown")
+	}
+
+	switch strings.TrimSpace(group.Dimensions.OwnerState) {
+	case "verified":
+		confirmed = append(confirmed, "owner verified")
+	case "declared":
+		inferred = append(inferred, "owner declared")
+	case "inferred":
+		inferred = append(inferred, "owner inferred")
+	case "conflicting":
+		unresolved = append(unresolved, "owner conflict")
+	default:
+		unresolved = append(unresolved, "owner unknown")
+	}
+
+	switch strings.TrimSpace(group.Dimensions.RepoCluster) {
+	case "single_repo":
+		confirmed = append(confirmed, "single repository scope")
+	case "":
+		unresolved = append(unresolved, "repository scope")
+	default:
+		inferred = append(inferred, "repository grouping "+humanizeEnum(group.Dimensions.RepoCluster))
+	}
+
+	return firstNonEmptyValue(strings.Join(confirmed, ", "), "none"),
+		firstNonEmptyValue(strings.Join(inferred, ", "), "none"),
+		firstNonEmptyValue(strings.Join(unresolved, ", "), "none")
+}
+
+func humanizeExecutiveRationale(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = humanizeEnum(value)
+		value = strings.ReplaceAll(value, "=", ": ")
+		if strings.HasPrefix(value, "1 ") {
+			value = strings.Replace(value, " paths ", " path ", 1)
+		}
+		out = append(out, value)
+	}
+	return out
 }
 
 func MarkdownLines(markdown string) []string {
@@ -1835,11 +1939,11 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 		for idx, item := range items {
 			builder.WriteString(fmt.Sprintf("%d. %s in %s\n", idx+1, firstNonEmptyValue(item.Repo, "unknown-repo"), firstNonEmptyValue(item.Location, "unknown-location")))
 			builder.WriteString(fmt.Sprintf("Problem: %s\n", designPartnerProblem(item)))
-			builder.WriteString(fmt.Sprintf("Likely explanation: %s\n", designPartnerExplanation(item)))
+			builder.WriteString(fmt.Sprintf("Evidence class: %s\n", primaryViewEvidenceClassification(item)))
+			builder.WriteString(fmt.Sprintf("Inferred relationship: %s\n", designPartnerExplanation(item)))
+			builder.WriteString(fmt.Sprintf("Unresolved context: %s\n", designPartnerProofGap(item)))
 			builder.WriteString(fmt.Sprintf("Threat: %s\n", designPartnerThreat(item)))
 			builder.WriteString(fmt.Sprintf("Recommended control: %s\n", firstNonEmptyValue(item.Remediation, item.RecommendedNextAction, "review and add path-specific proof before approval")))
-			builder.WriteString(fmt.Sprintf("Confidence lane: %s\n", markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType, bomItemEligible(item), bomItemBindingState(item))))
-			builder.WriteString(fmt.Sprintf("Proof gap: %s\n", designPartnerProofGap(item)))
 			builder.WriteString(fmt.Sprintf("Credential authority: %s\n", designPartnerCredentialAuthority(item)))
 			builder.WriteString(fmt.Sprintf("High-stakes: %s\n", designPartnerHighStakes(item)))
 			builder.WriteString(fmt.Sprintf("Mutable endpoint: %s\n", designPartnerMutableEndpoint(item)))
@@ -2405,23 +2509,39 @@ func renderWorkflowHighlightLine(builder *strings.Builder, item WorkflowHighligh
 	if builder == nil {
 		return
 	}
-	fmt.Fprintf(builder, "- path=%s repo=%s workflow=%s type=%s target=%s autonomy=%s readiness=%s authority=%s blast_radius=%s approval=%s proof=%s runtime=%s session=%s boundary=%s recommendation=%s\n",
+	fmt.Fprintf(builder, "- Path %s: %s in %s via %s; target %s; autonomy %s; readiness %s.\n",
 		firstNonEmptyValue(item.PathID, "unknown-path"),
+		humanizeEnum(firstNonEmptyValue(item.PathType, "unknown")),
 		firstNonEmptyValue(item.Repo, "unknown-repo"),
 		firstNonEmptyValue(item.Workflow, "unknown-workflow"),
-		firstNonEmptyValue(item.PathType, "unknown"),
-		firstNonEmptyValue(item.TargetClass, "unknown"),
+		humanizeEnum(firstNonEmptyValue(item.TargetClass, "unknown")),
 		risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
 		risk.BuyerDelegationReadinessLabel(item.DelegationReadiness),
-		firstNonEmptyValue(item.Authority, "none"),
-		firstNonEmptyValue(item.BlastRadius, "unknown"),
-		firstNonEmptyValue(item.ApprovalPath, "approval evidence not found"),
-		firstNonEmptyValue(item.ProofStatus, "path-specific proof not found"),
-		firstNonEmptyValue(item.RuntimeStatus, "runtime evidence not collected"),
-		firstNonEmptyValue(item.RuntimeSessionStatus, "not_collected"),
-		firstNonEmptyValue(item.BoundaryLabel, BoundaryLabelReportOnly),
-		firstNonEmptyValue(item.Recommendation, "review this workflow path"),
 	)
-	fmt.Fprintf(builder, "  evidence=%s\n", firstNonEmptyValue(item.EvidenceSummary, "evidence summary unavailable"))
-	fmt.Fprintf(builder, "  explanation=%s\n", firstNonEmptyValue(item.Explanation, "workflow explanation unavailable"))
+	fmt.Fprintf(builder, "  Authority: %s; blast radius %s; boundary %s.\n",
+		humanizeAuthorityText(firstNonEmptyValue(item.Authority, "none")),
+		humanizeEnum(firstNonEmptyValue(item.BlastRadius, "unknown")),
+		humanizeEnum(firstNonEmptyValue(item.BoundaryLabel, BoundaryLabelReportOnly)),
+	)
+	fmt.Fprintf(builder, "  Evidence: %s; %s; %s; session %s; %s.\n",
+		buyerLeadEvidenceTextLabel(firstNonEmptyValue(item.ApprovalPath, "approval evidence not found")),
+		buyerLeadEvidenceTextLabel(firstNonEmptyValue(item.ProofStatus, "path-specific proof not found")),
+		buyerLeadEvidenceTextLabel(firstNonEmptyValue(item.RuntimeStatus, "runtime evidence not collected")),
+		humanizeEnum(firstNonEmptyValue(item.RuntimeSessionStatus, "not_collected")),
+		humanizeReportSummary(firstNonEmptyValue(item.EvidenceSummary, "evidence summary unavailable")),
+	)
+	fmt.Fprintf(builder, "  Recommendation: %s.\n", strings.TrimSuffix(firstNonEmptyValue(item.Recommendation, "review this workflow path"), "."))
+	fmt.Fprintf(builder, "  Explanation: %s\n", firstNonEmptyValue(item.Explanation, "workflow explanation unavailable"))
+}
+
+func humanizeReportSummary(value string) string {
+	segments := strings.Split(value, " | ")
+	for idx, segment := range segments {
+		parts := strings.SplitN(segment, "=", 2)
+		if len(parts) == 2 {
+			segment = parts[1]
+		}
+		segments[idx] = strings.Join(strings.Fields(humanizeEnum(segment)), " ")
+	}
+	return strings.Join(segments, "; ")
 }

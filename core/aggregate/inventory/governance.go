@@ -63,14 +63,45 @@ type GovernanceControlInput struct {
 type ActionClassInput struct {
 	Permissions              []string
 	WritePathClasses         []string
+	ActionClasses            []string
 	MutableEndpointSemantics []MutableEndpointSemantic
 	WriteCapable             bool
+	PullRequestWrite         bool
+	MergeExecute             bool
 	CredentialAccess         bool
 	DeployWrite              bool
 	ProductionWrite          bool
 	MatchedTargets           []string
 	ToolType                 string
 	Location                 string
+}
+
+// CanonicalWriteCapable is the single write-capability invariant used by
+// inventory, action paths, and buyer-facing summaries.
+func CanonicalWriteCapable(input ActionClassInput) bool {
+	if input.WriteCapable || input.PullRequestWrite || input.MergeExecute || input.DeployWrite || input.ProductionWrite || hasAnyWriteClass(input.WritePathClasses) || contains(input.ActionClasses, ActionClassWrite) || contains(input.ActionClasses, ActionClassDelete) || contains(input.ActionClasses, ActionClassDeploy) {
+		return true
+	}
+	for _, permission := range input.Permissions {
+		normalized := strings.ToLower(strings.TrimSpace(permission))
+		if strings.Contains(normalized, ".write") || strings.HasSuffix(normalized, "write") || strings.Contains(normalized, "merge") || strings.Contains(normalized, "delete") || strings.Contains(normalized, "destroy") {
+			return true
+		}
+	}
+	for _, semantic := range NormalizeMutableEndpointSemantics(input.MutableEndpointSemantics) {
+		switch strings.TrimSpace(semantic.Semantic) {
+		case EndpointSemanticWrite,
+			EndpointSemanticDelete,
+			EndpointSemanticDeploy,
+			EndpointSemanticRefund,
+			EndpointSemanticPayment,
+			EndpointSemanticUserAdmin,
+			EndpointSemanticDataExport,
+			EndpointSemanticProductionMutation:
+			return true
+		}
+	}
+	return false
 }
 
 func DeriveWritePathClasses(permissions []string, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite bool, location, toolType string) []string {
@@ -148,12 +179,13 @@ func DeriveActionClasses(input ActionClassInput) ([]string, []string) {
 		}
 	}
 
-	if len(input.Permissions) == 0 && len(input.WritePathClasses) == 0 && !input.WriteCapable && !input.CredentialAccess && !input.DeployWrite && !input.ProductionWrite {
+	writeCapable := CanonicalWriteCapable(input)
+	if len(input.Permissions) == 0 && len(input.WritePathClasses) == 0 && !writeCapable && !input.CredentialAccess && !input.DeployWrite && !input.ProductionWrite {
 		return nil, nil
 	}
 
 	add(ActionClassRead, "baseline:discovered_surface")
-	if input.WriteCapable || hasAnyWriteClass(input.WritePathClasses) {
+	if writeCapable {
 		add(ActionClassWrite, "write_path:write_capable")
 	}
 	if input.DeployWrite || input.ProductionWrite || contains(input.WritePathClasses, WritePathDeployWrite) || contains(input.WritePathClasses, WritePathReleaseWrite) || contains(input.WritePathClasses, WritePathProductionAdjacent) {

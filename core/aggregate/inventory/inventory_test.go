@@ -610,6 +610,56 @@ func TestRefreshIdentityGovernancePreservesApprovedListForUnchangedTool(t *testi
 	}
 }
 
+func TestRefreshIdentityGovernanceProjectsToolApprovalToRepoLocalPrivilegeRows(t *testing.T) {
+	t.Parallel()
+
+	inv := &Inventory{
+		Tools: []Tool{{
+			ToolID:                   "ci-workflow",
+			AgentID:                  "wrkr:ci-workflow:acme",
+			ToolType:                 "ci_agent",
+			Org:                      "acme",
+			ApprovalStatus:           "missing",
+			ApprovalClass:            "unapproved",
+			SecurityVisibilityStatus: SecurityVisibilityUnknownToSecurity,
+		}},
+		AgentPrivilegeMap: []AgentPrivilegeMapEntry{{
+			AgentID:                  "wrkr:ci-instance:acme",
+			AgentInstanceID:          "ci-instance",
+			ToolID:                   "ci-workflow",
+			ToolInstanceID:           "ci-workflow-repo-a",
+			ToolType:                 "ci_agent",
+			Org:                      "acme",
+			Repos:                    []string{"acme/repo-a"},
+			ApprovalClassification:   "unapproved",
+			SecurityVisibilityStatus: SecurityVisibilityUnknownToSecurity,
+			ApprovalGapReasons:       []string{"approval_source_missing"},
+		}},
+	}
+
+	RefreshIdentityGovernance(inv, []manifest.IdentityRecord{{
+		AgentID:       "wrkr:ci-workflow:acme",
+		ToolID:        "ci-workflow",
+		ToolType:      "ci_agent",
+		Org:           "acme",
+		Repo:          "acme/repo-a",
+		Location:      ".github/workflows/release.yml",
+		Status:        identity.StateApproved,
+		ApprovalState: "valid",
+		Approval: manifest.Approval{
+			Owner: "platform-security",
+		},
+	}})
+
+	entry := inv.AgentPrivilegeMap[0]
+	if entry.ApprovalClassification != "approved" || entry.SecurityVisibilityStatus != SecurityVisibilityApproved {
+		t.Fatalf("expected tool approval on repo-local privilege row, got %+v", entry)
+	}
+	if len(entry.ApprovalGapReasons) != 0 || entry.OperationalOwner != "platform-security" || entry.OwnerSource != "inventory_approval" {
+		t.Fatalf("expected approval gaps cleared and owner projected, got %+v", entry)
+	}
+}
+
 func TestGovernanceSecurityVisibilityMapsApprovalStates(t *testing.T) {
 	t.Parallel()
 
@@ -872,6 +922,27 @@ func TestConfigFingerprintForFileRejectsPathsOutsideRoot(t *testing.T) {
 
 	if got := configFingerprintForFile(root, "../release.yml"); got != "" {
 		t.Fatalf("expected empty fingerprint for path outside root, got %q", got)
+	}
+}
+
+func TestCanonicalWriteCapableKeepsCapabilityRepresentationsAligned(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []ActionClassInput{
+		{DeployWrite: true},
+		{PullRequestWrite: true},
+		{MergeExecute: true},
+		{ActionClasses: []string{ActionClassWrite}},
+		{WritePathClasses: []string{WritePathRepoWrite}},
+		{Permissions: []string{"contents.write"}},
+		{MutableEndpointSemantics: []MutableEndpointSemantic{{Semantic: EndpointSemanticDelete}}},
+	} {
+		if !CanonicalWriteCapable(input) {
+			t.Fatalf("expected canonical write capability for %+v", input)
+		}
+	}
+	if CanonicalWriteCapable(ActionClassInput{Permissions: []string{"contents.read"}, ActionClasses: []string{ActionClassRead}}) {
+		t.Fatal("read-only surface must not become write-capable")
 	}
 }
 

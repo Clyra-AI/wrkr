@@ -26,12 +26,51 @@ func TestBuildGraphDeterministic(t *testing.T) {
 	if len(first[0].Nodes) == 0 || len(first[0].Edges) == 0 {
 		t.Fatalf("expected non-empty graph: %#v", first[0])
 	}
+	if hasEdgeRationale(first[0].Edges, "same_artifact_pivot_to_target") {
+		t.Fatalf("same-repo secret must not join a different workflow artifact: %#v", first[0].Edges)
+	}
 
 	for i := 0; i < 32; i++ {
 		next := Build(findings)
 		if !reflect.DeepEqual(first, next) {
 			t.Fatalf("non-deterministic graph output at run %d", i+1)
 		}
+	}
+}
+
+func TestBuildGraphSuppressesUnrelatedSameRepoCorrelations(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{FindingType: "webmcp_declaration", ToolType: "webmcp", Location: "core/detect/webmcp/detector.go", Repo: "repo", Org: "acme"},
+		{FindingType: "compiled_action", ToolType: "compiled_action", Location: ".github/workflows/docs.yml", Repo: "repo", Org: "acme"},
+		{FindingType: "policy_violation", ToolType: "policy", Location: "WRKR-A008", Repo: "repo", Org: "acme"},
+	}
+
+	graphs := Build(findings)
+	if len(graphs) != 0 {
+		t.Fatalf("unrelated same-repo findings must not produce an attack graph: %#v", graphs)
+	}
+}
+
+func TestBuildGraphJoinsFindingsBackedByTheSameArtifact(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{FindingType: "prompt_channel_override", ToolType: "prompt_channel", Location: ".github/workflows/release.yml", Repo: "repo", Org: "acme"},
+		{
+			FindingType: "ci_autonomy",
+			ToolType:    "ci_agent",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "repo",
+			Org:         "acme",
+			Permissions: []string{"deploy.write"},
+		},
+	}
+
+	graphs := Build(findings)
+	if len(graphs) != 1 || !hasEdgeRationale(graphs[0].Edges, "same_artifact_entry_to_pivot") {
+		t.Fatalf("expected an evidence-backed same-artifact join, got %#v", graphs)
 	}
 }
 

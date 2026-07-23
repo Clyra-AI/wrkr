@@ -1299,7 +1299,7 @@ func actionForFinding(finding model.Finding, writeCapable bool) string {
 func actionFromActionPath(action string, path risk.ActionPath) string {
 	switch strings.TrimSpace(action) {
 	case "control":
-		if path.CredentialAccess && !path.ProductionWrite {
+		if path.CredentialAccess && !credentialPathRequiresRemediation(path) {
 			return ActionAttachEvidence
 		}
 		return ActionRemediate
@@ -1317,11 +1317,24 @@ func actionFromActionPath(action string, path risk.ActionPath) string {
 	}
 }
 
+func credentialPathRequiresRemediation(path risk.ActionPath) bool {
+	if !path.CredentialAccess {
+		return false
+	}
+	if path.StandingPrivilege || strings.TrimSpace(path.DelegationReadinessState) == risk.DelegationReadinessBlocked || strings.TrimSpace(path.DelegationReadinessState) == risk.DelegationReadinessBlockedByContradiction || strings.TrimSpace(path.ControlState) == risk.ControlStateBlockRecommend {
+		return true
+	}
+	if path.CredentialAuthority != nil && (path.CredentialAuthority.StandingAccess || strings.TrimSpace(path.CredentialAuthority.AccessType) == agginventory.CredentialAccessTypeStanding) {
+		return true
+	}
+	return path.CredentialProvenance != nil && (path.CredentialProvenance.StandingAccess || strings.TrimSpace(path.CredentialProvenance.AccessType) == agginventory.CredentialAccessTypeStanding)
+}
+
 func lifecycleGapRecommendedAction(gap lifecycle.Gap) string {
 	switch strings.TrimSpace(gap.ReasonCode) {
-	case lifecycle.GapRevokedStillPresent, lifecycle.GapOverApproved:
+	case lifecycle.GapRevokedStillPresent, lifecycle.GapOverApproved, lifecycle.GapInactiveCredentialed:
 		return ActionRemediate
-	case lifecycle.GapOwnerlessExposure, lifecycle.GapApprovalExpired, lifecycle.GapInactiveCredentialed:
+	case lifecycle.GapOwnerlessExposure, lifecycle.GapApprovalExpired:
 		return ActionApprove
 	default:
 		return ActionAttachEvidence
@@ -2180,7 +2193,7 @@ func remediationForFinding(finding model.Finding, writeCapable bool) string {
 
 func remediationForLifecycleGap(gap lifecycle.Gap) string {
 	switch strings.TrimSpace(gap.ReasonCode) {
-	case lifecycle.GapRevokedStillPresent, lifecycle.GapOverApproved:
+	case lifecycle.GapRevokedStillPresent, lifecycle.GapOverApproved, lifecycle.GapInactiveCredentialed:
 		return "Remove or reduce this stale high-authority path, record the lifecycle decision, and rescan."
 	case lifecycle.GapOwnerlessExposure:
 		return "Assign an explicit owner and attach review evidence before this path keeps running with unclear accountability."

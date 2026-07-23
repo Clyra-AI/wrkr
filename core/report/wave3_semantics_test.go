@@ -78,8 +78,8 @@ func TestRenderMarkdownIncludesTargetSurfaceContextSection(t *testing.T) {
 	if !strings.Contains(markdown, "## Target Surface Context") {
 		t.Fatalf("expected target-surface markdown section, got %q", markdown)
 	}
-	if !strings.Contains(markdown, "target surface context") {
-		t.Fatalf("expected target-surface wording, got %q", markdown)
+	if !strings.Contains(markdown, "target surface only") {
+		t.Fatalf("expected explicit target-surface-only wording, got %q", markdown)
 	}
 }
 

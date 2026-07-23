@@ -53,7 +53,7 @@ func TestBuildSummaryIncludesWorkflowHighlights(t *testing.T) {
 	if !strings.Contains(markdown, "## Workflow Chain Highlights") {
 		t.Fatalf("expected workflow highlights section, got %q", markdown)
 	}
-	if !strings.Contains(markdown, "path=apc-release") {
+	if !strings.Contains(markdown, "Path apc-release") {
 		t.Fatalf("expected highlighted path in markdown, got %q", markdown)
 	}
 }

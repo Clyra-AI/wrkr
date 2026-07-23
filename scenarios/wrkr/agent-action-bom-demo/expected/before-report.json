@@ -6,15 +6,15 @@
       "tier_1_low_risk_internal": 0,
       "tier_2_app_code_owner_review": 0,
       "tier_3_sensitive_code_or_infra": 1,
-      "tier_4_prod_privileged_or_customer_impacting": 5
+      "tier_4_prod_privileged_or_customer_impacting": 4
     },
-    "confirmed_action_path_items": 2,
+    "confirmed_action_path_items": 1,
     "context_only_items": 1,
-    "control_first_items": 4,
+    "control_first_items": 3,
     "coverage_confidence": "complete",
     "delegation_readiness": {
       "approval_required": 0,
-      "blocked": 2,
+      "blocked": 1,
       "blocked_by_contradiction": 0,
       "proof_required": 0,
       "ready_for_control": 0,
@@ -36,7 +36,7 @@
     ],
     "empty_state_status": "not_eligible",
     "evidence_completeness": {
-      "average_total_score": 60,
+      "average_total_score": 59,
       "axis_scores": [
         {
           "axis": "discovery",
@@ -46,7 +46,7 @@
             "confidence_lane:likely_action_path",
             "confidence_lane:semantic_review_candidate"
           ],
-          "score": 83
+          "score": 79
         },
         {
           "axis": "authority",
@@ -65,7 +65,7 @@
             "target:unknown",
             "target:verified"
           ],
-          "score": 77
+          "score": 76
         },
         {
           "axis": "control",
@@ -73,7 +73,7 @@
             "constraint_evidence:missing",
             "control_resolution:detected_control"
           ],
-          "score": 83
+          "score": 84
         },
         {
           "axis": "runtime_evidence",
@@ -92,8 +92,8 @@
           "score": 25
         }
       ],
-      "label": "partial_evidence",
-      "path_count": 6,
+      "label": "insufficient_evidence",
+      "path_count": 5,
       "reasons": [
         "approval:unknown",
         "approval_evidence:none",
@@ -120,8 +120,8 @@
     "executive_rollup": {
       "groups": [
         {
-          "closure_recommendation": "remediate standing production deploy paths first",
-          "count": 2,
+          "closure_recommendation": "replace or reduce standing credential authority on these paths first",
+          "count": 1,
           "dimensions": {
             "action_class": "deploy",
             "closure_action": "remediate",
@@ -139,23 +139,22 @@
             "contradictory": 0,
             "declared": 0,
             "inferred": 0,
-            "unknown": 2,
+            "unknown": 1,
             "verified": 0
           },
           "group_id": "xrg-807baf425c49",
           "highest_priority": "control_first",
           "highest_severity": "critical",
           "rationale": [
-            "2 deploy paths grouped by production_impacting and unknown evidence",
+            "1 deploy paths grouped by production_impacting and unknown evidence",
             "closure=remediate repo_cluster=single_repo credential_authority=standing"
           ],
           "top_example_refs": [
-            "apc-1ee0525913ac",
-            "apc-6626703372d7"
+            "apc-49d0b638e7b5"
           ]
         },
         {
-          "closure_recommendation": "remediate standing production deploy paths first",
+          "closure_recommendation": "resolve credential authority, then remediate the highest-impact paths first",
           "count": 2,
           "dimensions": {
             "action_class": "deploy",
@@ -259,45 +258,45 @@
         }
       ],
       "total_groups": 4,
-      "total_paths": 6
+      "total_paths": 5
     },
     "governance_readiness": {
       "driver": "governance_gaps_present",
       "grade": "low",
-      "path_count": 6,
+      "path_count": 5,
       "rationale": [
-        "approval_gaps=6",
+        "approval_gaps=5",
         "missing_owner_paths=0",
-        "policy_gaps=6",
+        "policy_gaps=5",
         "missing_proof_paths=14",
         "coverage_reduced=false"
       ]
     },
     "governed_usage_metrics": {
-      "active_monitored_action_paths": 5,
+      "active_monitored_action_paths": 4,
       "approval_decisions": 0,
       "audit_exports": 4,
       "connected_runtimes": 0,
       "contradictory_paths": 0,
       "evidence_packs": 0,
-      "governed_agents_workflows": 6,
-      "governed_paths": 5,
+      "governed_agents_workflows": 5,
+      "governed_paths": 4,
       "unknown_control_paths": 0,
-      "verified_control_paths": 6
+      "verified_control_paths": 5
     },
     "likely_action_path_items": 2,
-    "missing_approval_items": 6,
+    "missing_approval_items": 5,
     "missing_policy_items": 0,
-    "missing_proof_items": 6,
+    "missing_proof_items": 5,
     "operational_exposure": {
       "driver": "production_and_credentials",
       "grade": "critical",
-      "path_count": 6,
+      "path_count": 5,
       "rationale": [
-        "production_backed_paths=5",
+        "production_backed_paths=4",
         "credential_bearing_paths=1",
-        "write_capable_paths=5",
-        "runtime_deployed_paths=2"
+        "write_capable_paths=4",
+        "runtime_deployed_paths=1"
       ]
     },
     "primary_view": {
@@ -319,18 +318,18 @@
       "coverage_status": "complete",
       "credential_evidence_state": "verified",
       "decision_trace_refs": [
-        "decision_trace:dt-c62008fe3f27"
+        "decision_trace:dt-6dbcfb4c7927"
       ],
       "delegation_readiness_state": "blocked",
       "evidence_completeness_label": "partial_evidence",
       "evidence_completeness_score": 63,
-      "path_id": "apc-6626703372d7",
+      "path_id": "apc-49d0b638e7b5",
       "path_map": {
         "action": "credential_access,deploy,execute,read,write",
-        "credential": "cloud_admin_key source_control source_control_write standing",
+        "credential": "cloud_admin_key kubernetes cloud_or_infra_access standing",
         "repo_pr": "demo-app / pr/108",
         "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation",
-        "tool": "wrkr:ci-agent-457b801fb1:local",
+        "tool": "wrkr:ci-agent-inst-7211af958b:local",
         "workflow": ".github/workflows/release.yml"
       },
       "proof_evidence_state": "unknown",
@@ -403,12 +402,12 @@
         "proof"
       ]
     },
-    "production_target_items": 5,
+    "production_target_items": 4,
     "recommended_controls": {
       "allow": 0,
       "approval_required": 0,
       "block": 0,
-      "block_standing_credential": 2,
+      "block_standing_credential": 1,
       "jit_credential_required": 0,
       "owner_review": 0,
       "proof_required": 0,
@@ -426,9 +425,9 @@
       "target_count": 1
     },
     "semantic_review_candidate_items": 1,
-    "standing_privilege_items": 2,
-    "static_credential_items": 2,
-    "total_items": 6
+    "standing_privilege_items": 1,
+    "static_credential_items": 1,
+    "total_items": 5
   },
   "top_item": {
     "control_state": "block_recommended",
@@ -446,6 +445,58 @@
           "runtime_evidence_not_collected:approval"
         ],
         "status": "missing"
+      },
+      "containment": {
+        "capability_invalidation": {
+          "reasons": [
+            "runtime_absence_status:not_collected",
+            "runtime_evidence_not_collected:capability_invalidation"
+          ],
+          "status": "missing"
+        },
+        "containment_receipt": {
+          "reasons": [
+            "runtime_absence_status:not_collected",
+            "runtime_evidence_not_collected:containment_receipt"
+          ],
+          "status": "missing"
+        },
+        "covered_action_denial": {
+          "reasons": [
+            "runtime_absence_status:not_collected",
+            "runtime_evidence_not_collected:covered_action_denial"
+          ],
+          "status": "missing"
+        },
+        "descendant_invalidation": {
+          "reasons": [
+            "runtime_absence_status:not_collected",
+            "runtime_evidence_not_collected:descendant_invalidation"
+          ],
+          "status": "missing"
+        },
+        "external_revocation_acknowledgement": {
+          "reasons": [
+            "runtime_absence_status:not_collected",
+            "runtime_evidence_not_collected:external_revocation_acknowledgement"
+          ],
+          "status": "missing"
+        },
+        "external_revocation_attempt": {
+          "reasons": [
+            "runtime_absence_status:not_collected",
+            "runtime_evidence_not_collected:external_revocation_attempt"
+          ],
+          "status": "missing"
+        },
+        "status": "not_observed",
+        "stop_request": {
+          "reasons": [
+            "runtime_absence_status:not_collected",
+            "runtime_evidence_not_collected:stop_request"
+          ],
+          "status": "missing"
+        }
       },
       "freeze_window": {
         "reasons": [
@@ -518,7 +569,7 @@
       "source": "source_metadata",
       "timestamp": "2026-05-08T12:00:00Z"
     },
-    "path_id": "apc-6626703372d7",
+    "path_id": "apc-49d0b638e7b5",
     "policy_status": "none",
     "proof_coverage": "missing",
     "review_burden": "critical",

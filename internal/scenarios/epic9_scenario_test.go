@@ -130,6 +130,13 @@ func TestEpic9SummaryIntegrationHooksAC10AC11(t *testing.T) {
 
 func runScenarioCommandJSON(t *testing.T, args []string) map[string]any {
 	t.Helper()
+	payload := runScenarioCommandJSONRaw(t, args)
+	hydrateScenarioScanSummaryPayload(t, args, payload)
+	return payload
+}
+
+func runScenarioCommandJSONRaw(t *testing.T, args []string) map[string]any {
+	t.Helper()
 	args = scenarioCommandArgs(args)
 	var out bytes.Buffer
 	var errOut bytes.Buffer
@@ -140,7 +147,6 @@ func runScenarioCommandJSON(t *testing.T, args []string) map[string]any {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse command json output for %v: %v", args, err)
 	}
-	hydrateScenarioScanSummaryPayload(t, args, payload)
 	return payload
 }
 

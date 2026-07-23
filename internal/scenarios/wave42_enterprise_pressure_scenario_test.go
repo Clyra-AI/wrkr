@@ -210,7 +210,7 @@ func TestScenarioWave42EndpointDenseProjectionBoundaries(t *testing.T) {
 	}
 
 	statePath := filepath.Join(tmp, "endpoint-dense-state.json")
-	scanPayload := runScenarioCommandJSON(t, []string{"scan", "--path", root, "--state", statePath, "--quiet", "--json"})
+	scanPayload := runScenarioCommandJSONRaw(t, []string{"scan", "--path", root, "--state", statePath, "--quiet", "--json"})
 	reportPath := filepath.Join(tmp, "endpoint-dense-evidence.json")
 	reportPayload := runScenarioCommandJSON(t, []string{
 		"report",

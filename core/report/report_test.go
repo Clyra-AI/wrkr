@@ -77,7 +77,7 @@ func TestBuildRiskItemsPrefersActionPathsWhenPresent(t *testing.T) {
 		RecommendedAction:    "proof",
 	}}
 
-	items := buildRiskItems(findings, actionPaths)
+	items := buildRiskItems(findings, actionPaths, 5)
 	if len(items) != 1 {
 		t.Fatalf("expected one action-path risk item, got %+v", items)
 	}
@@ -123,7 +123,7 @@ func TestReportRemediationTextNamesConcreteNextAction(t *testing.T) {
 			StandingAccess: true,
 			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
 		},
-	}})
+	}}, 5)
 
 	if len(items) != 1 {
 		t.Fatalf("expected one risk item, got %+v", items)
@@ -132,6 +132,27 @@ func TestReportRemediationTextNamesConcreteNextAction(t *testing.T) {
 		!strings.Contains(strings.ToLower(items[0].Remediation), "jit") &&
 		!strings.Contains(strings.ToLower(items[0].Remediation), "deployment") {
 		t.Fatalf("expected concrete next-action remediation, got %+v", items[0])
+	}
+}
+
+func TestActionPathTopRisksGroupWorkflowRowsAndHonorTop(t *testing.T) {
+	t.Parallel()
+
+	paths := []risk.ActionPath{
+		{PathID: "apc-release-a", Org: "acme", Repo: "acme/app", Location: ".github/workflows/release.yml", ToolType: "compiled_action", DeployWrite: true, RiskScore: 9.1},
+		{PathID: "apc-release-b", Org: "acme", Repo: "acme/app", Location: ".github/workflows/release.yml", ToolType: "ci_agent", WriteCapable: true, RiskScore: 8.7},
+		{PathID: "apc-mentorship", Org: "acme", Repo: "acme/app", Location: ".github/workflows/mentorship.yml", ToolType: "compiled_action", WriteCapable: true, RiskScore: 8.2},
+		{PathID: "apc-docs", Org: "acme", Repo: "acme/app", Location: ".github/workflows/docs.yml", ToolType: "compiled_action", WriteCapable: true, RiskScore: 7.9},
+	}
+	items := buildActionPathRiskItems(paths, 2)
+	if len(items) != 2 {
+		t.Fatalf("expected --top 2 to return two grouped workflow risks, got %+v", items)
+	}
+	if items[0].Location != ".github/workflows/release.yml" || items[0].GroupedPathCount != 2 || len(items[0].GroupedPathIDs) != 2 {
+		t.Fatalf("expected duplicate release rows to collapse into one decision path, got %+v", items[0])
+	}
+	if items[1].Location != ".github/workflows/mentorship.yml" {
+		t.Fatalf("expected second distinct workflow after grouping, got %+v", items[1])
 	}
 }
 
@@ -1640,6 +1661,71 @@ func TestDecorateActionPathsForReportProjectsGaitCoverageAndBuyerState(t *testin
 	}
 }
 
+func TestDecorateActionPathsProjectsScopedContainmentCoverage(t *testing.T) {
+	t.Parallel()
+
+	paths := decorateActionPathsForReport([]risk.ActionPath{{
+		PathID:       "apc-contained",
+		Repo:         "acme/release",
+		Location:     ".github/workflows/release.yml",
+		WriteCapable: true,
+		DeployWrite:  true,
+	}}, &ingest.Summary{Correlations: []ingest.Correlation{{
+		PathID:                   "apc-contained",
+		Status:                   ingest.CorrelationStatusMatched,
+		EvidenceClasses:          []string{ingest.EvidenceClassKillSwitch, ingest.EvidenceClassStopRequest, ingest.EvidenceClassCoveredActionDenial, ingest.EvidenceClassDescendantInvalidation, ingest.EvidenceClassExternalRevocationAcknowledgement, ingest.EvidenceClassContainmentReceipt},
+		RecordIDs:                []string{"receipt:contained"},
+		ContainmentStatus:        ingest.ContainmentStatusContained,
+		ContainmentScopeRefs:     []string{"agent:parent", "agent:child"},
+		AcknowledgedBoundaryRefs: []string{"github:token:revoked"},
+	}}})
+	if len(paths) != 1 || paths[0].GaitCoverage == nil || paths[0].GaitCoverage.Containment == nil {
+		t.Fatalf("expected containment coverage, got %+v", paths)
+	}
+	got := paths[0].GaitCoverage.Containment
+	if got.Status != risk.ContainmentCoverageContained || got.DescendantInvalidation.Status != risk.GaitStatusPresent || got.ExternalRevocationAcknowledgement.Status != risk.GaitStatusPresent {
+		t.Fatalf("expected contained descendant and external acknowledgement evidence, got %+v", got)
+	}
+	if len(got.ScopeRefs) != 2 || len(got.AcknowledgedBoundaryRefs) != 1 {
+		t.Fatalf("expected containment scope and boundary refs, got %+v", got)
+	}
+}
+
+func TestKillSwitchAloneIsNotEnforcementEvidence(t *testing.T) {
+	t.Parallel()
+
+	path := risk.ActionPath{
+		DelegationReadinessState: risk.DelegationReadinessReadyForControl,
+		GaitCoverage: &risk.GaitCoverage{
+			KillSwitch: risk.GaitCoverageDetail{Status: risk.GaitStatusPresent},
+		},
+	}
+	if pathHasEnforcementEvidence(path) {
+		t.Fatal("expected a kill-switch declaration without containment proof to remain report-only")
+	}
+	path.GaitCoverage.Containment = &risk.ContainmentCoverage{
+		Status:              risk.ContainmentCoverageContained,
+		ScopeRefs:           []string{"agent:parent"},
+		CoveredActionDenial: risk.GaitCoverageDetail{Status: risk.GaitStatusPresent},
+		ContainmentReceipt:  risk.GaitCoverageDetail{Status: risk.GaitStatusPresent},
+	}
+	if !pathHasEnforcementEvidence(path) {
+		t.Fatal("expected completed containment evidence to support an enforcement-capable boundary")
+	}
+}
+
+func TestContainedStatusRequiresScopedReceiptEvidence(t *testing.T) {
+	t.Parallel()
+
+	coverage := containmentCoverageForPath(risk.ActionPath{DeployWrite: true}, ingest.Correlation{
+		Status:            ingest.CorrelationStatusMatched,
+		ContainmentStatus: ingest.ContainmentStatusContained,
+	})
+	if coverage.Status != risk.ContainmentCoveragePartial {
+		t.Fatalf("expected a bare contained assertion to remain partial, got %+v", coverage)
+	}
+}
+
 func TestStaticOnlyRuntimeEvidenceNotCollected(t *testing.T) {
 	t.Parallel()
 
@@ -2472,7 +2558,9 @@ func TestRenderMarkdownDesignPartnerTemplateRendersTopValidatedFindings(t *testi
 		"# Wrkr Design Partner Summary",
 		"## Top Validated Findings",
 		"Problem:",
-		"Likely explanation:",
+		"Evidence class: confirmed path",
+		"Inferred relationship:",
+		"Unresolved context:",
 		"Threat:",
 		"Recommended control:",
 		"Lineage:",

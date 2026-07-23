@@ -93,3 +93,46 @@ func TestActionPathTypeUsesWorkflowNameWhenAgentNameIsAbsent(t *testing.T) {
 		t.Fatalf("expected workflow-derived instance binding, got %+v", Resolve(findings))
 	}
 }
+
+func TestAgentResolver_KeepsIdenticalWorkflowPathsRepoScoped(t *testing.T) {
+	t.Parallel()
+
+	location := ".github/workflows/release.yml"
+	findings := []model.Finding{
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    location,
+			Repo:        "acme/service-a",
+			Evidence: []model.Evidence{
+				{Key: "workflow_name", Value: "release"},
+				{Key: "auth_surfaces", Value: "SERVICE_A_DEPLOY_PAT"},
+			},
+		},
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    location,
+			Repo:        "acme/service-b",
+			Evidence: []model.Evidence{
+				{Key: "workflow_name", Value: "release"},
+				{Key: "auth_surfaces", Value: "SERVICE_B_PYPI_API_TOKEN"},
+			},
+		},
+	}
+
+	resolved := Resolve(findings)
+	for _, test := range []struct {
+		repo string
+		want string
+	}{
+		{repo: "acme/service-a", want: "SERVICE_A_DEPLOY_PAT"},
+		{repo: "acme/service-b", want: "SERVICE_B_PYPI_API_TOKEN"},
+	} {
+		key := identity.ToolInstanceID("compiled_action", test.repo, location, "release", 0, 0)
+		binding := resolved[key]
+		if !reflect.DeepEqual(binding.BoundAuthSurfaces, []string{test.want}) {
+			t.Fatalf("expected repo-scoped auth surface for %s, got %+v", test.repo, binding)
+		}
+	}
+}

@@ -4,26 +4,17 @@
       "business_state_surface": "deploy",
       "owner_source": "codeowners",
       "ownership_status": "explicit",
-      "path_id": "apc-b75aac3d0e0f",
+      "path_id": "apc-d19944380255",
       "recommended_action": "control",
       "repo": "control-plane",
       "tool_type": "ci_agent"
-    },
-    {
-      "business_state_surface": "deploy",
-      "owner_source": "codeowners",
-      "ownership_status": "explicit",
-      "path_id": "apc-dfc2afa9f348",
-      "recommended_action": "control",
-      "repo": "control-plane",
-      "tool_type": "compiled_action"
     },
     {
       "business_state_surface": "admin_api",
       "owner_source": "repo_fallback",
       "ownership_status": "inferred",
       "path_id": "apc-8ec8602cb415",
-      "recommended_action": "proof",
+      "recommended_action": "control",
       "repo": "control-plane",
       "tool_type": "mcp"
     },
@@ -47,7 +38,7 @@
     }
   ],
   "assessment_summary": {
-    "governable_path_count": 5,
+    "governable_path_count": 4,
     "identity_exposure_summary": {
       "identities_backing_deploy_capable_paths": 1,
       "identities_backing_write_capable_paths": 1,
@@ -57,21 +48,21 @@
     },
     "identity_to_review_first": {
       "execution_identity": "github_app",
-      "path_count": 5,
+      "path_count": 4,
       "shared_execution_identity": true,
       "standing_privilege": true,
       "write_capable_path_count": 2
     },
     "identity_to_revoke_first": {
       "execution_identity": "github_app",
-      "path_count": 5,
+      "path_count": 4,
       "shared_execution_identity": true,
       "standing_privilege": true,
       "write_capable_path_count": 2
     },
     "ownerless_exposure": {
       "conflict_owner_paths": 0,
-      "explicit_owner_paths": 3,
+      "explicit_owner_paths": 2,
       "inferred_owner_paths": 2,
       "unresolved_owner_paths": 0
     },
@@ -81,30 +72,30 @@
   "control_first": {
     "path": {
       "business_state_surface": "deploy",
-      "path_id": "apc-b75aac3d0e0f",
+      "path_id": "apc-d19944380255",
       "recommended_action": "control",
       "repo": "control-plane",
       "tool_type": "ci_agent"
     },
     "summary": {
-      "govern_first_paths": 5,
+      "govern_first_paths": 4,
       "production_target_backed_paths": 2,
-      "total_paths": 5,
+      "total_paths": 4,
       "write_capable_paths": 2
     }
   },
   "exposure_groups": [
     {
-      "business_state_surface": "deploy",
-      "delivery_chain_status": "pr_merge_deploy",
-      "group_id": "grp-9163924b96c1",
+      "business_state_surface": "admin_api",
+      "delivery_chain_status": "none",
+      "group_id": "grp-5ddd3c815fa1",
       "path_count": 1,
       "path_ids": [
-        "apc-dfc2afa9f348"
+        "apc-8ec8602cb415"
       ],
       "recommended_action": "control",
       "tool_types": [
-        "compiled_action"
+        "mcp"
       ]
     },
     {
@@ -113,7 +104,7 @@
       "group_id": "grp-a20645f2f180",
       "path_count": 1,
       "path_ids": [
-        "apc-b75aac3d0e0f"
+        "apc-d19944380255"
       ],
       "recommended_action": "control",
       "tool_types": [
@@ -134,19 +125,6 @@
       ]
     },
     {
-      "business_state_surface": "admin_api",
-      "delivery_chain_status": "none",
-      "group_id": "grp-be2c957a377b",
-      "path_count": 1,
-      "path_ids": [
-        "apc-8ec8602cb415"
-      ],
-      "recommended_action": "proof",
-      "tool_types": [
-        "mcp"
-      ]
-    },
-    {
       "business_state_surface": "code",
       "delivery_chain_status": "none",
       "group_id": "grp-fc4fe155f314",
@@ -162,8 +140,6 @@
   ],
   "status": "ok",
   "top_risk_types": [
-    "action_path",
-    "action_path",
     "action_path",
     "action_path",
     "action_path"

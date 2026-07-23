@@ -145,7 +145,7 @@ jobs:
 	}
 }
 
-func TestDetectCIAutonomyCarriesJITCredentialProvenance(t *testing.T) {
+func TestDetectCIAutonomyCarriesStructuredOIDCCapability(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -174,8 +174,11 @@ jobs:
 	if len(findings) != 1 {
 		t.Fatalf("expected one ciagent finding, got %+v", findings)
 	}
-	if value := evidenceValue(findings[0], "credential_provenance_type"); value != "jit" {
-		t.Fatalf("expected jit credential provenance, got %q", value)
+	if !containsPermission(findings[0].Permissions, "id-token.write") {
+		t.Fatalf("expected id-token.write capability, got %v", findings[0].Permissions)
+	}
+	if value := evidenceValue(findings[0], "credential_provenance_type"); value != "" {
+		t.Fatalf("parsed workflow must not receive duplicate text-heuristic provenance, got %q", value)
 	}
 }
 

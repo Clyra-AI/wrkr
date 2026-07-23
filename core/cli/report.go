@@ -301,7 +301,11 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	riskReport := snapshot.RiskReport
 	if riskReport == nil {
-		generated := risk.Score(snapshot.Findings, *topN, parseReportGeneratedAt(summary.GeneratedAt))
+		profileName := ""
+		if snapshot.Profile != nil {
+			profileName = snapshot.Profile.ProfileName
+		}
+		generated := risk.Score(risk.ApplyFindingProfile(profileName, snapshot.Findings), *topN, parseReportGeneratedAt(summary.GeneratedAt))
 		riskReport = &generated
 	}
 	top := reportcore.SelectTopFindings(*riskReport, *topN)

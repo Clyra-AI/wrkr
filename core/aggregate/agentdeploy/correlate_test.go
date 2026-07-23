@@ -63,3 +63,46 @@ func TestAgentDeploymentCorrelator_AmbiguousPathFailClosed(t *testing.T) {
 		t.Fatalf("expected deterministic ambiguous artifacts, got %+v", deployment.DeploymentArtifacts)
 	}
 }
+
+func TestAgentDeploymentCorrelator_KeepsIdenticalWorkflowPathsRepoScoped(t *testing.T) {
+	t.Parallel()
+
+	location := ".github/workflows/release.yml"
+	findings := []model.Finding{
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    location,
+			Repo:        "acme/service-a",
+			Evidence: []model.Evidence{
+				{Key: "workflow_name", Value: "release"},
+				{Key: "deployment_artifact", Value: "registry/service-a"},
+			},
+		},
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    location,
+			Repo:        "acme/service-b",
+			Evidence: []model.Evidence{
+				{Key: "workflow_name", Value: "release"},
+				{Key: "deployment_artifact", Value: "registry/service-b"},
+			},
+		},
+	}
+
+	resolved := Resolve(findings)
+	for _, test := range []struct {
+		repo string
+		want []string
+	}{
+		{repo: "acme/service-a", want: []string{location, "registry/service-a"}},
+		{repo: "acme/service-b", want: []string{location, "registry/service-b"}},
+	} {
+		key := identity.ToolInstanceID("compiled_action", test.repo, location, "release", 0, 0)
+		deployment := resolved[key]
+		if !reflect.DeepEqual(deployment.DeploymentArtifacts, test.want) {
+			t.Fatalf("expected repo-scoped deployment for %s, got %+v", test.repo, deployment)
+		}
+	}
+}

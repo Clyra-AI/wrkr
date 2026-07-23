@@ -135,6 +135,13 @@
             "approval",
             "freeze_window",
             "kill_switch",
+            "stop_request",
+            "covered_action_denial",
+            "capability_invalidation",
+            "descendant_invalidation",
+            "external_revocation_attempt",
+            "external_revocation_acknowledgement",
+            "containment_receipt",
             "owner_assignment",
             "policy_record",
             "branch_protection",
@@ -194,6 +201,26 @@
           "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]
         },
         "reason_codes": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "containment_status": {
+          "type": "string",
+          "enum": ["contained", "partially_contained", "unresolved", "out_of_scope"]
+        },
+        "containment_scope_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "acknowledged_boundary_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "unresolved_boundary_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "out_of_scope_boundary_refs": {
           "type": "array",
           "items": {"type": "string"}
         }

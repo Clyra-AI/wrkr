@@ -9,6 +9,15 @@ const (
 	GaitStatusConflict      = "conflict"
 	GaitStatusNotApplicable = "not_applicable"
 
+	ContainmentCoverageContained     = "contained"
+	ContainmentCoveragePartial       = "partially_contained"
+	ContainmentCoverageUnresolved    = "unresolved"
+	ContainmentCoverageOutOfScope    = "out_of_scope"
+	ContainmentCoverageNotObserved   = "not_observed"
+	ContainmentCoverageNotApplicable = "not_applicable"
+	ContainmentCoverageStale         = "stale"
+	ContainmentCoverageConflict      = "conflict"
+
 	RuntimeEvidenceAbsenceNotCollected    = "not_collected"
 	RuntimeEvidenceAbsenceNotApplicable   = "not_applicable"
 	RuntimeEvidenceAbsenceMissingRequired = "missing_required"
@@ -22,13 +31,29 @@ type GaitCoverageDetail struct {
 }
 
 type GaitCoverage struct {
-	PolicyDecision    GaitCoverageDetail `json:"policy_decision"`
-	Approval          GaitCoverageDetail `json:"approval"`
-	JITCredential     GaitCoverageDetail `json:"jit_credential"`
-	FreezeWindow      GaitCoverageDetail `json:"freeze_window"`
-	KillSwitch        GaitCoverageDetail `json:"kill_switch"`
-	ActionOutcome     GaitCoverageDetail `json:"action_outcome"`
-	ProofVerification GaitCoverageDetail `json:"proof_verification"`
+	PolicyDecision    GaitCoverageDetail   `json:"policy_decision"`
+	Approval          GaitCoverageDetail   `json:"approval"`
+	JITCredential     GaitCoverageDetail   `json:"jit_credential"`
+	FreezeWindow      GaitCoverageDetail   `json:"freeze_window"`
+	KillSwitch        GaitCoverageDetail   `json:"kill_switch"`
+	ActionOutcome     GaitCoverageDetail   `json:"action_outcome"`
+	ProofVerification GaitCoverageDetail   `json:"proof_verification"`
+	Containment       *ContainmentCoverage `json:"containment,omitempty"`
+}
+
+type ContainmentCoverage struct {
+	Status                            string             `json:"status"`
+	StopRequest                       GaitCoverageDetail `json:"stop_request"`
+	CoveredActionDenial               GaitCoverageDetail `json:"covered_action_denial"`
+	CapabilityInvalidation            GaitCoverageDetail `json:"capability_invalidation"`
+	DescendantInvalidation            GaitCoverageDetail `json:"descendant_invalidation"`
+	ExternalRevocationAttempt         GaitCoverageDetail `json:"external_revocation_attempt"`
+	ExternalRevocationAcknowledgement GaitCoverageDetail `json:"external_revocation_acknowledgement"`
+	ContainmentReceipt                GaitCoverageDetail `json:"containment_receipt"`
+	ScopeRefs                         []string           `json:"scope_refs,omitempty"`
+	AcknowledgedBoundaryRefs          []string           `json:"acknowledged_boundary_refs,omitempty"`
+	UnresolvedBoundaryRefs            []string           `json:"unresolved_boundary_refs,omitempty"`
+	OutOfScopeBoundaryRefs            []string           `json:"out_of_scope_boundary_refs,omitempty"`
 }
 
 func MergeGaitCoverage(current, incoming *GaitCoverage) *GaitCoverage {
@@ -46,6 +71,7 @@ func MergeGaitCoverage(current, incoming *GaitCoverage) *GaitCoverage {
 		KillSwitch:        mergeGaitCoverageDetail(current.KillSwitch, incoming.KillSwitch),
 		ActionOutcome:     mergeGaitCoverageDetail(current.ActionOutcome, incoming.ActionOutcome),
 		ProofVerification: mergeGaitCoverageDetail(current.ProofVerification, incoming.ProofVerification),
+		Containment:       mergeContainmentCoverage(current.Containment, incoming.Containment),
 	}
 }
 
@@ -73,6 +99,77 @@ func CloneGaitCoverage(in *GaitCoverage) *GaitCoverage {
 		KillSwitch:        cloneGaitCoverageDetail(in.KillSwitch),
 		ActionOutcome:     cloneGaitCoverageDetail(in.ActionOutcome),
 		ProofVerification: cloneGaitCoverageDetail(in.ProofVerification),
+		Containment:       cloneContainmentCoverage(in.Containment),
+	}
+}
+
+func cloneContainmentCoverage(in *ContainmentCoverage) *ContainmentCoverage {
+	if in == nil {
+		return nil
+	}
+	return &ContainmentCoverage{
+		Status:                            strings.TrimSpace(in.Status),
+		StopRequest:                       cloneGaitCoverageDetail(in.StopRequest),
+		CoveredActionDenial:               cloneGaitCoverageDetail(in.CoveredActionDenial),
+		CapabilityInvalidation:            cloneGaitCoverageDetail(in.CapabilityInvalidation),
+		DescendantInvalidation:            cloneGaitCoverageDetail(in.DescendantInvalidation),
+		ExternalRevocationAttempt:         cloneGaitCoverageDetail(in.ExternalRevocationAttempt),
+		ExternalRevocationAcknowledgement: cloneGaitCoverageDetail(in.ExternalRevocationAcknowledgement),
+		ContainmentReceipt:                cloneGaitCoverageDetail(in.ContainmentReceipt),
+		ScopeRefs:                         dedupeSortedStrings(append([]string(nil), in.ScopeRefs...)),
+		AcknowledgedBoundaryRefs:          dedupeSortedStrings(append([]string(nil), in.AcknowledgedBoundaryRefs...)),
+		UnresolvedBoundaryRefs:            dedupeSortedStrings(append([]string(nil), in.UnresolvedBoundaryRefs...)),
+		OutOfScopeBoundaryRefs:            dedupeSortedStrings(append([]string(nil), in.OutOfScopeBoundaryRefs...)),
+	}
+}
+
+func mergeContainmentCoverage(current, incoming *ContainmentCoverage) *ContainmentCoverage {
+	switch {
+	case current == nil:
+		return cloneContainmentCoverage(incoming)
+	case incoming == nil:
+		return cloneContainmentCoverage(current)
+	}
+	status := strings.TrimSpace(current.Status)
+	if containmentCoverageStatusRank(incoming.Status) < containmentCoverageStatusRank(status) {
+		status = strings.TrimSpace(incoming.Status)
+	}
+	return &ContainmentCoverage{
+		Status:                            firstNonEmptyString(status, strings.TrimSpace(incoming.Status)),
+		StopRequest:                       mergeGaitCoverageDetail(current.StopRequest, incoming.StopRequest),
+		CoveredActionDenial:               mergeGaitCoverageDetail(current.CoveredActionDenial, incoming.CoveredActionDenial),
+		CapabilityInvalidation:            mergeGaitCoverageDetail(current.CapabilityInvalidation, incoming.CapabilityInvalidation),
+		DescendantInvalidation:            mergeGaitCoverageDetail(current.DescendantInvalidation, incoming.DescendantInvalidation),
+		ExternalRevocationAttempt:         mergeGaitCoverageDetail(current.ExternalRevocationAttempt, incoming.ExternalRevocationAttempt),
+		ExternalRevocationAcknowledgement: mergeGaitCoverageDetail(current.ExternalRevocationAcknowledgement, incoming.ExternalRevocationAcknowledgement),
+		ContainmentReceipt:                mergeGaitCoverageDetail(current.ContainmentReceipt, incoming.ContainmentReceipt),
+		ScopeRefs:                         dedupeSortedStrings(append(append([]string(nil), current.ScopeRefs...), incoming.ScopeRefs...)),
+		AcknowledgedBoundaryRefs:          dedupeSortedStrings(append(append([]string(nil), current.AcknowledgedBoundaryRefs...), incoming.AcknowledgedBoundaryRefs...)),
+		UnresolvedBoundaryRefs:            dedupeSortedStrings(append(append([]string(nil), current.UnresolvedBoundaryRefs...), incoming.UnresolvedBoundaryRefs...)),
+		OutOfScopeBoundaryRefs:            dedupeSortedStrings(append(append([]string(nil), current.OutOfScopeBoundaryRefs...), incoming.OutOfScopeBoundaryRefs...)),
+	}
+}
+
+func containmentCoverageStatusRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case ContainmentCoverageConflict:
+		return 0
+	case ContainmentCoverageUnresolved:
+		return 1
+	case ContainmentCoverageOutOfScope:
+		return 2
+	case ContainmentCoverageStale:
+		return 3
+	case ContainmentCoverageNotObserved:
+		return 4
+	case ContainmentCoveragePartial:
+		return 5
+	case ContainmentCoverageContained:
+		return 6
+	case ContainmentCoverageNotApplicable:
+		return 7
+	default:
+		return 8
 	}
 }
 
@@ -119,15 +216,7 @@ func RuntimeEvidenceAbsenceStatus(path ActionPath) string {
 	}
 	status := ""
 	allNotApplicable := true
-	for _, detail := range []GaitCoverageDetail{
-		path.GaitCoverage.PolicyDecision,
-		path.GaitCoverage.Approval,
-		path.GaitCoverage.JITCredential,
-		path.GaitCoverage.FreezeWindow,
-		path.GaitCoverage.KillSwitch,
-		path.GaitCoverage.ActionOutcome,
-		path.GaitCoverage.ProofVerification,
-	} {
+	for _, detail := range gaitCoverageDetails(path.GaitCoverage) {
 		if strings.TrimSpace(detail.Status) != GaitStatusNotApplicable {
 			allNotApplicable = false
 		}
@@ -161,7 +250,19 @@ func GaitCoverageHasStatus(coverage *GaitCoverage, want string) bool {
 	if coverage == nil {
 		return false
 	}
-	for _, detail := range []GaitCoverageDetail{
+	for _, detail := range gaitCoverageDetails(coverage) {
+		if strings.TrimSpace(detail.Status) == strings.TrimSpace(want) {
+			return true
+		}
+	}
+	return false
+}
+
+func gaitCoverageDetails(coverage *GaitCoverage) []GaitCoverageDetail {
+	if coverage == nil {
+		return nil
+	}
+	return []GaitCoverageDetail{
 		coverage.PolicyDecision,
 		coverage.Approval,
 		coverage.JITCredential,
@@ -169,12 +270,7 @@ func GaitCoverageHasStatus(coverage *GaitCoverage, want string) bool {
 		coverage.KillSwitch,
 		coverage.ActionOutcome,
 		coverage.ProofVerification,
-	} {
-		if strings.TrimSpace(detail.Status) == strings.TrimSpace(want) {
-			return true
-		}
 	}
-	return false
 }
 
 func runtimeEvidenceAbsenceRank(value string) int {

@@ -196,6 +196,9 @@ func compositionGaitCoverageSummary(coverage *risk.GaitCoverage) map[string]stri
 		"action_outcome":     strings.TrimSpace(coverage.ActionOutcome.Status),
 		"proof_verification": strings.TrimSpace(coverage.ProofVerification.Status),
 	}
+	if coverage.Containment != nil {
+		out["containment"] = strings.TrimSpace(coverage.Containment.Status)
+	}
 	for key, value := range out {
 		if value == "" {
 			delete(out, key)

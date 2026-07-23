@@ -6,66 +6,89 @@
 
 ## Executive Rollup
 
-- total_groups=13 total_paths=20
-- group=xrg-ef3bf0cab866 count=1 severity=critical priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-4bd1cfe8
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=1 credential_access paths grouped by production_impacting and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=standing
-- group=xrg-504feb2957f4 count=2 severity=critical priority=control_first closure=remediate evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-2f2bda2d, path-31e098e8
-  recommendation=remediate standing production deploy paths first
-  rationale=2 deploy paths grouped by developer_productivity and unknown evidence | closure=remediate repo_cluster=single_repo credential_authority=unknown
-- group=xrg-ca230a7008b5 count=4 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-1a6e2fbd, path-aea359df, path-c427c00e
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=4 egress paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-0c18386d7513 count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-7462113c, path-7bc48b8c
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=2 read paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-4ed90b3e19cb count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-ad8e5de2, path-fa61c8c4
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=2 read paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-72044fd98ef0 count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-45689901, path-e20cb15e
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=2 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-27c8ba42b953 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-f557e358
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=1 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=none
-- group=xrg-343a544f0af3 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-6c68d1b5
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=1 read paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-9082d90b7239 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-316db0d7
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=1 execute paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-b4eb30e04fc1 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-445e7c6c
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=1 egress paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-b339af3f7b36 count=1 severity=low priority=inventory_hygiene closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-9ed20f75
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=1 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-c6684b5fc5ea count=1 severity=low priority=inventory_hygiene closure=remediate evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-efbe1d8d
-  recommendation=remediate standing production deploy paths first
-  rationale=1 write paths grouped by test_demo_sandbox and unknown evidence | closure=remediate repo_cluster=single_repo credential_authority=unknown
-- group=xrg-e18e7d78ad58 count=1 severity=low priority=inventory_hygiene closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-827d9232
-  recommendation=attach or import approval, proof, or runtime evidence before making a control claim
-  rationale=1 read paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=none
+- Summary: 13 grouped exposures across 20 action paths.
+- credential access affecting production impacting: 1 path; critical severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: action path detected, single repository scope; inferred relationship: owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-31990a09.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 1 credential access path grouped by production impacting and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: standing.
+- deploy affecting developer productivity: 2 paths; critical severity; control first priority; remediate closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-2f2bda2d, path-31e098e8.
+  Recommendation: resolve credential authority, then remediate the highest-impact paths first.
+  Rationale: 2 deploy paths grouped by developer productivity and unknown evidence | closure: remediate repo cluster: single repo credential authority: unknown.
+- egress affecting developer productivity: 4 paths; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-1a6e2fbd, path-aea359df, path-c427c00e.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 4 egress paths grouped by developer productivity and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- read affecting developer productivity: 2 paths; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-7462113c, path-7bc48b8c.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 2 read paths grouped by developer productivity and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- read affecting unknown: 2 paths; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-049802e2, path-fa61c8c4.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 2 read paths grouped by unknown and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- read affecting test demo sandbox: 2 paths; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-45689901, path-e20cb15e.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 2 read paths grouped by test demo sandbox and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- read affecting test demo sandbox: 1 path; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-f557e358.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 1 read path grouped by test demo sandbox and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: none.
+- read affecting developer productivity: 1 path; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-6c68d1b5.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 1 read path grouped by developer productivity and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- execute affecting developer productivity: 1 path; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-316db0d7.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 1 execute path grouped by developer productivity and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- egress affecting unknown: 1 path; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-445e7c6c.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 1 egress path grouped by unknown and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- read affecting test demo sandbox: 1 path; low severity; inventory hygiene priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: owner inferred; unresolved context: path classification, evidence state unknown; contradictions consistent. Examples: path-9ed20f75.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 1 read path grouped by test demo sandbox and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- write affecting test demo sandbox: 1 path; low severity; inventory hygiene priority; remediate closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: owner inferred; unresolved context: path classification, evidence state unknown; contradictions consistent. Examples: path-efbe1d8d.
+  Recommendation: resolve credential authority, then remediate the highest-impact paths first.
+  Rationale: 1 write path grouped by test demo sandbox and unknown evidence | closure: remediate repo cluster: single repo credential authority: unknown.
+- read affecting unknown: 1 path; low severity; inventory hygiene priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: owner inferred; unresolved context: path classification, evidence state unknown; contradictions consistent. Examples: path-827d9232.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 1 read path grouped by unknown and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: none.
 
 ## Workflow Chain Highlights
 
 - Total buyer-facing workflow paths: 16
 
-- path=path-31e098e8 repo=repo-10e08a workflow=loc-f27ac6f3 type=agent_instruction_surface target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=no credential authority linked blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach scoped approval evidence for this agent instruction surface before allowing deploy/egress/execute against developer-productivity systems
-  evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
-  explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- path=path-2f2bda2d repo=repo-0f9c7c workflow=loc-f32a51ab type=agent_instruction_surface target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=no credential authority linked blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach scoped approval evidence for this agent instruction surface before allowing deploy/egress/execute against developer-productivity systems
-  evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
-  explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- path=path-4bd1cfe8 repo=repo-eb0de2 workflow=loc-415e1600 type=ci_cd_workflow target=production_impacting autonomy=prod or customer impacting readiness=blocked authority=credential-9d82507e | workflow | standing blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access
-  evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=partial evidence coverage
-  explanation=This path is already blocked with standing credential metadata, so replacement or JIT reduction should lead before correlation work.
-- path=path-445e7c6c repo=repo-10e08a workflow=loc-d5d3368a type=agent_instruction_surface target=unknown autonomy=sensitive code or infra readiness=review required authority=no credential authority linked blast_radius=unknown approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach scoped approval evidence for this agent instruction surface before allowing egress/read
-  evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
-  explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- path=path-f290d9be repo=repo-1cf387 workflow=loc-6d5c8bdb type=agent_instruction_surface target=developer_productivity autonomy=sensitive code or infra readiness=review required authority=no credential authority linked blast_radius=developer productivity approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach scoped approval evidence for this agent instruction surface before allowing egress/read against developer-productivity systems
-  evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
-  explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
+- Path path-31e098e8: agent instruction surface in repo-10e08a via loc-f27ac6f3; target developer productivity; autonomy prod or customer impacting; readiness review required.
+  Authority: no credential authority linked; blast radius production impacting authority; boundary report only.
+  Evidence: approval evidence not imported or observed; proof evidence not imported or observed; runtime not collected; session not collected; visible control evidence detected; owner evidence inferred; insufficient evidence coverage.
+  Recommendation: attach scoped approval evidence for this agent instruction surface before allowing deploy/egress/execute against developer-productivity systems.
+  Explanation: The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
+- Path path-2f2bda2d: agent instruction surface in repo-0f9c7c via loc-f32a51ab; target developer productivity; autonomy prod or customer impacting; readiness review required.
+  Authority: no credential authority linked; blast radius production impacting authority; boundary report only.
+  Evidence: approval evidence not imported or observed; proof evidence not imported or observed; runtime not collected; session not collected; visible control evidence detected; owner evidence inferred; insufficient evidence coverage.
+  Recommendation: attach scoped approval evidence for this agent instruction surface before allowing deploy/egress/execute against developer-productivity systems.
+  Explanation: The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
+- Path path-31990a09: CI/CD workflow in repo-eb0de2 via loc-415e1600; target production impacting; autonomy prod or customer impacting; readiness blocked.
+  Authority: credential-9d82507e | workflow | standing; blast radius production impacting authority; boundary report only.
+  Evidence: approval evidence not imported or observed; proof evidence not imported or observed; runtime not collected; session not collected; visible control evidence detected; owner evidence inferred; partial evidence coverage.
+  Recommendation: replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access.
+  Explanation: This path is already blocked with standing credential metadata, so replacement or JIT reduction should lead before correlation work.
+- Path path-445e7c6c: agent instruction surface in repo-10e08a via loc-d5d3368a; target unknown; autonomy sensitive code or infra; readiness review required.
+  Authority: no credential authority linked; blast radius unknown; boundary report only.
+  Evidence: approval evidence not imported or observed; proof evidence not imported or observed; runtime not collected; session not collected; visible control evidence detected; owner evidence inferred; insufficient evidence coverage.
+  Recommendation: attach scoped approval evidence for this agent instruction surface before allowing egress/read.
+  Explanation: The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
+- Path path-f290d9be: agent instruction surface in repo-1cf387 via loc-6d5c8bdb; target developer productivity; autonomy sensitive code or infra; readiness review required.
+  Authority: no credential authority linked; blast radius developer productivity; boundary report only.
+  Evidence: approval evidence not imported or observed; proof evidence not imported or observed; runtime not collected; session not collected; visible control evidence detected; owner evidence inferred; insufficient evidence coverage.
+  Recommendation: attach scoped approval evidence for this agent instruction surface before allowing egress/read against developer-productivity systems.
+  Explanation: The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
 
 ## Assessment Summary
 
@@ -153,7 +176,7 @@
   lifecycle_queue=approval_evidence_not_found severity=medium credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
 - repo-8b2df8 loc-d7e67997 owner=owner-abe8a52e queue=control_first visibility=primary action=attach_evidence sla=14d closure=Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. remediation=Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.
   completeness=insufficient evidence coverage(57)
-  closure_requirements=clr-8fd42371:Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. | clr-ed206a78:Attach approval evidence for this exact path with scope and expiry before treating it as governed. | clr-356326c4:Attach a path-specific policy or proof reference for this exact path and rescan so proof is no longer inferred or absent. | clr-0c9bf6e6:Collect runtime evidence for this path and correlate it back to the saved path before treating runtime claims as verified.
+  closure_requirements=clr-b26fea82:Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. | clr-5cea0e3f:Attach approval evidence for this exact path with scope and expiry before treating it as governed. | clr-b6f09a3d:Attach a path-specific policy or proof reference for this exact path and rescan so proof is no longer inferred or absent. | clr-f00e0000:Collect runtime evidence for this path and correlate it back to the saved path before treating runtime claims as verified.
   lifecycle_queue=approval_evidence_not_found severity=medium credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
 
 ## Scan Quality Appendix
@@ -241,24 +264,9 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 - #3 10.00 confirmed_action_path [critical] lane=confirmed_action_path action=proof state=block_recommended zone=credential_bearing review=critical repo=repo-eb0de2 location=loc-415e1600
 - #4 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
 - #5 10.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
-- #6 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-f27ac6f3
-- #7 7.29 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-8b2df8 location=loc-d7e67997
-- #8 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
-- #9 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
-- #10 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-0f9c7c location=loc-a54ff182
-- #11 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-315161dd
-- #12 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-6ebdb617
-- #13 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-20c5bf90
-- #14 6.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-0db9f46c
-- #15 3.60 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-e026f56c
-- #16 3.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-e98d5093
-- #17 3.96 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-eb0de2 location=loc-227c2c26
-- #18 3.60 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=coding_help review=high repo=repo-0f9c7c location=loc-a28316bc
-- #19 9.80 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=repo_write review=high repo=repo-1cf387 location=loc-768f8ff8
-- #20 4.60 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=coding_help review=high repo=repo-0f9c7c location=loc-33ef32bf
 - attack paths: none generated because the saved static graph did not include attack-path joins for the current high-impact action paths; review the governable action paths separately.
 
-Impact: top 20 risks concentrate the highest blast-radius findings
+Impact: top 5 risks concentrate the highest blast-radius findings
 Action: work highest score first and apply deterministic least-privilege remediation
 Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 
@@ -274,8 +282,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 
 ## Executive ownership and approval actions (lifecycle_actions)
 
-- identities=20 pending_action=41 under_review=0 revoked=0 deprecated=0
-- gap inactive_but_credentialed severity=high repo=repo-eb0de2 location=loc-415e1600
+- identities=20 pending_action=40 under_review=0 revoked=0 deprecated=0
 - gap approval_evidence_not_found severity=high repo=repo-10e08a location=loc-0db9f46c
 - gap approval_evidence_not_found severity=high repo=repo-10e08a location=loc-f27ac6f3
 - gap approval_evidence_not_found severity=high repo=repo-0f9c7c location=loc-f32a51ab
@@ -322,7 +329,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 - transition agent-b29c45ca ->discovered (first_seen)
 - transition agent-2d482eed ->discovered (first_seen)
 
-Impact: 41 identities require lifecycle approval/review/revocation handling
+Impact: 40 identities require lifecycle approval/review/revocation handling
 Action: prioritize under_review and revoked identities before enabling additional autonomy
 Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 
@@ -343,7 +350,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 ## Next executive control actions (next_actions)
 
 - review govern-first path path-31e098e8 in repo-10e08a:loc-f27ac6f3 (action=control score=8.20)
-- review 41 lifecycle records requiring approval/review/revocation action
+- review 40 lifecycle records requiring approval/review/revocation action
 - verify proof chain integrity before sharing artifacts externally
 
 Impact: deterministic next actions focus operators on highest leverage controls

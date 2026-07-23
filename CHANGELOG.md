@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added immutable proposed Action Contract revision chains and evidence-backed Gait activation, rejection, execution, effect, and Axym verification references.
 - [semver:minor] Added an opt-in JSON and Markdown Action Contract packet for buyer review of authority, checks, effects, approvals, compensation, gaps, and downstream evidence.
 - [semver:minor] Added bounded three-to-five-stage cross-system composed Action Contracts with explicit trust-boundary evidence, stable identities, and possible-versus-observed reachability states.
+- [semver:minor] Added scoped containment evidence for stop requests, covered-action denials, capability and descendant invalidation, external revocation acknowledgements, containment receipts, and unresolved boundaries.
 
 ### Changed
 
@@ -30,6 +31,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Updated Agent Action BOM reporting to lead with the highest-risk composed authority path, current evidence posture, control gap, and proposed Action Contract.
 - [semver:minor] Applied canonical control recommendations across composed action paths with transition-level rationale and most-restrictive rollups.
 - Replaced illustrative Action Contract handoff projections with real-pipeline, exact-byte conformance fixtures and versioned downstream consumer receipts.
+- Clarified buyer-facing reports with explicit `confirmed CI path`, `inferred relationship`, and `agent surface only` labels, and made dense appendix and executive-rollup fields easier to scan. The regenerated customer-redacted sample fell from 40,745 to 38,556 bytes (-2,189 bytes; -5.4%), while its typed-evidence control-path graph grew by 108 bytes; coverage receipts are `TestActionPathTopRisksGroupWorkflowRowsAndHonorTop`, `TestBuyerArtifactQABlocksPrimaryInternalTokensAndRepeatedEvidenceGaps`, `TestValidateShareableArtifactsChecksJSONValuesNotSchemaKeys`, and `TestScenarioBuyerActionRegistryHardening`.
+- [semver:patch] Assessment profiles now remove scenario, fixture, sample, test, generated, and vendored findings before risk, scan-quality, MCP, backlog, posture, and compliance analysis while retaining the unfiltered findings in saved scan state.
+- [semver:patch] `summary.top_risks` now groups repeated rows for the same repo/workflow and obeys the requested `--top` count; detailed action paths remain available in structured report fields.
 
 ### Deprecated
 
@@ -44,6 +48,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:patch] Raised weaker equivalent-outcome routes to the deterministic peer control floor so approval-evasion alternatives cannot retain a less restrictive proposed Action Contract.
 - [semver:patch] Hardened redacted Action Contract artifact export so saved contract selectors are applied before redaction, report presentation caps do not suppress exported contracts, and output collisions are preflighted before any artifact file is written.
 - Made the local CodeQL runner resource-aware on high-memory hosts so the full security-and-quality suite can complete without relaxing query coverage.
+- [semver:patch] Prevented workflow inputs such as `cache-dependency-path`, `artifact-path`, `restore-keys`, and `persist-credentials` from becoming credential subjects or GitHub PAT findings; covered by `TestAnalyzeDoesNotPromoteOrdinaryActionInputsToCredentials` and `TestAssessmentScanKeepsFixturesRawWithoutPromotingFalseCredentials`.
+- [semver:patch] Kept write-capability booleans, action classes, deploy/merge flags, mutable endpoint semantics, and buyer summary counts on one canonical invariant.
+- [semver:patch] Kept blocked standing-credential paths on remediation-first guidance across action paths, control backlog items, and lifecycle queues instead of downgrading them to approval or evidence-only actions.
+- [semver:patch] Treated GitHub's empty-repository tree response as a successful typed `content_status=empty` source result instead of a partial scan failure.
+- [semver:patch] Validated shareable JSON residuals against string values rather than schema keys and excluded generic false credential subjects; covered by `TestValidateShareableArtifactsChecksJSONValuesNotSchemaKeys`.
+- [semver:patch] Separated workflow secret storage references from credential authority: GitHub's built-in token remains JIT, `id-token: write` is modeled as OIDC workload authority, and role ARNs, usernames, and notification recipients remain raw audit evidence without becoming standing credentials. The 23-repo Clyra-AI dogfood scan completed 644/644 detector executions with zero source failures; newly visible OIDC workflows increased action paths from 66 to 71 while standing paths fell from 23 to 16 and standing-credential blocks fell from 21 to 12. Coverage includes `TestAnalyzeSeparatesSecretStorageFromCredentialAuthority`, `TestSecretsDetectorUsesStructuredWorkflowCredentialSemantics`, and `TestAssessmentScanKeepsFixturesRawWithoutPromotingFalseCredentials`.
+- [semver:patch] Scoped workflow credential and authority attribution by repository and location so identically named workflows cannot inherit sibling-repository credentials, and classified COSIGN and PyPI subjects against their signing and package-registry targets.
+- [semver:patch] Canonicalized CI workflow action paths and required explicit graph joins or shared artifacts before emitting attack paths, preventing duplicate `ci_agent`/`compiled_action` rows and same-repository correlation-only attack chains.
+- [semver:patch] Made executive-rollup remediation language credential-authority-aware so JIT and workload groups no longer receive standing-credential replacement guidance; covered by `TestExecutiveClosureRecommendationMatchesCredentialAuthority`.
 
 ### Security
 

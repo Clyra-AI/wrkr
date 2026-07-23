@@ -182,6 +182,171 @@ jobs:
 	if evidenceValue(result, "workflow_secret_refs") != "PROD_DEPLOY_PAT" {
 		t.Fatalf("expected secret ref evidence, got %q", evidenceValue(result, "workflow_secret_refs"))
 	}
+	if evidenceValue(result, "workflow_credential_kind") != "PROD_DEPLOY_PAT|github_pat" {
+		t.Fatalf("expected typed PAT evidence, got %q", evidenceValue(result, "workflow_credential_kind"))
+	}
+}
+
+func TestAnalyzeCapturesCredentialRefsInRunCommandsAndConditions(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: publish
+on: workflow_dispatch
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sign release
+        run: cosign sign --key "${{ secrets.COSIGN_PRIVATE_KEY }}" artifact
+      - name: Publish package
+        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+        run: python -m twine upload dist/*
+`)
+
+	result, parseErr := Analyze(".github/workflows/publish.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	for _, ref := range []string{"COSIGN_PRIVATE_KEY", "PYPI_API_TOKEN"} {
+		if !contains(evidenceValues(result, "workflow_secret_refs"), ref) {
+			t.Fatalf("expected direct expression credential %q in %+v", ref, result.Evidence)
+		}
+		if !contains(evidenceValues(result, "workflow_credential_kind"), ref+"|static_secret") {
+			t.Fatalf("expected typed direct expression credential %q in %+v", ref, result.Evidence)
+		}
+	}
+}
+
+func TestAnalyzeKeepsDirectRunNoncredentialSecretRefsSeparate(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: notify
+on: workflow_dispatch
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./notify "${{ secrets.SECURITY_EMAIL_TO }}"
+`)
+
+	result, parseErr := Analyze(".github/workflows/notify.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if !contains(evidenceValues(result, "workflow_secret_refs"), "SECURITY_EMAIL_TO") {
+		t.Fatalf("expected raw direct-run secret reference in %+v", result.Evidence)
+	}
+	if !contains(evidenceValues(result, "workflow_noncredential_secret_refs"), "SECURITY_EMAIL_TO") {
+		t.Fatalf("expected noncredential classification in %+v", result.Evidence)
+	}
+	if containsPrefix(evidenceValues(result, "workflow_credential_kind"), "SECURITY_EMAIL_TO|") {
+		t.Fatalf("noncredential direct-run reference must not receive credential authority: %+v", result.Evidence)
+	}
+}
+
+func TestAnalyzeSeparatesSecretStorageFromCredentialAuthority(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: mixed-authority
+on: workflow_dispatch
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_E2E_ROLE_ARN }}
+      - run: ./notify
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CUSTOM_GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+          SECURITY_EMAIL_TO: ${{ secrets.SECURITY_EMAIL_TO }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SLACK_SECURITY_WEBHOOK: ${{ secrets.SLACK_SECURITY_WEBHOOK }}
+`)
+
+	result, parseErr := Analyze(".github/workflows/mixed-authority.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	for _, ref := range []string{
+		"AWS_E2E_ROLE_ARN",
+		"CUSTOM_GITHUB_TOKEN",
+		"DOCKERHUB_USERNAME",
+		"GITHUB_TOKEN",
+		"SECURITY_EMAIL_TO",
+		"SLACK_SECURITY_WEBHOOK",
+	} {
+		if !contains(evidenceValues(result, "workflow_secret_refs"), ref) {
+			t.Fatalf("expected raw secret reference %q in %+v", ref, result.Evidence)
+		}
+	}
+	for _, typed := range []string{
+		"CUSTOM_GITHUB_TOKEN|static_secret",
+		"GITHUB_TOKEN|github_workflow_token",
+		"SLACK_SECURITY_WEBHOOK|static_secret",
+	} {
+		if !contains(evidenceValues(result, "workflow_credential_kind"), typed) {
+			t.Fatalf("expected typed credential %q in %+v", typed, result.Evidence)
+		}
+	}
+	for _, noncredential := range []string{"AWS_E2E_ROLE_ARN", "DOCKERHUB_USERNAME", "SECURITY_EMAIL_TO"} {
+		if !contains(evidenceValues(result, "workflow_noncredential_secret_refs"), noncredential) {
+			t.Fatalf("expected non-credential secret reference %q in %+v", noncredential, result.Evidence)
+		}
+	}
+	if evidenceValue(result, "workflow_builtin_token") != "github_token" {
+		t.Fatalf("expected secrets.GITHUB_TOKEN to retain built-in token semantics, got %+v", result.Evidence)
+	}
+	if !contains(result.Capabilities, "id-token.write") {
+		t.Fatalf("expected OIDC token-mint capability, got %v", result.Capabilities)
+	}
+}
+
+func TestAnalyzeDoesNotPromoteOrdinaryActionInputsToCredentials(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: docs-audit
+on: workflow_dispatch
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          cache-dependency-path: docs-site/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: docs-site/.next/cache
+          key: docs-${{ runner.os }}
+          restore-keys: docs-
+      - uses: actions/upload-artifact@v4
+        with:
+          artifact-path: docs-site/audit.json
+          pattern: audit-*.json
+`)
+
+	result, parseErr := Analyze(".github/workflows/docs-site-audit-watch.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if refs := evidenceValues(result, "workflow_secret_refs"); len(refs) != 0 {
+		t.Fatalf("ordinary path and action inputs must not become credential subjects: %v", refs)
+	}
+	if kinds := evidenceValues(result, "workflow_credential_kind"); len(kinds) != 0 {
+		t.Fatalf("ordinary path and action inputs must not receive credential kinds: %v", kinds)
+	}
+	for _, value := range []string{"path", "artifact-path", "pattern", "restore-keys", "persist-credentials", "cache-dependency-path"} {
+		if sensitiveCredentialName(value) {
+			t.Fatalf("ordinary action input %q must not be credential-sensitive", value)
+		}
+	}
 }
 
 func TestAnalyzeEmitsAuthorityBindingsForStructuredCloudAndDeploySignals(t *testing.T) {

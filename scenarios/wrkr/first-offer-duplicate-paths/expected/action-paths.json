@@ -2,9 +2,9 @@
   "action_path_count": 1,
   "action_paths": [
     {
-      "path_id": "apc-b0063bf5194e",
+      "path_id": "apc-4f09a3ab7b92",
       "repo": "acme/release",
-      "tool_type": "compiled_action",
+      "tool_type": "ci_agent",
       "recommended_action": "control",
       "delivery_chain_status": "pr_merge_deploy",
       "production_target_status": "configured",
@@ -21,9 +21,9 @@
       "govern_first_paths": 1
     },
     "path": {
-      "path_id": "apc-b0063bf5194e",
+      "path_id": "apc-4f09a3ab7b92",
       "repo": "acme/release",
-      "tool_type": "compiled_action",
+      "tool_type": "ci_agent",
       "recommended_action": "control",
       "delivery_chain_status": "pr_merge_deploy",
       "production_target_status": "configured",

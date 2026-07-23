@@ -6,7 +6,7 @@
   "maximum_graph_nodes": 5000,
   "minimum_proof_records": 100,
   "required_drift_categories": [
-    "new_write_paths",
+    "new_deploy_paths",
     "new_credentials"
   ],
   "required_share_profiles": [

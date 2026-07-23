@@ -2568,16 +2568,17 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000167",
+      "from_node_id": "node-000164",
       "kind": "agent_controls_path",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000171"
+      "to_node_id": "node-000168"
     },
     {
       "boundary_label": "report_only",
@@ -2585,16 +2586,17 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000168",
+      "from_node_id": "node-000165",
       "kind": "agent_team_uses_tool",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000191"
+      "to_node_id": "node-000188"
     },
     {
       "boundary_label": "report_only",
@@ -2602,44 +2604,11 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000169",
+      "from_node_id": "node-000166",
       "kind": "approval_authorizes_deploy",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000172"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000154",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000193",
-      "kind": "checks_gate_approval",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000169"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000155",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000172",
-      "kind": "deploy_affects_asset",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
@@ -2649,35 +2618,78 @@
     },
     {
       "boundary_label": "report_only",
+      "edge_id": "edge-000154",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000190",
+      "kind": "checks_gate_approval",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000166"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000155",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005",
+        "evidence-000006",
+        "evidence-000007"
+      ],
+      "from_node_id": "node-000169",
+      "kind": "credential_authorizes_workflow",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000189"
+    },
+    {
+      "boundary_label": "report_only",
       "edge_id": "edge-000156",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000173",
+      "from_node_id": "node-000170",
+      "kind": "deploy_affects_asset",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000167"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000157",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000171",
       "kind": "evidence_proves_outcome",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000185"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000157",
-      "evidence_refs": [
-        "evidence-000001"
-      ],
-      "from_node_id": "node-000183",
-      "kind": "human_delegates_task",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000190"
+      "to_node_id": "node-000183"
     },
     {
       "boundary_label": "report_only",
@@ -2686,9 +2698,46 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005",
+        "evidence-000006",
+        "evidence-000007"
       ],
-      "from_node_id": "node-000171",
+      "from_node_id": "node-000172",
+      "kind": "execution_uses_credential",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000169"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000159",
+      "evidence_refs": [
+        "evidence-000001"
+      ],
+      "from_node_id": "node-000181",
+      "kind": "human_delegates_task",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000187"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000160",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
+      ],
+      "from_node_id": "node-000168",
       "kind": "path_enables_action",
       "path_id": "path-000007",
       "source_refs": [
@@ -2699,42 +2748,6 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000159",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "from_node_id": "node-000171",
-      "kind": "path_enables_action",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000164"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000160",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "from_node_id": "node-000171",
-      "kind": "path_enables_action",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000165"
-    },
-    {
-      "boundary_label": "report_only",
       "edge_id": "edge-000161",
       "evidence_refs": [
         "evidence-000001",
@@ -2742,14 +2755,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000171",
-      "kind": "path_enables_action",
+      "from_node_id": "node-000168",
+      "kind": "path_executes_workflow",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000166"
+      "to_node_id": "node-000189"
     },
     {
       "boundary_label": "report_only",
@@ -2757,16 +2770,18 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
-      "kind": "path_executes_workflow",
+      "from_node_id": "node-000168",
+      "kind": "path_governed_by",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000192"
+      "to_node_id": "node-000173"
     },
     {
       "boundary_label": "report_only",
@@ -2775,9 +2790,29 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
+      "from_node_id": "node-000168",
+      "kind": "path_governed_by",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000174"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000164",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
+      ],
+      "from_node_id": "node-000168",
       "kind": "path_governed_by",
       "path_id": "path-000007",
       "source_refs": [
@@ -2788,14 +2823,15 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000164",
+      "edge_id": "edge-000165",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
+      "from_node_id": "node-000168",
       "kind": "path_governed_by",
       "path_id": "path-000007",
       "source_refs": [
@@ -2806,14 +2842,15 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000165",
+      "edge_id": "edge-000166",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
+      "from_node_id": "node-000168",
       "kind": "path_governed_by",
       "path_id": "path-000007",
       "source_refs": [
@@ -2824,14 +2861,15 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000166",
+      "edge_id": "edge-000167",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
+      "from_node_id": "node-000168",
       "kind": "path_governed_by",
       "path_id": "path-000007",
       "source_refs": [
@@ -2842,14 +2880,15 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000167",
+      "edge_id": "edge-000168",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
+      "from_node_id": "node-000168",
       "kind": "path_governed_by",
       "path_id": "path-000007",
       "source_refs": [
@@ -2860,14 +2899,15 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000168",
+      "edge_id": "edge-000169",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
+      "from_node_id": "node-000168",
       "kind": "path_governed_by",
       "path_id": "path-000007",
       "source_refs": [
@@ -2878,39 +2918,22 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000169",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "from_node_id": "node-000171",
-      "kind": "path_governed_by",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000181"
-    },
-    {
-      "boundary_label": "report_only",
       "edge_id": "edge-000170",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "from_node_id": "node-000171",
-      "kind": "path_governed_by",
+      "from_node_id": "node-000168",
+      "kind": "path_runs_as",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000182"
+      "to_node_id": "node-000172"
     },
     {
       "boundary_label": "report_only",
@@ -2921,14 +2944,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000171",
-      "kind": "path_runs_as",
+      "from_node_id": "node-000168",
+      "kind": "path_uses_tool",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000174"
+      "to_node_id": "node-000188"
     },
     {
       "boundary_label": "report_only",
@@ -2939,78 +2962,83 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000171",
-      "kind": "path_targets_surface",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000189"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000173",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000171",
-      "kind": "path_uses_tool",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000191"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000174",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000187",
+      "from_node_id": "node-000185",
       "kind": "pull_request_runs_checks",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000193"
+      "to_node_id": "node-000190"
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000175",
+      "edge_id": "edge-000173",
       "evidence_refs": [
         "evidence-000001"
       ],
-      "from_node_id": "node-000188",
+      "from_node_id": "node-000186",
       "kind": "repo_produces_pull_request",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000187"
+      "to_node_id": "node-000185"
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000176",
+      "edge_id": "edge-000174",
       "evidence_refs": [
         "evidence-000001"
       ],
-      "from_node_id": "node-000184",
+      "from_node_id": "node-000182",
       "kind": "request_to_human",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000183"
+      "to_node_id": "node-000181"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000175",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000187",
+      "kind": "task_executed_by_agent_team",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000165"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000176",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005",
+        "evidence-000006",
+        "evidence-000007"
+      ],
+      "from_node_id": "node-000188",
+      "kind": "tool_uses_credential",
+      "path_id": "path-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000169"
     },
     {
       "boundary_label": "report_only",
@@ -3018,16 +3046,16 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000190",
-      "kind": "task_executed_by_agent_team",
+      "from_node_id": "node-000189",
+      "kind": "workflow_changes_repo",
       "path_id": "path-000007",
       "source_refs": [
-        "source-000001",
-        "source-000002"
+        "source-000001"
       ],
-      "to_node_id": "node-000168"
+      "to_node_id": "node-000186"
     },
     {
       "boundary_label": "report_only",
@@ -3035,35 +3063,20 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000192",
-      "kind": "workflow_changes_repo",
-      "path_id": "path-000007",
-      "source_refs": [
-        "source-000001"
-      ],
-      "to_node_id": "node-000188"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000179",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000192",
+      "from_node_id": "node-000189",
       "kind": "workflow_in_repo",
       "path_id": "path-000007",
       "source_refs": [
         "source-000001"
       ],
-      "to_node_id": "node-000188"
+      "to_node_id": "node-000186"
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000180",
+      "edge_id": "edge-000179",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3080,7 +3093,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000181",
+      "edge_id": "edge-000180",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3093,11 +3106,11 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000218"
+      "to_node_id": "node-000219"
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000182",
+      "edge_id": "edge-000181",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3114,13 +3127,13 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000183",
+      "edge_id": "edge-000182",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003"
       ],
-      "from_node_id": "node-000220",
+      "from_node_id": "node-000221",
       "kind": "checks_gate_approval",
       "path_id": "path-000008",
       "source_refs": [
@@ -3131,7 +3144,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000184",
+      "edge_id": "edge-000183",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3148,7 +3161,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000185",
+      "edge_id": "edge-000184",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3165,7 +3178,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000186",
+      "edge_id": "edge-000185",
       "evidence_refs": [
         "evidence-000001"
       ],
@@ -3176,7 +3189,25 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000217"
+      "to_node_id": "node-000218"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000186",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000199",
+      "kind": "path_enables_action",
+      "path_id": "path-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000191"
     },
     {
       "boundary_label": "report_only",
@@ -3194,11 +3225,47 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000194"
+      "to_node_id": "node-000192"
     },
     {
       "boundary_label": "report_only",
       "edge_id": "edge-000188",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000199",
+      "kind": "path_enables_action",
+      "path_id": "path-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000193"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000189",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000199",
+      "kind": "path_enables_action",
+      "path_id": "path-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000194"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000190",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3211,43 +3278,7 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000219"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000189",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "from_node_id": "node-000199",
-      "kind": "path_governed_by",
-      "path_id": "path-000008",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000203"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000190",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "from_node_id": "node-000199",
-      "kind": "path_governed_by",
-      "path_id": "path-000008",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000204"
+      "to_node_id": "node-000220"
     },
     {
       "boundary_label": "report_only",
@@ -3265,7 +3296,7 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000205"
+      "to_node_id": "node-000203"
     },
     {
       "boundary_label": "report_only",
@@ -3283,7 +3314,7 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000206"
+      "to_node_id": "node-000204"
     },
     {
       "boundary_label": "report_only",
@@ -3301,7 +3332,7 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000207"
+      "to_node_id": "node-000205"
     },
     {
       "boundary_label": "report_only",
@@ -3319,7 +3350,7 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000208"
+      "to_node_id": "node-000206"
     },
     {
       "boundary_label": "report_only",
@@ -3337,7 +3368,7 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000209"
+      "to_node_id": "node-000207"
     },
     {
       "boundary_label": "report_only",
@@ -3355,11 +3386,47 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000210"
+      "to_node_id": "node-000208"
     },
     {
       "boundary_label": "report_only",
       "edge_id": "edge-000197",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000199",
+      "kind": "path_governed_by",
+      "path_id": "path-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000209"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000198",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000199",
+      "kind": "path_governed_by",
+      "path_id": "path-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000210"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000199",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3377,7 +3444,25 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000198",
+      "edge_id": "edge-000200",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000199",
+      "kind": "path_targets_surface",
+      "path_id": "path-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000217"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000201",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3390,11 +3475,11 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000218"
+      "to_node_id": "node-000219"
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000199",
+      "edge_id": "edge-000202",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
@@ -3407,11 +3492,11 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000220"
+      "to_node_id": "node-000221"
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000200",
+      "edge_id": "edge-000203",
       "evidence_refs": [
         "evidence-000001"
       ],
@@ -3426,7 +3511,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000201",
+      "edge_id": "edge-000204",
       "evidence_refs": [
         "evidence-000001"
       ],
@@ -3441,13 +3526,13 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000202",
+      "edge_id": "edge-000205",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003"
       ],
-      "from_node_id": "node-000217",
+      "from_node_id": "node-000218",
       "kind": "task_executed_by_agent_team",
       "path_id": "path-000008",
       "source_refs": [
@@ -3458,13 +3543,13 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000203",
+      "edge_id": "edge-000206",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003"
       ],
-      "from_node_id": "node-000219",
+      "from_node_id": "node-000220",
       "kind": "workflow_changes_repo",
       "path_id": "path-000008",
       "source_refs": [
@@ -3474,13 +3559,13 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000204",
+      "edge_id": "edge-000207",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003"
       ],
-      "from_node_id": "node-000219",
+      "from_node_id": "node-000220",
       "kind": "workflow_in_repo",
       "path_id": "path-000008",
       "source_refs": [
@@ -3490,48 +3575,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000205",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000222",
-      "kind": "agent_controls_path",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000226"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000206",
+      "edge_id": "edge-000208",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003"
       ],
       "from_node_id": "node-000223",
-      "kind": "agent_team_uses_tool",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000245"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000207",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000224",
-      "kind": "approval_authorizes_deploy",
+      "kind": "agent_controls_path",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
@@ -3541,98 +3592,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000208",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000247",
-      "kind": "checks_gate_approval",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000224"
-    },
-    {
-      "boundary_label": "report_only",
       "edge_id": "edge-000209",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003"
       ],
-      "from_node_id": "node-000227",
-      "kind": "deploy_affects_asset",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000225"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000210",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000228",
-      "kind": "evidence_proves_outcome",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000240"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000211",
-      "evidence_refs": [
-        "evidence-000001"
-      ],
-      "from_node_id": "node-000238",
-      "kind": "human_delegates_task",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000244"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000212",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "from_node_id": "node-000226",
-      "kind": "path_enables_action",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000221"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000213",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "from_node_id": "node-000226",
-      "kind": "path_executes_workflow",
+      "from_node_id": "node-000224",
+      "kind": "agent_team_uses_tool",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
@@ -3642,21 +3609,86 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000214",
+      "edge_id": "edge-000210",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
-      "from_node_id": "node-000226",
-      "kind": "path_governed_by",
+      "from_node_id": "node-000225",
+      "kind": "approval_authorizes_deploy",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000230"
+      "to_node_id": "node-000228"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000211",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000248",
+      "kind": "checks_gate_approval",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000225"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000212",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000228",
+      "kind": "deploy_affects_asset",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000226"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000213",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000229",
+      "kind": "evidence_proves_outcome",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000241"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000214",
+      "evidence_refs": [
+        "evidence-000001"
+      ],
+      "from_node_id": "node-000239",
+      "kind": "human_delegates_task",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000245"
     },
     {
       "boundary_label": "report_only",
@@ -3667,14 +3699,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000226",
-      "kind": "path_governed_by",
+      "from_node_id": "node-000227",
+      "kind": "path_enables_action",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000231"
+      "to_node_id": "node-000222"
     },
     {
       "boundary_label": "report_only",
@@ -3682,17 +3714,16 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
-      "from_node_id": "node-000226",
-      "kind": "path_governed_by",
+      "from_node_id": "node-000227",
+      "kind": "path_executes_workflow",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000232"
+      "to_node_id": "node-000247"
     },
     {
       "boundary_label": "report_only",
@@ -3703,14 +3734,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000226",
+      "from_node_id": "node-000227",
       "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000233"
+      "to_node_id": "node-000231"
     },
     {
       "boundary_label": "report_only",
@@ -3721,14 +3752,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000226",
+      "from_node_id": "node-000227",
       "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000234"
+      "to_node_id": "node-000232"
     },
     {
       "boundary_label": "report_only",
@@ -3739,14 +3770,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000226",
+      "from_node_id": "node-000227",
       "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000235"
+      "to_node_id": "node-000233"
     },
     {
       "boundary_label": "report_only",
@@ -3757,14 +3788,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000226",
+      "from_node_id": "node-000227",
       "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000236"
+      "to_node_id": "node-000234"
     },
     {
       "boundary_label": "report_only",
@@ -3775,14 +3806,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000226",
+      "from_node_id": "node-000227",
       "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000237"
+      "to_node_id": "node-000235"
     },
     {
       "boundary_label": "report_only",
@@ -3793,14 +3824,14 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000226",
-      "kind": "path_runs_as",
+      "from_node_id": "node-000227",
+      "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000229"
+      "to_node_id": "node-000236"
     },
     {
       "boundary_label": "report_only",
@@ -3808,16 +3839,17 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000226",
-      "kind": "path_uses_tool",
+      "from_node_id": "node-000227",
+      "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000245"
+      "to_node_id": "node-000237"
     },
     {
       "boundary_label": "report_only",
@@ -3825,40 +3857,11 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "from_node_id": "node-000242",
-      "kind": "pull_request_runs_checks",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000247"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000225",
-      "evidence_refs": [
-        "evidence-000001"
-      ],
-      "from_node_id": "node-000243",
-      "kind": "repo_produces_pull_request",
-      "path_id": "path-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000242"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000226",
-      "evidence_refs": [
-        "evidence-000001"
-      ],
-      "from_node_id": "node-000239",
-      "kind": "request_to_human",
+      "from_node_id": "node-000227",
+      "kind": "path_governed_by",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
@@ -3868,34 +3871,68 @@
     },
     {
       "boundary_label": "report_only",
+      "edge_id": "edge-000225",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "from_node_id": "node-000227",
+      "kind": "path_runs_as",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000230"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000226",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000227",
+      "kind": "path_uses_tool",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000246"
+    },
+    {
+      "boundary_label": "report_only",
       "edge_id": "edge-000227",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003"
       ],
-      "from_node_id": "node-000244",
-      "kind": "task_executed_by_agent_team",
+      "from_node_id": "node-000243",
+      "kind": "pull_request_runs_checks",
       "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000223"
+      "to_node_id": "node-000248"
     },
     {
       "boundary_label": "report_only",
       "edge_id": "edge-000228",
       "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
+        "evidence-000001"
       ],
-      "from_node_id": "node-000246",
-      "kind": "workflow_changes_repo",
+      "from_node_id": "node-000244",
+      "kind": "repo_produces_pull_request",
       "path_id": "path-000009",
       "source_refs": [
-        "source-000001"
+        "source-000001",
+        "source-000002"
       ],
       "to_node_id": "node-000243"
     },
@@ -3903,17 +3940,16 @@
       "boundary_label": "report_only",
       "edge_id": "edge-000229",
       "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
+        "evidence-000001"
       ],
-      "from_node_id": "node-000246",
-      "kind": "workflow_in_repo",
+      "from_node_id": "node-000240",
+      "kind": "request_to_human",
       "path_id": "path-000009",
       "source_refs": [
-        "source-000001"
+        "source-000001",
+        "source-000002"
       ],
-      "to_node_id": "node-000243"
+      "to_node_id": "node-000239"
     },
     {
       "boundary_label": "report_only",
@@ -3921,17 +3957,16 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
-      "from_node_id": "node-000249",
-      "kind": "agent_controls_path",
-      "path_id": "path-000010",
+      "from_node_id": "node-000245",
+      "kind": "task_executed_by_agent_team",
+      "path_id": "path-000009",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000253"
+      "to_node_id": "node-000224"
     },
     {
       "boundary_label": "report_only",
@@ -3939,10 +3974,58 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000247",
+      "kind": "workflow_changes_repo",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001"
+      ],
+      "to_node_id": "node-000244"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000232",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000247",
+      "kind": "workflow_in_repo",
+      "path_id": "path-000009",
+      "source_refs": [
+        "source-000001"
+      ],
+      "to_node_id": "node-000244"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000233",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
       ],
       "from_node_id": "node-000250",
+      "kind": "agent_controls_path",
+      "path_id": "path-000010",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000254"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000234",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000251",
       "kind": "agent_team_uses_tool",
       "path_id": "path-000010",
       "source_refs": [
@@ -3953,14 +4036,13 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000232",
+      "edge_id": "edge-000235",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
-      "from_node_id": "node-000251",
+      "from_node_id": "node-000252",
       "kind": "approval_authorizes_deploy",
       "path_id": "path-000010",
       "source_refs": [
@@ -3971,53 +4053,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000233",
+      "edge_id": "edge-000236",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "from_node_id": "node-000275",
       "kind": "checks_gate_approval",
-      "path_id": "path-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000251"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000234",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005",
-        "evidence-000006"
-      ],
-      "from_node_id": "node-000254",
-      "kind": "credential_authorizes_workflow",
-      "path_id": "path-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000274"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000235",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "from_node_id": "node-000255",
-      "kind": "deploy_affects_asset",
       "path_id": "path-000010",
       "source_refs": [
         "source-000001",
@@ -4027,12 +4070,28 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000236",
+      "edge_id": "edge-000237",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000255",
+      "kind": "deploy_affects_asset",
+      "path_id": "path-000010",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000253"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000238",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
       ],
       "from_node_id": "node-000256",
       "kind": "evidence_proves_outcome",
@@ -4045,27 +4104,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000237",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005",
-        "evidence-000006"
-      ],
-      "from_node_id": "node-000257",
-      "kind": "execution_uses_credential",
-      "path_id": "path-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000254"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000238",
+      "edge_id": "edge-000239",
       "evidence_refs": [
         "evidence-000001"
       ],
@@ -4080,25 +4119,6 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000239",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
-      ],
-      "from_node_id": "node-000253",
-      "kind": "path_enables_action",
-      "path_id": "path-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000248"
-    },
-    {
-      "boundary_label": "report_only",
       "edge_id": "edge-000240",
       "evidence_refs": [
         "evidence-000001",
@@ -4106,7 +4126,24 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
+      "kind": "path_enables_action",
+      "path_id": "path-000010",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "to_node_id": "node-000249"
+    },
+    {
+      "boundary_label": "report_only",
+      "edge_id": "edge-000241",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "from_node_id": "node-000254",
       "kind": "path_executes_workflow",
       "path_id": "path-000010",
       "source_refs": [
@@ -4117,15 +4154,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000241",
+      "edge_id": "edge-000242",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4136,15 +4172,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000242",
+      "edge_id": "edge-000243",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4155,15 +4190,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000243",
+      "edge_id": "edge-000244",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4174,15 +4208,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000244",
+      "edge_id": "edge-000245",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4193,15 +4226,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000245",
+      "edge_id": "edge-000246",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4212,15 +4244,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000246",
+      "edge_id": "edge-000247",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4231,15 +4262,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000247",
+      "edge_id": "edge-000248",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4250,15 +4280,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000248",
+      "edge_id": "edge-000249",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_governed_by",
       "path_id": "path-000010",
       "source_refs": [
@@ -4269,15 +4298,14 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000249",
+      "edge_id": "edge-000250",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_runs_as",
       "path_id": "path-000010",
       "source_refs": [
@@ -4288,14 +4316,13 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000250",
+      "edge_id": "edge-000251",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
-      "from_node_id": "node-000253",
+      "from_node_id": "node-000254",
       "kind": "path_uses_tool",
       "path_id": "path-000010",
       "source_refs": [
@@ -4306,12 +4333,11 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000251",
+      "edge_id": "edge-000252",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "from_node_id": "node-000270",
       "kind": "pull_request_runs_checks",
@@ -4324,7 +4350,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000252",
+      "edge_id": "edge-000253",
       "evidence_refs": [
         "evidence-000001"
       ],
@@ -4339,7 +4365,7 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000253",
+      "edge_id": "edge-000254",
       "evidence_refs": [
         "evidence-000001"
       ],
@@ -4354,12 +4380,11 @@
     },
     {
       "boundary_label": "report_only",
-      "edge_id": "edge-000254",
+      "edge_id": "edge-000255",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "from_node_id": "node-000272",
       "kind": "task_executed_by_agent_team",
@@ -4368,27 +4393,7 @@
         "source-000001",
         "source-000002"
       ],
-      "to_node_id": "node-000250"
-    },
-    {
-      "boundary_label": "report_only",
-      "edge_id": "edge-000255",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005",
-        "evidence-000006"
-      ],
-      "from_node_id": "node-000273",
-      "kind": "tool_uses_credential",
-      "path_id": "path-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "to_node_id": "node-000254"
+      "to_node_id": "node-000251"
     },
     {
       "boundary_label": "report_only",
@@ -4396,8 +4401,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "from_node_id": "node-000274",
       "kind": "workflow_changes_repo",
@@ -4413,8 +4417,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "from_node_id": "node-000274",
       "kind": "workflow_in_repo",
@@ -12959,7 +12962,8 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
       "kind": "action_capability",
       "label": "label-000163",
@@ -12968,12 +12972,15 @@
       "node_id": "node-000163",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -12986,19 +12993,22 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "kind": "action_capability",
+      "kind": "agent",
       "label": "label-000164",
-      "lineage_segment": "action",
+      "lineage_segment": "agent",
       "location": "loc-000007",
       "node_id": "node-000164",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13011,93 +13021,23 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "kind": "action_capability",
+      "kind": "agent_team",
       "label": "label-000165",
-      "lineage_segment": "action",
+      "lineage_segment": "agent",
       "location": "loc-000007",
       "node_id": "node-000165",
       "org": "org-000007",
       "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "action_capability",
-      "label": "label-000166",
-      "lineage_segment": "action",
-      "location": "loc-000007",
-      "node_id": "node-000166",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "kind": "agent",
-      "label": "label-000167",
-      "lineage_segment": "agent",
-      "location": "loc-000007",
-      "node_id": "node-000167",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "kind": "agent_team",
-      "label": "label-000168",
-      "lineage_segment": "agent",
-      "location": "loc-000007",
-      "node_id": "node-000168",
-      "org": "org-000007",
-      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "present",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13107,22 +13047,117 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
       "kind": "approval_identity",
-      "label": "label-000169",
+      "label": "label-000166",
       "lineage_segment": "approval",
+      "location": "loc-000007",
+      "node_id": "node-000166",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "unknown",
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "asset_identity",
+      "label": "label-000167",
+      "lineage_segment": "target",
+      "location": "loc-000007",
+      "node_id": "node-000167",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "unknown",
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "control_path",
+      "label": "label-000168",
+      "lineage_segment": "path",
+      "location": "loc-000007",
+      "node_id": "node-000168",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "credential_access",
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "credential_authority_ref": "cred-785e2ae1fadc",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005",
+        "evidence-000006",
+        "evidence-000007"
+      ],
+      "kind": "credential",
+      "label": "label-000169",
+      "lineage_segment": "credential",
       "location": "loc-000007",
       "node_id": "node-000169",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "unknown",
-      "tool_type": "codex"
+      "status": "workflow",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13132,22 +13167,26 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "kind": "asset_identity",
+      "kind": "deployment_path",
       "label": "label-000170",
-      "lineage_segment": "target",
+      "lineage_segment": "deployment",
       "location": "loc-000007",
       "node_id": "node-000170",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "inferred",
-      "tool_type": "codex"
+      "status": "unknown",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13157,22 +13196,26 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
-      "kind": "control_path",
+      "kind": "evidence_identity",
       "label": "label-000171",
-      "lineage_segment": "path",
+      "lineage_segment": "evidence",
       "location": "loc-000007",
       "node_id": "node-000171",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "production_write",
-      "tool_type": "codex"
+      "status": "partial_evidence",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13182,22 +13225,27 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "kind": "deployment_path",
+      "kind": "execution_identity",
       "label": "label-000172",
-      "lineage_segment": "deployment",
+      "lineage_segment": "execution_identity",
       "location": "loc-000007",
       "node_id": "node-000172",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13207,74 +13255,27 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
       ],
-      "kind": "evidence_identity",
+      "kind": "governance_control",
       "label": "label-000173",
-      "lineage_segment": "evidence",
+      "lineage_segment": "approval",
       "location": "loc-000007",
       "node_id": "node-000173",
       "org": "org-000007",
       "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "insufficient_evidence",
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "execution_identity",
-      "label": "label-000174",
-      "lineage_segment": "execution_identity",
-      "location": "loc-000007",
-      "node_id": "node-000174",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "unknown",
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "governance_control",
-      "label": "label-000175",
-      "lineage_segment": "approval",
-      "location": "loc-000007",
-      "node_id": "node-000175",
-      "org": "org-000007",
-      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13285,7 +13286,68 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
+      ],
+      "kind": "governance_control",
+      "label": "label-000174",
+      "lineage_segment": "governance_control",
+      "location": "loc-000007",
+      "node_id": "node-000174",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "gap",
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
+      ],
+      "kind": "governance_control",
+      "label": "label-000175",
+      "lineage_segment": "governance_control",
+      "location": "loc-000007",
+      "node_id": "node-000175",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "not_applicable",
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
       ],
       "kind": "governance_control",
       "label": "label-000176",
@@ -13294,13 +13356,16 @@
       "node_id": "node-000176",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "gap",
-      "tool_type": "codex"
+      "status": "satisfied",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13311,7 +13376,8 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
       "kind": "governance_control",
       "label": "label-000177",
@@ -13320,13 +13386,16 @@
       "node_id": "node-000177",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "gap",
-      "tool_type": "codex"
+      "status": "not_applicable",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13337,7 +13406,8 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
       "kind": "governance_control",
       "label": "label-000178",
@@ -13346,13 +13416,16 @@
       "node_id": "node-000178",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "satisfied",
-      "tool_type": "codex"
+      "status": "not_applicable",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13363,7 +13436,8 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
       "kind": "governance_control",
       "label": "label-000179",
@@ -13372,13 +13446,16 @@
       "node_id": "node-000179",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13389,74 +13466,26 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004"
+        "evidence-000004",
+        "evidence-000005"
       ],
       "kind": "governance_control",
       "label": "label-000180",
-      "lineage_segment": "governance_control",
+      "lineage_segment": "proof",
       "location": "loc-000007",
       "node_id": "node-000180",
       "org": "org-000007",
       "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "satisfied",
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "governance_control",
-      "label": "label-000181",
-      "lineage_segment": "governance_control",
-      "location": "loc-000007",
-      "node_id": "node-000181",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "not_applicable",
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "governance_control",
-      "label": "label-000182",
-      "lineage_segment": "proof",
-      "location": "loc-000007",
-      "node_id": "node-000182",
-      "org": "org-000007",
-      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13467,19 +13496,52 @@
         "evidence-000001"
       ],
       "kind": "human_identity",
-      "label": "label-000183",
+      "label": "label-000181",
       "lineage_segment": "human",
       "location": "loc-000007",
-      "node_id": "node-000183",
+      "node_id": "node-000181",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
+      ],
+      "kind": "intent",
+      "label": "label-000182",
+      "lineage_segment": "intent",
+      "location": "loc-000007",
+      "node_id": "node-000182",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "declared",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13492,70 +13554,52 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "kind": "intent",
+      "kind": "outcome",
+      "label": "label-000183",
+      "lineage_segment": "outcome",
+      "location": "loc-000007",
+      "node_id": "node-000183",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "unknown",
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "policy_identity",
       "label": "label-000184",
-      "lineage_segment": "intent",
+      "lineage_segment": "control",
       "location": "loc-000007",
       "node_id": "node-000184",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "kind": "outcome",
-      "label": "label-000185",
-      "lineage_segment": "outcome",
-      "location": "loc-000007",
-      "node_id": "node-000185",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "unknown",
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "kind": "policy_identity",
-      "label": "label-000186",
-      "lineage_segment": "control",
-      "location": "loc-000007",
-      "node_id": "node-000186",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "unknown",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13566,19 +13610,22 @@
         "evidence-000001"
       ],
       "kind": "pull_request",
-      "label": "label-000187",
+      "label": "label-000185",
       "lineage_segment": "pr",
       "location": "loc-000007",
-      "node_id": "node-000187",
+      "node_id": "node-000185",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13588,19 +13635,53 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003"
+        "evidence-000003",
+        "evidence-000004"
       ],
       "kind": "repo",
-      "label": "label-000188",
+      "label": "label-000186",
       "lineage_segment": "repo",
-      "node_id": "node-000188",
+      "node_id": "node-000186",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001"
       ],
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004",
+        "evidence-000005"
+      ],
+      "kind": "task",
+      "label": "label-000187",
+      "lineage_segment": "task",
+      "location": "loc-000007",
+      "node_id": "node-000187",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "declared",
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13613,19 +13694,50 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "kind": "target",
+      "kind": "tool",
+      "label": "label-000188",
+      "lineage_segment": "tool",
+      "location": "loc-000007",
+      "node_id": "node-000188",
+      "org": "org-000007",
+      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
+      "repo": "repo-000007",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000007",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000007",
+      "config_source": "loc-000007",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "workflow",
       "label": "label-000189",
-      "lineage_segment": "target",
+      "lineage_segment": "workflow",
       "location": "loc-000007",
       "node_id": "node-000189",
       "org": "org-000007",
       "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "codex"
+      "tool_type": "ci_agent"
     },
     {
       "agent_id": "agent-000007",
@@ -13638,92 +13750,97 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "kind": "task",
+      "kind": "workflow_run",
       "label": "label-000190",
-      "lineage_segment": "task",
+      "lineage_segment": "workflow_run",
       "location": "loc-000007",
       "node_id": "node-000190",
       "org": "org-000007",
       "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "unknown",
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "kind": "tool",
-      "label": "label-000191",
-      "lineage_segment": "tool",
-      "location": "loc-000007",
-      "node_id": "node-000191",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "kind": "workflow",
-      "label": "label-000192",
-      "lineage_segment": "workflow",
-      "location": "loc-000007",
-      "node_id": "node-000192",
-      "org": "org-000007",
-      "path_id": "path-000007",
-      "repo": "repo-000007",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "tool_type": "codex"
-    },
-    {
-      "agent_id": "agent-000007",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000007",
-      "config_source": "loc-000007",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003"
-      ],
-      "kind": "workflow_run",
-      "label": "label-000193",
-      "lineage_segment": "workflow_run",
-      "location": "loc-000007",
-      "node_id": "node-000193",
-      "org": "org-000007",
-      "path_id": "path-000007",
+      "purpose": "agent",
+      "purpose_confidence": "high",
+      "purpose_source": "workflow_name",
       "repo": "repo-000007",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "present",
+      "tool_type": "ci_agent"
+    },
+    {
+      "agent_id": "agent-000008",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000008",
+      "config_source": "loc-000008",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "action_capability",
+      "label": "label-000191",
+      "lineage_segment": "action",
+      "location": "loc-000008",
+      "node_id": "node-000191",
+      "org": "org-000008",
+      "path_id": "path-000008",
+      "repo": "repo-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "tool_type": "codex"
+    },
+    {
+      "agent_id": "agent-000008",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000008",
+      "config_source": "loc-000008",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "action_capability",
+      "label": "label-000192",
+      "lineage_segment": "action",
+      "location": "loc-000008",
+      "node_id": "node-000192",
+      "org": "org-000008",
+      "path_id": "path-000008",
+      "repo": "repo-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "tool_type": "codex"
+    },
+    {
+      "agent_id": "agent-000008",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000008",
+      "config_source": "loc-000008",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "action_capability",
+      "label": "label-000193",
+      "lineage_segment": "action",
+      "location": "loc-000008",
+      "node_id": "node-000193",
+      "org": "org-000008",
+      "path_id": "path-000008",
+      "repo": "repo-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
       "tool_type": "codex"
     },
     {
@@ -13749,7 +13866,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13773,7 +13890,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13798,7 +13915,7 @@
         "source-000002"
       ],
       "status": "present",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13823,7 +13940,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13847,8 +13964,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "unknown",
-      "tool_type": "cursor"
+      "status": "inferred",
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13872,8 +13989,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "observed",
-      "tool_type": "cursor"
+      "status": "production_write",
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13898,7 +14015,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13923,7 +14040,7 @@
         "source-000002"
       ],
       "status": "insufficient_evidence",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13949,7 +14066,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -13975,7 +14092,7 @@
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14001,7 +14118,7 @@
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14026,8 +14143,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "not_applicable",
-      "tool_type": "cursor"
+      "status": "gap",
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14053,7 +14170,7 @@
         "source-000002"
       ],
       "status": "satisfied",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14078,8 +14195,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "not_applicable",
-      "tool_type": "cursor"
+      "status": "gap",
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14104,8 +14221,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "not_applicable",
-      "tool_type": "cursor"
+      "status": "satisfied",
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14131,7 +14248,7 @@
         "source-000002"
       ],
       "status": "not_applicable",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14156,8 +14273,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "not_applicable",
-      "tool_type": "cursor"
+      "status": "gap",
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14180,7 +14297,7 @@
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14206,7 +14323,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14231,7 +14348,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14256,7 +14373,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14279,7 +14396,7 @@
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14301,7 +14418,32 @@
       "source_refs": [
         "source-000001"
       ],
-      "tool_type": "cursor"
+      "tool_type": "codex"
+    },
+    {
+      "agent_id": "agent-000008",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000008",
+      "config_source": "loc-000008",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "target",
+      "label": "label-000217",
+      "lineage_segment": "target",
+      "location": "loc-000008",
+      "node_id": "node-000217",
+      "org": "org-000008",
+      "path_id": "path-000008",
+      "repo": "repo-000008",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14315,10 +14457,10 @@
         "evidence-000004"
       ],
       "kind": "task",
-      "label": "label-000217",
+      "label": "label-000218",
       "lineage_segment": "task",
       "location": "loc-000008",
-      "node_id": "node-000217",
+      "node_id": "node-000218",
       "org": "org-000008",
       "path_id": "path-000008",
       "repo": "repo-000008",
@@ -14327,7 +14469,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14340,10 +14482,10 @@
         "evidence-000003"
       ],
       "kind": "tool",
-      "label": "label-000218",
+      "label": "label-000219",
       "lineage_segment": "tool",
       "location": "loc-000008",
-      "node_id": "node-000218",
+      "node_id": "node-000219",
       "org": "org-000008",
       "path_id": "path-000008",
       "repo": "repo-000008",
@@ -14351,7 +14493,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14364,10 +14506,10 @@
         "evidence-000003"
       ],
       "kind": "workflow",
-      "label": "label-000219",
+      "label": "label-000220",
       "lineage_segment": "workflow",
       "location": "loc-000008",
-      "node_id": "node-000219",
+      "node_id": "node-000220",
       "org": "org-000008",
       "path_id": "path-000008",
       "repo": "repo-000008",
@@ -14375,7 +14517,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000008",
@@ -14388,10 +14530,10 @@
         "evidence-000003"
       ],
       "kind": "workflow_run",
-      "label": "label-000220",
+      "label": "label-000221",
       "lineage_segment": "workflow_run",
       "location": "loc-000008",
-      "node_id": "node-000220",
+      "node_id": "node-000221",
       "org": "org-000008",
       "path_id": "path-000008",
       "repo": "repo-000008",
@@ -14400,7 +14542,7 @@
         "source-000002"
       ],
       "status": "present",
-      "tool_type": "cursor"
+      "tool_type": "codex"
     },
     {
       "agent_id": "agent-000009",
@@ -14414,10 +14556,10 @@
         "evidence-000004"
       ],
       "kind": "action_capability",
-      "label": "label-000221",
+      "label": "label-000222",
       "lineage_segment": "action",
       "location": "loc-000009",
-      "node_id": "node-000221",
+      "node_id": "node-000222",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14425,7 +14567,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14438,10 +14580,10 @@
         "evidence-000003"
       ],
       "kind": "agent",
-      "label": "label-000222",
+      "label": "label-000223",
       "lineage_segment": "agent",
       "location": "loc-000009",
-      "node_id": "node-000222",
+      "node_id": "node-000223",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14449,7 +14591,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14462,10 +14604,10 @@
         "evidence-000003"
       ],
       "kind": "agent_team",
-      "label": "label-000223",
+      "label": "label-000224",
       "lineage_segment": "agent",
       "location": "loc-000009",
-      "node_id": "node-000223",
+      "node_id": "node-000224",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14474,7 +14616,7 @@
         "source-000002"
       ],
       "status": "present",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14487,10 +14629,10 @@
         "evidence-000003"
       ],
       "kind": "approval_identity",
-      "label": "label-000224",
+      "label": "label-000225",
       "lineage_segment": "approval",
       "location": "loc-000009",
-      "node_id": "node-000224",
+      "node_id": "node-000225",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14499,7 +14641,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14512,10 +14654,10 @@
         "evidence-000003"
       ],
       "kind": "asset_identity",
-      "label": "label-000225",
+      "label": "label-000226",
       "lineage_segment": "target",
       "location": "loc-000009",
-      "node_id": "node-000225",
+      "node_id": "node-000226",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14524,7 +14666,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14537,10 +14679,10 @@
         "evidence-000003"
       ],
       "kind": "control_path",
-      "label": "label-000226",
+      "label": "label-000227",
       "lineage_segment": "path",
       "location": "loc-000009",
-      "node_id": "node-000226",
+      "node_id": "node-000227",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14549,7 +14691,7 @@
         "source-000002"
       ],
       "status": "observed",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14562,10 +14704,10 @@
         "evidence-000003"
       ],
       "kind": "deployment_path",
-      "label": "label-000227",
+      "label": "label-000228",
       "lineage_segment": "deployment",
       "location": "loc-000009",
-      "node_id": "node-000227",
+      "node_id": "node-000228",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14574,7 +14716,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14587,10 +14729,10 @@
         "evidence-000003"
       ],
       "kind": "evidence_identity",
-      "label": "label-000228",
+      "label": "label-000229",
       "lineage_segment": "evidence",
       "location": "loc-000009",
-      "node_id": "node-000228",
+      "node_id": "node-000229",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14599,7 +14741,7 @@
         "source-000002"
       ],
       "status": "insufficient_evidence",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14613,34 +14755,8 @@
         "evidence-000004"
       ],
       "kind": "execution_identity",
-      "label": "label-000229",
-      "lineage_segment": "execution_identity",
-      "location": "loc-000009",
-      "node_id": "node-000229",
-      "org": "org-000009",
-      "path_id": "path-000009",
-      "repo": "repo-000009",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "unknown",
-      "tool_type": "dependency"
-    },
-    {
-      "agent_id": "agent-000009",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000009",
-      "config_source": "loc-000009",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "governance_control",
       "label": "label-000230",
-      "lineage_segment": "approval",
+      "lineage_segment": "execution_identity",
       "location": "loc-000009",
       "node_id": "node-000230",
       "org": "org-000009",
@@ -14650,8 +14766,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "gap",
-      "tool_type": "dependency"
+      "status": "unknown",
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14666,7 +14782,7 @@
       ],
       "kind": "governance_control",
       "label": "label-000231",
-      "lineage_segment": "governance_control",
+      "lineage_segment": "approval",
       "location": "loc-000009",
       "node_id": "node-000231",
       "org": "org-000009",
@@ -14677,7 +14793,7 @@
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14702,8 +14818,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "not_applicable",
-      "tool_type": "dependency"
+      "status": "gap",
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14728,8 +14844,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "satisfied",
-      "tool_type": "dependency"
+      "status": "not_applicable",
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14754,8 +14870,8 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "not_applicable",
-      "tool_type": "dependency"
+      "status": "satisfied",
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14781,7 +14897,7 @@
         "source-000002"
       ],
       "status": "not_applicable",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14807,7 +14923,7 @@
         "source-000002"
       ],
       "status": "not_applicable",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14822,7 +14938,7 @@
       ],
       "kind": "governance_control",
       "label": "label-000237",
-      "lineage_segment": "proof",
+      "lineage_segment": "governance_control",
       "location": "loc-000009",
       "node_id": "node-000237",
       "org": "org-000009",
@@ -14833,7 +14949,33 @@
         "source-000002"
       ],
       "status": "not_applicable",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
+    },
+    {
+      "agent_id": "agent-000009",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000009",
+      "config_source": "loc-000009",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "governance_control",
+      "label": "label-000238",
+      "lineage_segment": "proof",
+      "location": "loc-000009",
+      "node_id": "node-000238",
+      "org": "org-000009",
+      "path_id": "path-000009",
+      "repo": "repo-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "not_applicable",
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14844,10 +14986,10 @@
         "evidence-000001"
       ],
       "kind": "human_identity",
-      "label": "label-000238",
+      "label": "label-000239",
       "lineage_segment": "human",
       "location": "loc-000009",
-      "node_id": "node-000238",
+      "node_id": "node-000239",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14856,7 +14998,7 @@
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14870,10 +15012,10 @@
         "evidence-000004"
       ],
       "kind": "intent",
-      "label": "label-000239",
+      "label": "label-000240",
       "lineage_segment": "intent",
       "location": "loc-000009",
-      "node_id": "node-000239",
+      "node_id": "node-000240",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14882,7 +15024,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14895,10 +15037,10 @@
         "evidence-000003"
       ],
       "kind": "outcome",
-      "label": "label-000240",
+      "label": "label-000241",
       "lineage_segment": "outcome",
       "location": "loc-000009",
-      "node_id": "node-000240",
+      "node_id": "node-000241",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14907,7 +15049,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14920,10 +15062,10 @@
         "evidence-000003"
       ],
       "kind": "policy_identity",
-      "label": "label-000241",
+      "label": "label-000242",
       "lineage_segment": "control",
       "location": "loc-000009",
-      "node_id": "node-000241",
+      "node_id": "node-000242",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14932,7 +15074,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14943,10 +15085,10 @@
         "evidence-000001"
       ],
       "kind": "pull_request",
-      "label": "label-000242",
+      "label": "label-000243",
       "lineage_segment": "pr",
       "location": "loc-000009",
-      "node_id": "node-000242",
+      "node_id": "node-000243",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -14955,7 +15097,7 @@
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14968,16 +15110,16 @@
         "evidence-000003"
       ],
       "kind": "repo",
-      "label": "label-000243",
+      "label": "label-000244",
       "lineage_segment": "repo",
-      "node_id": "node-000243",
+      "node_id": "node-000244",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
       "source_refs": [
         "source-000001"
       ],
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -14991,10 +15133,10 @@
         "evidence-000004"
       ],
       "kind": "task",
-      "label": "label-000244",
+      "label": "label-000245",
       "lineage_segment": "task",
       "location": "loc-000009",
-      "node_id": "node-000244",
+      "node_id": "node-000245",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -15003,7 +15145,7 @@
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -15016,10 +15158,10 @@
         "evidence-000003"
       ],
       "kind": "tool",
-      "label": "label-000245",
+      "label": "label-000246",
       "lineage_segment": "tool",
       "location": "loc-000009",
-      "node_id": "node-000245",
+      "node_id": "node-000246",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -15027,7 +15169,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -15040,10 +15182,10 @@
         "evidence-000003"
       ],
       "kind": "workflow",
-      "label": "label-000246",
+      "label": "label-000247",
       "lineage_segment": "workflow",
       "location": "loc-000009",
-      "node_id": "node-000246",
+      "node_id": "node-000247",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
@@ -15051,7 +15193,7 @@
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "dependency"
+      "tool_type": "cursor"
     },
     {
       "agent_id": "agent-000009",
@@ -15064,13 +15206,87 @@
         "evidence-000003"
       ],
       "kind": "workflow_run",
-      "label": "label-000247",
+      "label": "label-000248",
       "lineage_segment": "workflow_run",
       "location": "loc-000009",
-      "node_id": "node-000247",
+      "node_id": "node-000248",
       "org": "org-000009",
       "path_id": "path-000009",
       "repo": "repo-000009",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "present",
+      "tool_type": "cursor"
+    },
+    {
+      "agent_id": "agent-000010",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000010",
+      "config_source": "loc-000010",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003",
+        "evidence-000004"
+      ],
+      "kind": "action_capability",
+      "label": "label-000249",
+      "lineage_segment": "action",
+      "location": "loc-000010",
+      "node_id": "node-000249",
+      "org": "org-000010",
+      "path_id": "path-000010",
+      "repo": "repo-000010",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "tool_type": "dependency"
+    },
+    {
+      "agent_id": "agent-000010",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000010",
+      "config_source": "loc-000010",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "kind": "agent",
+      "label": "label-000250",
+      "lineage_segment": "agent",
+      "location": "loc-000010",
+      "node_id": "node-000250",
+      "org": "org-000010",
+      "path_id": "path-000010",
+      "repo": "repo-000010",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "tool_type": "dependency"
+    },
+    {
+      "agent_id": "agent-000010",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000010",
+      "config_source": "loc-000010",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "kind": "agent_team",
+      "label": "label-000251",
+      "lineage_segment": "agent",
+      "location": "loc-000010",
+      "node_id": "node-000251",
+      "org": "org-000010",
+      "path_id": "path-000010",
+      "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
@@ -15086,141 +15302,22 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
-      ],
-      "kind": "action_capability",
-      "label": "label-000248",
-      "lineage_segment": "action",
-      "location": "loc-000010",
-      "node_id": "node-000248",
-      "org": "org-000010",
-      "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
-      "repo": "repo-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "tool_type": "ci_agent"
-    },
-    {
-      "agent_id": "agent-000010",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000010",
-      "config_source": "loc-000010",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "agent",
-      "label": "label-000249",
-      "lineage_segment": "agent",
-      "location": "loc-000010",
-      "node_id": "node-000249",
-      "org": "org-000010",
-      "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
-      "repo": "repo-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "tool_type": "ci_agent"
-    },
-    {
-      "agent_id": "agent-000010",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000010",
-      "config_source": "loc-000010",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "agent_team",
-      "label": "label-000250",
-      "lineage_segment": "agent",
-      "location": "loc-000010",
-      "node_id": "node-000250",
-      "org": "org-000010",
-      "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
-      "repo": "repo-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "present",
-      "tool_type": "ci_agent"
-    },
-    {
-      "agent_id": "agent-000010",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000010",
-      "config_source": "loc-000010",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "kind": "approval_identity",
-      "label": "label-000251",
-      "lineage_segment": "approval",
-      "location": "loc-000010",
-      "node_id": "node-000251",
-      "org": "org-000010",
-      "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
-      "repo": "repo-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "unknown",
-      "tool_type": "ci_agent"
-    },
-    {
-      "agent_id": "agent-000010",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000010",
-      "config_source": "loc-000010",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
-      ],
-      "kind": "asset_identity",
       "label": "label-000252",
-      "lineage_segment": "target",
+      "lineage_segment": "approval",
       "location": "loc-000010",
       "node_id": "node-000252",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15230,58 +15327,47 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
-      "kind": "control_path",
+      "kind": "asset_identity",
       "label": "label-000253",
-      "lineage_segment": "path",
+      "lineage_segment": "target",
       "location": "loc-000010",
       "node_id": "node-000253",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "credential_access",
-      "tool_type": "ci_agent"
+      "status": "unknown",
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
       "boundary_label": "report_only",
       "config_fingerprint": "cfg-000010",
       "config_source": "loc-000010",
-      "credential_authority_ref": "cred-97a089b3eff6",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005",
-        "evidence-000006"
+        "evidence-000003"
       ],
-      "kind": "credential",
+      "kind": "control_path",
       "label": "label-000254",
-      "lineage_segment": "credential",
+      "lineage_segment": "path",
       "location": "loc-000010",
       "node_id": "node-000254",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "workflow",
-      "tool_type": "ci_agent"
+      "status": "observed",
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15291,8 +15377,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "kind": "deployment_path",
       "label": "label-000255",
@@ -15301,16 +15386,38 @@
       "node_id": "node-000255",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
+    },
+    {
+      "agent_id": "agent-000010",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000010",
+      "config_source": "loc-000010",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "kind": "evidence_identity",
+      "label": "label-000256",
+      "lineage_segment": "evidence",
+      "location": "loc-000010",
+      "node_id": "node-000256",
+      "org": "org-000010",
+      "path_id": "path-000010",
+      "repo": "repo-000010",
+      "source_refs": [
+        "source-000001",
+        "source-000002"
+      ],
+      "status": "insufficient_evidence",
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15323,36 +15430,6 @@
         "evidence-000003",
         "evidence-000004"
       ],
-      "kind": "evidence_identity",
-      "label": "label-000256",
-      "lineage_segment": "evidence",
-      "location": "loc-000010",
-      "node_id": "node-000256",
-      "org": "org-000010",
-      "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
-      "repo": "repo-000010",
-      "source_refs": [
-        "source-000001",
-        "source-000002"
-      ],
-      "status": "partial_evidence",
-      "tool_type": "ci_agent"
-    },
-    {
-      "agent_id": "agent-000010",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000010",
-      "config_source": "loc-000010",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
-      ],
       "kind": "execution_identity",
       "label": "label-000257",
       "lineage_segment": "execution_identity",
@@ -15360,16 +15437,13 @@
       "node_id": "node-000257",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15380,8 +15454,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000258",
@@ -15390,16 +15463,13 @@
       "node_id": "node-000258",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15410,8 +15480,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000259",
@@ -15420,16 +15489,13 @@
       "node_id": "node-000259",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "gap",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15440,8 +15506,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000260",
@@ -15450,16 +15515,13 @@
       "node_id": "node-000260",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "not_applicable",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15470,8 +15532,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000261",
@@ -15480,16 +15541,13 @@
       "node_id": "node-000261",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "satisfied",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15500,8 +15558,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000262",
@@ -15510,16 +15567,13 @@
       "node_id": "node-000262",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "not_applicable",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15530,8 +15584,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000263",
@@ -15540,16 +15593,13 @@
       "node_id": "node-000263",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "not_applicable",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15560,8 +15610,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000264",
@@ -15570,16 +15619,13 @@
       "node_id": "node-000264",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "gap",
-      "tool_type": "ci_agent"
+      "status": "not_applicable",
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15590,8 +15636,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "governance_control",
       "label": "label-000265",
@@ -15600,16 +15645,13 @@
       "node_id": "node-000265",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "gap",
-      "tool_type": "ci_agent"
+      "status": "not_applicable",
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15626,16 +15668,13 @@
       "node_id": "node-000266",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15646,8 +15685,7 @@
         "evidence-000001",
         "evidence-000002",
         "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
+        "evidence-000004"
       ],
       "kind": "intent",
       "label": "label-000267",
@@ -15656,16 +15694,13 @@
       "node_id": "node-000267",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "declared",
-      "tool_type": "ci_agent"
+      "status": "unknown",
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15675,8 +15710,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "kind": "outcome",
       "label": "label-000268",
@@ -15685,16 +15719,13 @@
       "node_id": "node-000268",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15704,8 +15735,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "kind": "policy_identity",
       "label": "label-000269",
@@ -15714,16 +15744,13 @@
       "node_id": "node-000269",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "unknown",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15740,16 +15767,35 @@
       "node_id": "node-000270",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "inferred",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
+    },
+    {
+      "agent_id": "agent-000010",
+      "boundary_label": "report_only",
+      "config_fingerprint": "cfg-000010",
+      "config_source": "loc-000010",
+      "evidence_refs": [
+        "evidence-000001",
+        "evidence-000002",
+        "evidence-000003"
+      ],
+      "kind": "repo",
+      "label": "label-000271",
+      "lineage_segment": "repo",
+      "node_id": "node-000271",
+      "org": "org-000010",
+      "path_id": "path-000010",
+      "repo": "repo-000010",
+      "source_refs": [
+        "source-000001"
+      ],
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15761,33 +15807,6 @@
         "evidence-000002",
         "evidence-000003",
         "evidence-000004"
-      ],
-      "kind": "repo",
-      "label": "label-000271",
-      "lineage_segment": "repo",
-      "node_id": "node-000271",
-      "org": "org-000010",
-      "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
-      "repo": "repo-000010",
-      "source_refs": [
-        "source-000001"
-      ],
-      "tool_type": "ci_agent"
-    },
-    {
-      "agent_id": "agent-000010",
-      "boundary_label": "report_only",
-      "config_fingerprint": "cfg-000010",
-      "config_source": "loc-000010",
-      "evidence_refs": [
-        "evidence-000001",
-        "evidence-000002",
-        "evidence-000003",
-        "evidence-000004",
-        "evidence-000005"
       ],
       "kind": "task",
       "label": "label-000272",
@@ -15796,16 +15815,13 @@
       "node_id": "node-000272",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "status": "declared",
-      "tool_type": "ci_agent"
+      "status": "unknown",
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15815,8 +15831,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "kind": "tool",
       "label": "label-000273",
@@ -15825,15 +15840,12 @@
       "node_id": "node-000273",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15843,8 +15855,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "kind": "workflow",
       "label": "label-000274",
@@ -15853,15 +15864,12 @@
       "node_id": "node-000274",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000010",
@@ -15871,8 +15879,7 @@
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",
-        "evidence-000003",
-        "evidence-000004"
+        "evidence-000003"
       ],
       "kind": "workflow_run",
       "label": "label-000275",
@@ -15881,16 +15888,13 @@
       "node_id": "node-000275",
       "org": "org-000010",
       "path_id": "path-000010",
-      "purpose": "agent",
-      "purpose_confidence": "high",
-      "purpose_source": "workflow_name",
       "repo": "repo-000010",
       "source_refs": [
         "source-000001",
         "source-000002"
       ],
       "status": "present",
-      "tool_type": "ci_agent"
+      "tool_type": "dependency"
     },
     {
       "agent_id": "agent-000011",

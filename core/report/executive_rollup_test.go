@@ -333,6 +333,69 @@ func TestRenderMarkdownPlacesExecutiveRollupBeforeControlBacklog(t *testing.T) {
 	if rollupAt > backlogAt {
 		t.Fatalf("expected executive rollup ahead of backlog detail, got:\n%s", markdown)
 	}
+	wantEvidence := "Evidence: confirmed path: action path detected, owner verified; inferred relationship: repository grouping cross repo shared identity; unresolved context: evidence state unknown; contradictions consistent."
+	if !strings.Contains(markdown, wantEvidence) {
+		t.Fatalf("expected executive card to separate confirmed, inferred, and unresolved facts, got:\n%s", markdown)
+	}
+}
+
+func TestExecutiveClosureRecommendationMatchesCredentialAuthority(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		authority string
+		want      string
+		notWant   string
+	}{
+		{
+			name:      "standing",
+			authority: "standing",
+			want:      "replace or reduce standing credential authority on these paths first",
+		},
+		{
+			name:      "jit",
+			authority: "jit",
+			want:      "tighten target scope and approval controls on these non-standing authority paths first",
+			notWant:   "standing production deploy",
+		},
+		{
+			name:      "workload",
+			authority: "workload",
+			want:      "tighten target scope and approval controls on these non-standing authority paths first",
+			notWant:   "standing production deploy",
+		},
+		{
+			name:      "unknown",
+			authority: "unknown",
+			want:      "resolve credential authority, then remediate the highest-impact paths first",
+			notWant:   "standing production deploy",
+		},
+		{
+			name:      "none",
+			authority: "none",
+			want:      "remediate the highest-impact ungoverned paths first",
+			notWant:   "standing production deploy",
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := executiveClosureRecommendation(controlbacklog.ExecutiveRollupGroup{
+				Dimensions: controlbacklog.ExecutiveRollupDimensions{
+					ClosureAction:       controlbacklog.ActionRemediate,
+					CredentialAuthority: test.authority,
+				},
+			})
+			if got != test.want {
+				t.Fatalf("expected %q, got %q", test.want, got)
+			}
+			if test.notWant != "" && strings.Contains(got, test.notWant) {
+				t.Fatalf("recommendation %q contradicts authority %q", got, test.authority)
+			}
+		})
+	}
 }
 
 func TestExecutiveClosureRecommendationUsesEvidenceImportLanguage(t *testing.T) {

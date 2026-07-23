@@ -358,15 +358,7 @@ func deriveRuntimeEvidenceState(path ActionPath) (string, []string, []string) {
 	if path.GaitCoverage == nil {
 		return EvidenceStateUnknown, []string{"runtime_evidence:none"}, nil
 	}
-	details := []GaitCoverageDetail{
-		path.GaitCoverage.PolicyDecision,
-		path.GaitCoverage.Approval,
-		path.GaitCoverage.JITCredential,
-		path.GaitCoverage.FreezeWindow,
-		path.GaitCoverage.KillSwitch,
-		path.GaitCoverage.ActionOutcome,
-		path.GaitCoverage.ProofVerification,
-	}
+	details := gaitCoverageDetails(path.GaitCoverage)
 	hasConflict := false
 	hasStale := false
 	hasLinkedEvidence := false

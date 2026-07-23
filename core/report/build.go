@@ -66,6 +66,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		return Summary{}, fmt.Errorf("unsupported share profile %q", shareProfile)
 	}
 	redactionConfig := ResolveRedactionConfig(shareProfile, in.RedactionFields)
+	profileName := ""
+	if in.Snapshot.Profile != nil {
+		profileName = in.Snapshot.Profile.ProfileName
+	}
+	in.Snapshot.Findings = risk.ApplyFindingProfile(profileName, in.Snapshot.Findings)
 
 	now := resolveGeneratedAt(in.GeneratedAt, in.Snapshot)
 	top := in.Top
@@ -77,10 +82,6 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	if len(riskReport.ActionPaths) == 0 && in.Snapshot.Inventory != nil {
 		riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, in.Snapshot.Inventory)
-	}
-	profileName := ""
-	if in.Snapshot.Profile != nil {
-		profileName = in.Snapshot.Profile.ProfileName
 	}
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileName, riskReport.ActionPaths)
 	topFindings := SelectTopFindings(*riskReport, top)
@@ -153,7 +154,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	} else {
 		controlBacklog = &controlBacklogBuilt
 	}
-	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths)
+	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths, top)
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 	rawControlPathGraph := riskReport.ControlPathGraph
 	rawWorkflowChains := riskReport.WorkflowChains
@@ -212,6 +213,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
 		scanQuality = sanitizeScanQualityPublic(scanQuality)
 		runtimeSessions = sanitizeSessionSummaryPublic(runtimeSessions, rawActionPaths, riskReport.ActionPaths)
+		runtimeEvidence = sanitizeRuntimeContainmentRefsPublic(runtimeEvidence)
 		controlProofStatus = sanitizeControlProofStatusPublic(controlProofStatus, rawActionPaths, riskReport.ActionPaths)
 		evidencePackets = sanitizeEvidencePacketSummaryPublic(evidencePackets, rawActionPaths, riskReport.ActionPaths)
 	} else if redactionConfig.Applies() {
@@ -233,6 +235,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		controlBacklog = sanitizeControlBacklogWithConfig(controlBacklog, redactionConfig)
 		scanQuality = sanitizeScanQualityWithConfig(scanQuality, redactionConfig)
 		runtimeSessions = sanitizeSessionSummaryWithConfig(runtimeSessions, rawActionPaths, riskReport.ActionPaths, redactionConfig)
+		runtimeEvidence = sanitizeRuntimeContainmentRefsWithConfig(runtimeEvidence, redactionConfig)
 		controlProofStatus = sanitizeControlProofStatusWithConfig(controlProofStatus, rawActionPaths, riskReport.ActionPaths, redactionConfig)
 		evidencePackets = sanitizeEvidencePacketSummaryWithConfig(evidencePackets, rawActionPaths, riskReport.ActionPaths, redactionConfig)
 	}
@@ -1041,9 +1044,12 @@ func buildMethodology(snapshot state.Snapshot) Methodology {
 	return methodology
 }
 
-func buildRiskItems(findings []risk.ScoredFinding, actionPaths []risk.ActionPath) []RiskItem {
+func buildRiskItems(findings []risk.ScoredFinding, actionPaths []risk.ActionPath, top int) []RiskItem {
 	if len(actionPaths) > 0 {
-		return buildActionPathRiskItems(actionPaths)
+		if top <= 0 {
+			top = 5
+		}
+		return buildActionPathRiskItems(actionPaths, top)
 	}
 	out := make([]RiskItem, 0, len(findings))
 	for idx, finding := range findings {
@@ -1068,9 +1074,10 @@ func buildRiskItems(findings []risk.ScoredFinding, actionPaths []risk.ActionPath
 	return out
 }
 
-func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
+func buildActionPathRiskItems(paths []risk.ActionPath, top int) []RiskItem {
 	out := make([]RiskItem, 0, len(paths))
-	for idx, path := range paths {
+	groupIndex := map[string]int{}
+	for _, path := range paths {
 		path = risk.ProjectActionPath(path)
 		rationale := []string{
 			fmt.Sprintf("control_priority=%s", controlPriorityForPath(path)),
@@ -1108,8 +1115,7 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 		for _, semantic := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
 			rationale = append(rationale, fmt.Sprintf("mutable_endpoint_semantic=%s", strings.TrimSpace(semantic.Semantic)))
 		}
-		out = append(out, RiskItem{
-			Rank:                   idx + 1,
+		item := RiskItem{
 			CanonicalKey:           strings.TrimSpace(path.PathID),
 			Score:                  round2(math.Max(path.AttackPathScore, path.RiskScore)),
 			FindingType:            "action_path",
@@ -1119,6 +1125,8 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 			Repo:                   strings.TrimSpace(path.Repo),
 			Location:               strings.TrimSpace(path.Location),
 			PathID:                 strings.TrimSpace(path.PathID),
+			GroupedPathCount:       1,
+			GroupedPathIDs:         []string{strings.TrimSpace(path.PathID)},
 			InventoryRisk:          inventoryRiskForPath(path),
 			AttackPathScore:        round2(path.AttackPathScore),
 			ControlPriority:        controlPriorityForPath(path),
@@ -1134,9 +1142,43 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 			ProductionWrite:        path.ProductionWrite,
 			Rationale:              rationale,
 			Remediation:            actionPathRemediation(path),
-		})
+		}
+		groupKey := actionPathRiskGroupKey(path)
+		if idx, ok := groupIndex[groupKey]; ok {
+			existing := &out[idx]
+			existing.GroupedPathIDs = uniqueSortedStrings(append(existing.GroupedPathIDs, item.PathID))
+			existing.GroupedPathCount = len(existing.GroupedPathIDs)
+			existing.CredentialAccess = existing.CredentialAccess || item.CredentialAccess
+			existing.WriteCapable = existing.WriteCapable || item.WriteCapable
+			existing.ProductionWrite = existing.ProductionWrite || item.ProductionWrite
+			if item.Score > existing.Score {
+				existing.Score = item.Score
+				existing.AttackPathScore = item.AttackPathScore
+				existing.Severity = item.Severity
+			}
+			continue
+		}
+		groupIndex[groupKey] = len(out)
+		out = append(out, item)
+	}
+	if top >= 0 && len(out) > top {
+		out = out[:top]
+	}
+	for idx := range out {
+		out[idx].Rank = idx + 1
+		if out[idx].GroupedPathCount > 1 {
+			out[idx].Rationale = append(out[idx].Rationale, fmt.Sprintf("grouped_action_paths=%d", out[idx].GroupedPathCount))
+		}
 	}
 	return out
+}
+
+func actionPathRiskGroupKey(path risk.ActionPath) string {
+	location := strings.TrimSpace(path.Location)
+	if location == "" {
+		location = strings.TrimSpace(path.PathID)
+	}
+	return strings.Join([]string{strings.TrimSpace(path.Org), strings.TrimSpace(path.Repo), location}, "|")
 }
 
 func defaultRemediation(findingType string) string {

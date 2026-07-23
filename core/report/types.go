@@ -396,6 +396,8 @@ type RiskItem struct {
 	Repo                   string   `json:"repo"`
 	Location               string   `json:"location"`
 	PathID                 string   `json:"path_id,omitempty"`
+	GroupedPathCount       int      `json:"grouped_path_count,omitempty"`
+	GroupedPathIDs         []string `json:"grouped_path_ids,omitempty"`
 	InventoryRisk          string   `json:"inventory_risk,omitempty"`
 	AttackPathScore        float64  `json:"attack_path_score,omitempty"`
 	ControlPriority        string   `json:"control_priority,omitempty"`
