@@ -55,6 +55,39 @@ func TestExternalEvidenceSidecarSchemaValidation(t *testing.T) {
 	}
 }
 
+func TestExternalEvidenceSidecarSchemaAcceptsDocumentedClassesAndTargetCorrelation(t *testing.T) {
+	t.Parallel()
+
+	for _, evidenceClass := range []string{
+		EvidenceClassPolicyDecision,
+		EvidenceClassJITCredential,
+		EvidenceClassOther,
+	} {
+		evidenceClass := evidenceClass
+		t.Run(evidenceClass, func(t *testing.T) {
+			t.Parallel()
+
+			payload := []byte(`{
+  "schema_version": "v1",
+  "generated_at": "2026-07-23T19:00:00Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "provider_export",
+      "source": "provider_control_export",
+      "target": "production",
+      "observed_at": "2026-07-23T18:55:00Z",
+      "evidence_class": "` + evidenceClass + `"
+    }
+  ]
+}`)
+			if err := ValidateExternalControlEvidenceJSON(payload); err != nil {
+				t.Fatalf("validate target-correlated %s evidence: %v", evidenceClass, err)
+			}
+		})
+	}
+}
+
 func TestExternalEvidenceNormalizeStableOrder(t *testing.T) {
 	t.Parallel()
 

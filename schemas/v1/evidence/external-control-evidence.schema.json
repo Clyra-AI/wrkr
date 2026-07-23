@@ -132,7 +132,9 @@
         "evidence_class": {
           "type": "string",
           "enum": [
+            "policy_decision",
             "approval",
+            "jit_credential",
             "freeze_window",
             "kill_switch",
             "stop_request",
@@ -152,7 +154,8 @@
             "required_check",
             "security_gate",
             "workflow_permission",
-            "merge_metadata"
+            "merge_metadata",
+            "other"
           ]
         },
         "status": {
@@ -247,7 +250,8 @@
         {
           "required": ["repo", "environment"]
         },
-        {"required": ["service"]}
+        {"required": ["service"]},
+        {"required": ["target"]}
       ],
       "additionalProperties": false
     }

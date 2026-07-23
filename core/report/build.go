@@ -1146,16 +1146,18 @@ func buildActionPathRiskItems(paths []risk.ActionPath, top int) []RiskItem {
 		groupKey := actionPathRiskGroupKey(path)
 		if idx, ok := groupIndex[groupKey]; ok {
 			existing := &out[idx]
-			existing.GroupedPathIDs = uniqueSortedStrings(append(existing.GroupedPathIDs, item.PathID))
-			existing.GroupedPathCount = len(existing.GroupedPathIDs)
-			existing.CredentialAccess = existing.CredentialAccess || item.CredentialAccess
-			existing.WriteCapable = existing.WriteCapable || item.WriteCapable
-			existing.ProductionWrite = existing.ProductionWrite || item.ProductionWrite
+			groupedPathIDs := uniqueSortedStrings(append(existing.GroupedPathIDs, item.PathID))
+			credentialAccess := existing.CredentialAccess || item.CredentialAccess
+			writeCapable := existing.WriteCapable || item.WriteCapable
+			productionWrite := existing.ProductionWrite || item.ProductionWrite
 			if item.Score > existing.Score {
-				existing.Score = item.Score
-				existing.AttackPathScore = item.AttackPathScore
-				existing.Severity = item.Severity
+				*existing = item
 			}
+			existing.GroupedPathIDs = groupedPathIDs
+			existing.GroupedPathCount = len(groupedPathIDs)
+			existing.CredentialAccess = credentialAccess
+			existing.WriteCapable = writeCapable
+			existing.ProductionWrite = productionWrite
 			continue
 		}
 		groupIndex[groupKey] = len(out)
