@@ -57,6 +57,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:patch] Scoped workflow credential and authority attribution by repository and location so identically named workflows cannot inherit sibling-repository credentials, and classified COSIGN and PyPI subjects against their signing and package-registry targets.
 - [semver:patch] Canonicalized CI workflow action paths and required explicit graph joins or shared artifacts before emitting attack paths, preventing duplicate `ci_agent`/`compiled_action` rows and same-repository correlation-only attack chains.
 - [semver:patch] Made executive-rollup remediation language credential-authority-aware so JIT and workload groups no longer receive standing-credential replacement guidance; covered by `TestExecutiveClosureRecommendationMatchesCredentialAuthority`.
+- [semver:patch] Canonicalized mutable endpoint semantics once per action-path projection and removed redundant first-run lifecycle reprojection so endpoint-dense reports remain within the cross-platform smoke-test budget; covered by `TestProjectActionPathCanonicalizesMutableEndpointSemantics` and `TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection`.
 
 ### Security
 

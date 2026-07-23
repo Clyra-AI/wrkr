@@ -44,6 +44,7 @@ type ActionPathSummaryOptions struct {
 }
 
 func ProjectActionPath(path ActionPath) ActionPath {
+	path.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics)
 	out := normalizeActionPathCapability(path)
 	out.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(out.EndpointRefGroupProjection, out.MutableEndpointSemanticRefs, out.MutableEndpointSemantics)
 	out = stripUncorrelatedContextAuthority(out)

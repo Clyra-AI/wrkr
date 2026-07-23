@@ -8,13 +8,18 @@ import (
 )
 
 func pathMutableEndpointSemantics(path ActionPath) []agginventory.MutableEndpointSemantic {
-	return agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics)
+	return path.MutableEndpointSemantics
 }
 
 func pathHasMutableEndpointSemantic(path ActionPath, wants ...string) bool {
-	normalized := pathMutableEndpointSemantics(path)
+	wanted := make(map[string]struct{}, len(wants))
 	for _, want := range wants {
-		if agginventory.HasMutableEndpointSemantic(normalized, strings.TrimSpace(want)) {
+		if want = strings.TrimSpace(want); want != "" {
+			wanted[want] = struct{}{}
+		}
+	}
+	for _, item := range pathMutableEndpointSemantics(path) {
+		if _, ok := wanted[strings.TrimSpace(item.Semantic)]; ok {
 			return true
 		}
 	}
