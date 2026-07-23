@@ -156,6 +156,55 @@ func TestActionPathTopRisksGroupWorkflowRowsAndHonorTop(t *testing.T) {
 	}
 }
 
+func TestActionPathTopRisksUseHighestScoringGroupedPathMetadata(t *testing.T) {
+	t.Parallel()
+
+	paths := []risk.ActionPath{
+		{
+			PathID:           "apc-release-context",
+			Org:              "acme",
+			Repo:             "acme/app",
+			Location:         ".github/workflows/release.yml",
+			ToolType:         "ci_agent",
+			CredentialAccess: true,
+			RiskScore:        4.2,
+		},
+		{
+			PathID:          "apc-release-production",
+			Org:             "acme",
+			Repo:            "acme/app",
+			Location:        ".github/workflows/release.yml",
+			ToolType:        "compiled_action",
+			WriteCapable:    true,
+			ProductionWrite: true,
+			RiskScore:       9.4,
+		},
+	}
+
+	items := buildActionPathRiskItems(paths, 5)
+	if len(items) != 1 {
+		t.Fatalf("expected one grouped risk item, got %+v", items)
+	}
+	item := items[0]
+	expected := risk.ProjectActionPath(paths[1])
+	if item.PathID != expected.PathID || item.CanonicalKey != expected.PathID {
+		t.Fatalf("expected highest-scoring path identity %q, got %+v", expected.PathID, item)
+	}
+	if item.ToolType != expected.ToolType ||
+		item.RecommendedAction != expected.RecommendedAction ||
+		item.ControlPriority != expected.ControlPriority ||
+		item.RiskTier != expected.RiskTier ||
+		item.Remediation != actionPathRemediation(expected) {
+		t.Fatalf("expected highest-scoring path metadata, got %+v", item)
+	}
+	if !item.CredentialAccess || !item.WriteCapable || !item.ProductionWrite {
+		t.Fatalf("expected group-wide capability flags to be retained, got %+v", item)
+	}
+	if item.GroupedPathCount != 2 || !reflect.DeepEqual(item.GroupedPathIDs, []string{"apc-release-context", "apc-release-production"}) {
+		t.Fatalf("expected both grouped path IDs, got %+v", item)
+	}
+}
+
 func TestReportIncludesControlPathGraphSummary(t *testing.T) {
 	t.Parallel()
 
