@@ -37,7 +37,7 @@
         ]
       },
       {
-        "closure_recommendation": "remediate standing production deploy paths first",
+        "closure_recommendation": "resolve credential authority, then remediate the highest-impact paths first",
         "count": 2,
         "dimensions": {
           "action_class": "deploy",
@@ -383,7 +383,7 @@
         ]
       },
       {
-        "closure_recommendation": "remediate standing production deploy paths first",
+        "closure_recommendation": "resolve credential authority, then remediate the highest-impact paths first",
         "count": 1,
         "dimensions": {
           "action_class": "write",
@@ -599,22 +599,22 @@
   ],
   "control_backlog_summary": {
     "approve_action_items": 1,
-    "attach_evidence_action_items": 22,
+    "attach_evidence_action_items": 18,
     "autonomy_tiers": {
       "tier_0_safe_metadata": 2,
       "tier_1_low_risk_internal": 2,
       "tier_2_app_code_owner_review": 3,
-      "tier_3_sensitive_code_or_infra": 13,
-      "tier_4_prod_privileged_or_customer_impacting": 4
+      "tier_3_sensitive_code_or_infra": 10,
+      "tier_4_prod_privileged_or_customer_impacting": 3
     },
-    "control_first_queue_items": 20,
+    "control_first_queue_items": 17,
     "delegation_readiness": {
       "approval_required": 0,
-      "blocked": 2,
+      "blocked": 1,
       "blocked_by_contradiction": 0,
       "proof_required": 0,
       "ready_for_control": 0,
-      "review_required": 20,
+      "review_required": 17,
       "safe_to_delegate": 2
     },
     "lifecycle_queue_items": 20,
@@ -622,17 +622,17 @@
       "allow": 2,
       "approval_required": 0,
       "block": 0,
-      "block_standing_credential": 2,
+      "block_standing_credential": 1,
       "jit_credential_required": 0,
       "owner_review": 5,
       "proof_required": 0,
-      "security_review": 15
+      "security_review": 12
     },
     "remediate_action_items": 21,
-    "review_queue_items": 24,
-    "supporting_security_signal_items": 3,
-    "total_items": 44,
-    "unique_wrkr_signal_items": 41
+    "review_queue_items": 23,
+    "supporting_security_signal_items": 1,
+    "total_items": 40,
+    "unique_wrkr_signal_items": 39
   },
   "proof_summary": {
     "chain_present": true,

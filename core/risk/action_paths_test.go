@@ -3,6 +3,7 @@ package risk
 import (
 	"fmt"
 	"maps"
+	"reflect"
 	"regexp"
 	"testing"
 
@@ -299,6 +300,38 @@ func TestGovernFirstRanksSourceMCPAboveDependencyInventory(t *testing.T) {
 	}
 }
 
+func TestAttackPathEvidenceRemainsLocalToMatchedActionPath(t *testing.T) {
+	t.Parallel()
+
+	localKey := "compiled_action||ci_agent|.github/workflows/release.yml|acme/release|acme"
+	unrelatedKey := "prompt_channel_override||prompt|scenarios/override/fixture.yml|acme/release|acme"
+	paths, _ := BuildActionPaths([]riskattack.ScoredPath{{
+		PathID:         "ap-local",
+		Org:            "acme",
+		Repo:           "acme/release",
+		PathScore:      9.1,
+		SourceFindings: []string{localKey, unrelatedKey},
+	}}, &agginventory.Inventory{AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+		AgentID:                "wrkr:release:acme",
+		Framework:              "compiled_action",
+		Org:                    "acme",
+		Repos:                  []string{"acme/release"},
+		Location:               ".github/workflows/release.yml",
+		DeployWrite:            true,
+		ApprovalClassification: "approved",
+	}}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one linked path, got %+v", paths)
+	}
+	if !reflect.DeepEqual(paths[0].SourceFindingKeys, []string{localKey}) {
+		t.Fatalf("expected only path-local source evidence, got %v", paths[0].SourceFindingKeys)
+	}
+	if !reflect.DeepEqual(paths[0].AttackPathRefs, []string{"ap-local"}) {
+		t.Fatalf("expected aggregate attack path reference to remain available, got %v", paths[0].AttackPathRefs)
+	}
+}
+
 func TestRecommendedActionFollowsStrongestGovernableSignal(t *testing.T) {
 	t.Parallel()
 
@@ -439,6 +472,62 @@ func TestAgenticOrReleaseCIContextIsNotDemotedToInventory(t *testing.T) {
 		if path.ControlPriority == ControlPriorityInventoryHygiene {
 			t.Fatalf("expected agentic and release CI contexts to remain governable, got %+v", paths)
 		}
+	}
+}
+
+func TestBuildActionPathsCollapsesCIAndCompiledWorkflowRepresentations(t *testing.T) {
+	t.Parallel()
+
+	inventory := &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:ci-agent:acme",
+				AgentInstanceID:        "ci-release",
+				ToolID:                 "ci_agent:.github/workflows/release.yml",
+				ToolType:               "ci_agent",
+				Framework:              "ci_agent",
+				Symbol:                 "release",
+				Org:                    "acme",
+				Repos:                  []string{"acme/release"},
+				Location:               ".github/workflows/release.yml",
+				RiskScore:              8.1,
+				WriteCapable:           true,
+				PullRequestWrite:       true,
+				ApprovalClassification: "approved",
+			},
+			{
+				AgentID:                "wrkr:compiled-action:acme",
+				AgentInstanceID:        "compiled-release",
+				ToolID:                 "compiled_action:.github/workflows/release.yml",
+				ToolType:               "compiled_action",
+				Framework:              "compiled_action",
+				Symbol:                 "release",
+				Org:                    "acme",
+				Repos:                  []string{"acme/release"},
+				Location:               ".github/workflows/release.yml",
+				RiskScore:              8.8,
+				WriteCapable:           true,
+				CredentialAccess:       true,
+				DeployWrite:            true,
+				ActionClasses:          []string{agginventory.ActionClassDeploy},
+				ApprovalClassification: "approved",
+			},
+		},
+	}
+
+	paths, _ := BuildActionPaths(nil, inventory)
+	if len(paths) != 1 {
+		t.Fatalf("expected one logical workflow path, got %+v", paths)
+	}
+	path := paths[0]
+	if path.OccurrenceCount != 1 || len(path.OccurrenceRefs) != 1 {
+		t.Fatalf("expected duplicate detector representations to count as one occurrence, got %+v", path)
+	}
+	if path.ToolType != "ci_agent" {
+		t.Fatalf("expected canonical CI representation, got %q", path.ToolType)
+	}
+	if !path.PullRequestWrite || !path.DeployWrite || !path.CredentialAccess {
+		t.Fatalf("expected capabilities from both detector representations, got %+v", path)
 	}
 }
 
@@ -1562,6 +1651,30 @@ func TestAssessmentSuppressesPathMatchesSegmentsOnly(t *testing.T) {
 		Location: "services/demo-runner/generated.go",
 	}) {
 		t.Fatal("expected assessment suppression to match demo/generated path segments")
+	}
+
+	if !assessmentSuppressesPath(ActionPath{
+		Repo:     "acme/example-sandbox",
+		Location: ".github/workflows/release.yml",
+	}) {
+		t.Fatal("expected assessment suppression to match fixture tokens in the repo basename")
+	}
+}
+
+func TestApplyFindingProfileSuppressesScenarioFixturesBeforeScoring(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{FindingType: "compiled_action", Repo: "Clyra-AI/wrkr", Location: "scenarios/wrkr/demo/.github/workflows/release.yml"},
+		{FindingType: "compiled_action", Repo: "Clyra-AI/wrkr", Location: ".github/workflows/release.yml"},
+		{FindingType: "source_discovery", Repo: "Clyra-AI/clyra-test", Location: "github://Clyra-AI/clyra-test"},
+	}
+	filtered := ApplyFindingProfile("assessment", findings)
+	if len(filtered) != 2 {
+		t.Fatalf("expected only scenario fixture suppression, got %+v", filtered)
+	}
+	if filtered[0].Location != ".github/workflows/release.yml" || filtered[1].Repo != "Clyra-AI/clyra-test" {
+		t.Fatalf("unexpected assessment finding scope: %+v", filtered)
 	}
 }
 

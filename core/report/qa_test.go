@@ -10,7 +10,7 @@ func TestBuyerArtifactQABlocksWeakBlockedCredentialLead(t *testing.T) {
 
 	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
 		Texts: map[string]string{
-			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n- Inspect first: workflow in repo via loc. Why: blocked path with standing credential. Evidence found: control visible. Evidence unresolved: approval. Recommended action: Accept risk with expiry | Attach policy or proof reference | Reduce standing credential scope.\n\n## Report Context Appendix\n\n- detail=ok\n",
+			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n- Inspect first: workflow in repo via loc. Why: blocked path with standing credential. Evidence class: confirmed path. Evidence found: control visible. Evidence unresolved: approval. Recommended action: Accept risk with expiry | Attach policy or proof reference | Reduce standing credential scope.\n\n## Report Context Appendix\n\n- detail=ok\n",
 		},
 	})
 	if err == nil {
@@ -26,7 +26,7 @@ func TestBuyerArtifactQAAllowsStrongBlockedCredentialLead(t *testing.T) {
 
 	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
 		Texts: map[string]string{
-			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n- Inspect first: workflow in repo via loc. Why: blocked path with standing credential. Evidence found: control visible. Evidence unresolved: approval. Recommended action: Replace standing credential with brokered JIT access | Accept risk with expiry.\n\n## Report Context Appendix\n\n- recommended_control=block_standing_credential\n",
+			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n- Inspect first: workflow in repo via loc. Why: blocked path with standing credential. Evidence class: confirmed path. Evidence found: control visible. Evidence unresolved: approval. Recommended action: Replace standing credential with brokered JIT access | Accept risk with expiry.\n\n## Report Context Appendix\n\n- recommended_control=block_standing_credential\n",
 		},
 	})
 	if err != nil {
@@ -39,7 +39,7 @@ func TestBuyerArtifactQAScopesBlockedCredentialOrderingPerLeadCard(t *testing.T)
 
 	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
 		Texts: map[string]string{
-			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n1. Inspect: workflow in repo via loc-a.\n  Why: approval-required path.\n  Evidence: control visible; unresolved: proof.\n  Action: Accept risk with expiry.\n2. Inspect: workflow in repo via loc-b.\n  Why: blocked path with standing credential.\n  Evidence: control visible; unresolved: approval.\n  Action: Replace standing credential with brokered JIT access.\n\n## Report Context Appendix\n\n- detail=ok\n",
+			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n1. Inspect: workflow in repo via loc-a.\n  Why: approval-required path.\n  Evidence: inferred relationship; control visible; unresolved: proof.\n  Action: Accept risk with expiry.\n2. Inspect: workflow in repo via loc-b.\n  Why: blocked path with standing credential.\n  Evidence: confirmed path; control visible; unresolved: approval.\n  Action: Replace standing credential with brokered JIT access.\n\n## Report Context Appendix\n\n- detail=ok\n",
 		},
 	})
 	if err != nil {
@@ -52,7 +52,7 @@ func TestBuyerArtifactQALeadCardParsingStopsAtNextSection(t *testing.T) {
 
 	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
 		Texts: map[string]string{
-			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n1. Inspect: workflow in repo via loc-a.\n  Why: approval-required path.\n  Evidence: control visible; unresolved: proof.\n  Action: Accept risk with expiry.\n\n## Top Action Paths\n\n- blocked standing credential path should not be folded into the previous lead card.\n\n## Report Context Appendix\n\n- detail=ok\n",
+			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n1. Inspect: workflow in repo via loc-a.\n  Why: approval-required path.\n  Evidence: inferred relationship; control visible; unresolved: proof.\n  Action: Accept risk with expiry.\n\n## Top Action Paths\n\n- blocked standing credential path should not be folded into the previous lead card.\n\n## Report Context Appendix\n\n- detail=ok\n",
 		},
 	})
 	if err != nil {
@@ -75,6 +75,36 @@ func TestBuyerArtifactQABlocksPrimaryInternalTokensAndRepeatedEvidenceGaps(t *te
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("expected QA issue %q, got %v", want, err)
 		}
+	}
+}
+
+func TestBuyerArtifactQABlocksKnownLeadEnumTokens(t *testing.T) {
+	t.Parallel()
+
+	for _, token := range []string{
+		"blocked_by_contradiction",
+		"ci_cd_workflow",
+		"expected_outcome",
+		"github_pat",
+		"plain_source_code",
+		"privileged_sink",
+		"production_deploy",
+		"static_secret",
+		"unknown_durable",
+	} {
+		token := token
+		t.Run(token, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
+				Texts: map[string]string{
+					"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n- Inspect first: " + token + " in repo via loc.\n  Why: blocked standing credential path.\n  Evidence: control visible; unresolved: approval.\n  Action: Replace standing credential with brokered JIT access.\n\n## Report Context Appendix\n\n- detail=ok\n",
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), token) {
+				t.Fatalf("expected QA to reject %q, got %v", token, err)
+			}
+		})
 	}
 }
 

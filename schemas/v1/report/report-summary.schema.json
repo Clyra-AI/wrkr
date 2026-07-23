@@ -1221,7 +1221,8 @@
         "freeze_window": {"$ref": "#/$defs/gaitCoverageDetail"},
         "kill_switch": {"$ref": "#/$defs/gaitCoverageDetail"},
         "action_outcome": {"$ref": "#/$defs/gaitCoverageDetail"},
-        "proof_verification": {"$ref": "#/$defs/gaitCoverageDetail"}
+        "proof_verification": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "containment": {"$ref": "#/$defs/containmentCoverage"}
       },
       "additionalProperties": false
     },
@@ -1232,6 +1233,25 @@
         "status": {"type": "string", "enum": ["present", "missing", "stale", "conflict", "not_applicable"]},
         "reasons": {"type": "array", "items": {"type": "string"}},
         "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "containmentCoverage": {
+      "type": "object",
+      "required": ["status", "stop_request", "covered_action_denial", "capability_invalidation", "descendant_invalidation", "external_revocation_attempt", "external_revocation_acknowledgement", "containment_receipt"],
+      "properties": {
+        "status": {"type": "string", "enum": ["contained", "partially_contained", "unresolved", "out_of_scope", "not_observed", "not_applicable", "stale", "conflict"]},
+        "stop_request": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "covered_action_denial": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "capability_invalidation": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "descendant_invalidation": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "external_revocation_attempt": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "external_revocation_acknowledgement": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "containment_receipt": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "scope_refs": {"type": "array", "items": {"type": "string"}},
+        "acknowledged_boundary_refs": {"type": "array", "items": {"type": "string"}},
+        "unresolved_boundary_refs": {"type": "array", "items": {"type": "string"}},
+        "out_of_scope_boundary_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },
@@ -1665,6 +1685,8 @@
         "repo": {"type": "string"},
         "location": {"type": "string"},
         "path_id": {"type": "string"},
+		"grouped_path_count": {"type": "integer", "minimum": 1},
+		"grouped_path_ids": {"type": "array", "items": {"type": "string"}},
         "inventory_risk": {"type": "string", "enum": ["production_backed", "write_capable", "credential_access", "visibility_only", "dependency_only"]},
         "attack_path_score": {"type": "number"},
         "control_priority": {"type": "string", "enum": ["control_first", "review_queue", "inventory_hygiene"]},
@@ -1969,7 +1991,12 @@
         "required_checks": {"type": "array", "items": {"type": "string"}},
         "owners": {"type": "array", "items": {"type": "string"}},
         "unmatched_reasons": {"type": "array", "items": {"type": "string"}},
-        "latest_observed_at": {"type": "string"}
+        "latest_observed_at": {"type": "string"},
+        "containment_status": {"type": "string", "enum": ["contained", "partially_contained", "unresolved", "out_of_scope"]},
+        "containment_scope_refs": {"type": "array", "items": {"type": "string"}},
+        "acknowledged_boundary_refs": {"type": "array", "items": {"type": "string"}},
+        "unresolved_boundary_refs": {"type": "array", "items": {"type": "string"}},
+        "out_of_scope_boundary_refs": {"type": "array", "items": {"type": "string"}}
       }
     },
     "runtimeEvidence": {

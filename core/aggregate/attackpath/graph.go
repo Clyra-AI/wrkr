@@ -159,18 +159,24 @@ func buildRepoGraph(org string, repo string, findings []model.Finding) Graph {
 	if len(entryNodes) > 0 && len(pivotNodes) > 0 {
 		for _, entry := range entryNodes {
 			for _, pivot := range pivotNodes {
-				addEdge(newEdge(org, repo, entry, pivot, "entry_to_pivot"))
+				if nodesShareArtifact(entry, pivot) {
+					addEdge(newEdge(org, repo, entry, pivot, "same_artifact_entry_to_pivot"))
+				}
 			}
 		}
 		for _, pivot := range pivotNodes {
 			for _, target := range targetNodes {
-				addEdge(newEdge(org, repo, pivot, target, "pivot_to_target"))
+				if nodesShareArtifact(pivot, target) {
+					addEdge(newEdge(org, repo, pivot, target, "same_artifact_pivot_to_target"))
+				}
 			}
 		}
 	} else {
 		for _, entry := range entryNodes {
 			for _, target := range targetNodes {
-				addEdge(newEdge(org, repo, entry, target, "entry_to_target"))
+				if nodesShareArtifact(entry, target) {
+					addEdge(newEdge(org, repo, entry, target, "same_artifact_entry_to_target"))
+				}
 			}
 		}
 	}
@@ -193,6 +199,12 @@ func buildRepoGraph(org string, repo string, findings []model.Finding) Graph {
 	nodes = append(nodes, pivotNodes...)
 	nodes = append(nodes, targetNodes...)
 	return Graph{Org: org, Repo: repo, Nodes: nodes, Edges: edges}
+}
+
+func nodesShareArtifact(left, right Node) bool {
+	leftLocation := strings.TrimSpace(left.Location)
+	rightLocation := strings.TrimSpace(right.Location)
+	return leftLocation != "" && leftLocation == rightLocation
 }
 
 func nodeKind(finding model.Finding) string {

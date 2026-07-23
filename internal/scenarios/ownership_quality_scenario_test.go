@@ -39,12 +39,19 @@ func TestOwnershipQualityScenario(t *testing.T) {
 		t.Fatalf("expected inferred ownership status, got %v", inferred)
 	}
 
-	unresolved := findPrivilegeEntryByLocation(agentMap, ".github/workflows/release.yml")
-	if unresolved == nil {
-		t.Fatalf("expected unresolved ownership entry, got %v", agentMap)
+	alpha := findPrivilegeEntryByRepoLocation(agentMap, "alpha-service", ".github/workflows/release.yml")
+	if alpha == nil {
+		t.Fatalf("expected alpha-service ownership entry, got %v", agentMap)
 	}
-	if unresolved["ownership_status"] != "unresolved" || unresolved["ownership_state"] != "conflicting_owner" {
-		t.Fatalf("expected conflicting ownership status, got %v", unresolved)
+	if alpha["operational_owner"] != "@local/alpha" || alpha["ownership_status"] != "explicit" || alpha["ownership_state"] != "explicit_owner" {
+		t.Fatalf("expected repo-local alpha-service owner, got %v", alpha)
+	}
+	beta := findPrivilegeEntryByRepoLocation(agentMap, "beta-service", ".github/workflows/release.yml")
+	if beta == nil {
+		t.Fatalf("expected beta-service ownership entry, got %v", agentMap)
+	}
+	if beta["operational_owner"] != "@local/beta" || beta["ownership_status"] != "explicit" || beta["ownership_state"] != "explicit_owner" {
+		t.Fatalf("expected repo-local beta-service owner, got %v", beta)
 	}
 
 	actionPaths, ok := payload["action_paths"].([]any)
@@ -58,19 +65,25 @@ func TestOwnershipQualityScenario(t *testing.T) {
 	if firstPath["recommended_action"] != "control" {
 		t.Fatalf("expected strongest control-first path to rank first, got %v", firstPath)
 	}
-	foundWeakOwnership := false
+	foundAlpha := false
+	foundBeta := false
 	for _, item := range actionPaths {
 		row, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
 		if row["owner_source"] == "multi_repo_conflict" {
-			foundWeakOwnership = true
-			break
+			t.Fatalf("did not expect cross-repository owner conflict, got %v", row)
+		}
+		switch row["repo"] {
+		case "alpha-service":
+			foundAlpha = row["operational_owner"] == "@local/alpha" && row["ownership_status"] == "explicit"
+		case "beta-service":
+			foundBeta = row["operational_owner"] == "@local/beta" && row["ownership_status"] == "explicit"
 		}
 	}
-	if !foundWeakOwnership {
-		t.Fatalf("expected weak ownership path to remain visible, got %v", actionPaths)
+	if !foundAlpha || !foundBeta {
+		t.Fatalf("expected both repo-local ownership paths to remain visible, got %v", actionPaths)
 	}
 
 	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--json"})
@@ -86,8 +99,8 @@ func TestOwnershipQualityScenario(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected ownerless_exposure summary, got %v", assessmentSummary["ownerless_exposure"])
 	}
-	if ownerlessExposure["conflict_owner_paths"] == float64(0) {
-		t.Fatalf("expected conflict_owner_paths > 0, got %v", ownerlessExposure)
+	if ownerlessExposure["conflict_owner_paths"] != float64(0) {
+		t.Fatalf("expected no synthetic cross-repository owner conflicts, got %v", ownerlessExposure)
 	}
 }
 
@@ -98,6 +111,20 @@ func findPrivilegeEntryByLocation(entries []any, location string) map[string]any
 			continue
 		}
 		if entry["location"] == location {
+			return entry
+		}
+	}
+	return nil
+}
+
+func findPrivilegeEntryByRepoLocation(entries []any, repo string, location string) map[string]any {
+	for _, item := range entries {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		repos, _ := entry["repos"].([]any)
+		if scenarioArrayContains(repos, repo) && entry["location"] == location {
 			return entry
 		}
 	}

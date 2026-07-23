@@ -9,45 +9,21 @@
         ],
         "contradiction_count": null,
         "control_resolution_state": "external_control_reference",
-        "owner_evidence_state": "verified",
-        "path_id": "apc-3347673d718f",
-        "recommended_action": "proof",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-e164c67b6b91",
+        "recommended_action": "control",
         "runtime_evidence_state": "verified",
-        "target_evidence_state": "unknown"
-      },
-      {
-        "action_path_type": "ci_cd_workflow",
-        "approval_evidence_state": "verified",
-        "constraint_evidence": [
-          "deployment_approval"
-        ],
-        "contradiction_count": null,
-        "control_resolution_state": "external_control_reference",
-        "owner_evidence_state": "verified",
-        "path_id": "apc-d4e94369b951",
-        "recommended_action": "proof",
-        "runtime_evidence_state": "verified",
-        "target_evidence_state": "unknown"
+        "target_evidence_state": "inferred"
       }
     ],
     "bom_items": [
       {
         "action_path_type": "ci_cd_workflow",
         "approval_evidence_state": "verified",
-        "control_state": "block_recommended",
-        "owner_evidence_state": "verified",
-        "path_id": "apc-3347673d718f",
+        "control_state": "approval_required",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-e164c67b6b91",
         "queue": "control_first",
-        "runtime_evidence_classes": null,
-        "runtime_evidence_status": null
-      },
-      {
-        "action_path_type": "ci_cd_workflow",
-        "approval_evidence_state": "verified",
-        "control_state": "block_recommended",
-        "owner_evidence_state": "verified",
-        "path_id": "apc-d4e94369b951",
-        "queue": "review_queue",
         "runtime_evidence_classes": null,
         "runtime_evidence_status": null
       }
@@ -64,8 +40,32 @@
     "framework_candidates": []
   },
   "branch-protected": {
-    "action_paths": [],
-    "bom_items": [],
+    "action_paths": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-81d8e39e9045",
+        "recommended_action": "control",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "inferred"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "control_state": "approval_required",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-81d8e39e9045",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
     "control_backlog": [],
     "finding_types": [
       "ci_autonomy",
@@ -78,8 +78,32 @@
     "framework_candidates": []
   },
   "branch-unprotected": {
-    "action_paths": [],
-    "bom_items": [],
+    "action_paths": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-2a61b360d450",
+        "recommended_action": "control",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "inferred"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "control_state": "approval_required",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-2a61b360d450",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
     "control_backlog": [],
     "finding_types": [
       "ci_autonomy",
@@ -92,8 +116,32 @@
     "framework_candidates": []
   },
   "ci-without-agent": {
-    "action_paths": [],
-    "bom_items": [],
+    "action_paths": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-e765b71f2635",
+        "recommended_action": "control",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "inferred"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "control_state": "approval_required",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-e765b71f2635",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
     "control_backlog": [],
     "finding_types": [
       "ai_project_signal",
@@ -149,6 +197,18 @@
   "deploy-agent": {
     "action_paths": [
       {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-123317fc2c38",
+        "recommended_action": "control",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "inferred"
+      },
+      {
         "action_path_type": "agent_instruction_surface",
         "approval_evidence_state": "unknown",
         "constraint_evidence": null,
@@ -175,17 +235,27 @@
     ],
     "bom_items": [
       {
-        "action_path_type": "agent_instruction_surface",
+        "action_path_type": "ci_cd_workflow",
         "approval_evidence_state": "unknown",
         "control_state": "approval_required",
         "owner_evidence_state": "inferred",
-        "path_id": "apc-1724bbd9aa59",
+        "path_id": "apc-123317fc2c38",
         "queue": "control_first",
         "runtime_evidence_classes": [
           "approval",
           "proof_verification"
         ],
         "runtime_evidence_status": "matched"
+      },
+      {
+        "action_path_type": "agent_instruction_surface",
+        "approval_evidence_state": "unknown",
+        "control_state": "approval_required",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-1724bbd9aa59",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
       },
       {
         "action_path_type": "agent_instruction_surface",
@@ -212,8 +282,32 @@
     "framework_candidates": []
   },
   "non-prod-contradiction": {
-    "action_paths": [],
-    "bom_items": [],
+    "action_paths": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "contradictory_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-bae60b639f84",
+        "recommended_action": "control",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "contradictory"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "control_state": "block_recommended",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-bae60b639f84",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
     "control_backlog": [],
     "finding_types": [
       "ci_autonomy",
@@ -227,8 +321,32 @@
     "framework_candidates": []
   },
   "owner-evidence": {
-    "action_paths": [],
-    "bom_items": [],
+    "action_paths": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "verified",
+        "path_id": "apc-83227a8f1679",
+        "recommended_action": "control",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "inferred"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "unknown",
+        "control_state": "approval_required",
+        "owner_evidence_state": "verified",
+        "path_id": "apc-83227a8f1679",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
     "control_backlog": [],
     "finding_types": [
       "ci_autonomy",

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -144,6 +145,30 @@ func TestValidateShareableArtifactsFailsClosedOnResidualSensitiveTokens(t *testi
 	}
 	if !IsShareableSafetyError(err) {
 		t.Fatalf("expected shareable safety error, got %T (%v)", err, err)
+	}
+}
+
+func TestValidateShareableArtifactsChecksJSONValuesNotSchemaKeys(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{RiskReport: &risk.Report{ActionPaths: []risk.ActionPath{{
+		Credentials: []*agginventory.CredentialProvenance{{Subject: "path"}},
+	}}}}
+	summary := Summary{
+		ShareProfile: string(ShareProfileCustomerRedacted),
+		ActionPaths:  []risk.ActionPath{{PathID: "action-path-safe"}},
+		Sections:     []Section{{ID: "headline", Facts: []string{"No residual credential value is present."}}},
+	}
+
+	redacted, err := ApplyShareableResidualRedaction(snapshot, summary)
+	if err != nil {
+		t.Fatalf("apply shareable redaction: %v", err)
+	}
+	if redacted.ActionPaths[0].PathID != "action-path-safe" {
+		t.Fatalf("generic false subject must not rewrite ordinary values, got %+v", redacted.ActionPaths[0])
+	}
+	if err := ValidateShareableArtifacts(snapshot, redacted, "No residual credential value is present.", true); err != nil {
+		t.Fatalf("JSON field names such as action_paths must not trigger residual validation: %v", err)
 	}
 }
 

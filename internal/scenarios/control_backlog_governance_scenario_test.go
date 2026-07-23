@@ -78,8 +78,20 @@ func TestSecretReferenceSemantics(t *testing.T) {
 		if !scenarioArrayContains(signals, "secret_used_by_write_capable_workflow") {
 			t.Fatalf("expected write-capable secret workflow signal: %v", item)
 		}
-		if action := item["recommended_action"]; action != "attach_evidence" && action != "approve" {
-			t.Fatalf("expected attach_evidence or approve, got %v in %v", action, item)
+		remediation, _ := item["remediation"].(string)
+		blocked, _ := item["standing_privilege"].(bool)
+		readiness, _ := item["delegation_readiness_state"].(string)
+		blocked = blocked || strings.HasPrefix(strings.ToLower(readiness), "blocked")
+		if blocked {
+			if action := item["recommended_action"]; action != "remediate" {
+				t.Fatalf("expected blocked credential-bearing path to lead with remediation, got %v in %v", action, item)
+			}
+			lowerRemediation := strings.ToLower(remediation)
+			if !strings.Contains(lowerRemediation, "replace") && !strings.Contains(lowerRemediation, "reduce") && !strings.Contains(lowerRemediation, "revoke") {
+				t.Fatalf("expected blocked credential remediation to lead with replace, reduce, or revoke, got %q", remediation)
+			}
+		} else if action := item["recommended_action"]; action != "attach_evidence" {
+			t.Fatalf("expected unresolved credential scope to lead with evidence attachment, got %v in %v", action, item)
 		}
 	}
 	if !foundSecretReference {

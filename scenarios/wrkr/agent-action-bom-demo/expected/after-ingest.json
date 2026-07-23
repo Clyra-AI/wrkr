@@ -4,7 +4,7 @@
       "deploy",
       "write"
     ],
-    "agent_id": "wrkr:ci-agent-457b801fb1:local",
+    "agent_id": "wrkr:ci-agent-inst-7211af958b:local",
     "environment": "built_in:deploy_workflow",
     "evidence_classes": [
       "action_outcome",
@@ -21,7 +21,7 @@
     "latest_observed_at": "2026-04-29T19:42:00Z",
     "location": ".github/workflows/release.yml",
     "path": ".github/workflows/release.yml",
-    "path_id": "apc-6626703372d7",
+    "path_id": "apc-49d0b638e7b5",
     "policy_refs": [
       "gait://release-control"
     ],

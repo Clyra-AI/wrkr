@@ -388,12 +388,27 @@ func LinkAttackPaths(paths []ActionPath, attackPaths []riskattack.ScoredPath) []
 		sourceFindingKeys := append([]string(nil), out[idx].SourceFindingKeys...)
 		for _, match := range matches {
 			attackPathRefs = append(attackPathRefs, strings.TrimSpace(match.PathID))
-			sourceFindingKeys = append(sourceFindingKeys, match.SourceFindings...)
+			sourceFindingKeys = append(sourceFindingKeys, matchingActionPathSourceKeys(out[idx], match.SourceFindings)...)
 		}
 		out[idx].AttackPathRefs = dedupeSortedStrings(append(out[idx].AttackPathRefs, attackPathRefs...))
 		out[idx].SourceFindingKeys = dedupeSortedStrings(sourceFindingKeys)
 	}
 	return out
+}
+
+func matchingActionPathSourceKeys(path ActionPath, keys []string) []string {
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		org, repo, location := parseAttackPathFindingKey(key)
+		if strings.TrimSpace(repo) != strings.TrimSpace(path.Repo) || strings.TrimSpace(location) != strings.TrimSpace(path.Location) {
+			continue
+		}
+		if org != "" && strings.TrimSpace(path.Org) != "" && strings.TrimSpace(org) != strings.TrimSpace(path.Org) {
+			continue
+		}
+		out = append(out, key)
+	}
+	return dedupeSortedStrings(out)
 }
 
 func applyLinkedAttackPathScores(paths []ActionPath, attackPaths []riskattack.ScoredPath) []ActionPath {

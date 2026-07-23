@@ -582,6 +582,181 @@ func TestClassifyCredentialKindKeepsAuthSurfaceFallbackForGenericSubjects(t *tes
 	}
 }
 
+func TestCredentialKindClassifierUsesExactIdentifierTokens(t *testing.T) {
+	t.Parallel()
+
+	for _, subject := range []string{"path", "artifact_path", "cache_dependency_path", "pattern", "restore_keys", "persist_credentials"} {
+		kind, _, reasons, matched := classifyCredentialKindFromText(subject, subject, findingSignals{})
+		if matched {
+			t.Fatalf("ordinary input %q must not classify as credential kind %q (%v)", subject, kind, reasons)
+		}
+	}
+	kind, accessType, _, matched := classifyCredentialKindFromText("prod_deploy_pat", "PROD_DEPLOY_PAT", findingSignals{})
+	if !matched || kind != agginventory.CredentialKindGitHubPAT || accessType != agginventory.CredentialAccessTypeStanding {
+		t.Fatalf("expected exact PAT token classification, got matched=%t kind=%s access=%s", matched, kind, accessType)
+	}
+}
+
+func TestTypedWorkflowCredentialKindOverridesGenericFallback(t *testing.T) {
+	t.Parallel()
+
+	signals := findingSignals{EvidenceKV: map[string][]string{
+		"workflow_credential_kind": {"release_token|static_secret"},
+	}}
+	kind, ok := typedCredentialKind(signals, "RELEASE_TOKEN")
+	if !ok || kind != agginventory.CredentialKindStaticSecret {
+		t.Fatalf("expected typed static secret classification, got kind=%s ok=%t", kind, ok)
+	}
+}
+
+func TestTypedWorkflowCredentialsKeepSubjectSpecificReasonsAndTargets(t *testing.T) {
+	t.Parallel()
+
+	signals := findingSignals{
+		Locations: []string{".github/workflows/release.yml"},
+		EvidenceKV: map[string][]string{
+			"workflow_credential_kind": {
+				"COSIGN_PRIVATE_KEY|static_secret",
+				"GITHUB_TOKEN|github_workflow_token",
+				"PYPI_API_TOKEN|static_secret",
+			},
+			"workflow_secret_refs": {
+				"COSIGN_PRIVATE_KEY,GITHUB_TOKEN,PYPI_API_TOKEN",
+			},
+		},
+	}
+	tests := []struct {
+		subject      string
+		targetSystem string
+		likelyScope  string
+	}{
+		{subject: "COSIGN_PRIVATE_KEY", targetSystem: "artifact_signing", likelyScope: "artifact_sign"},
+		{subject: "GITHUB_TOKEN", targetSystem: "source_control", likelyScope: "source_control_write"},
+		{subject: "PYPI_API_TOKEN", targetSystem: "package_registry", likelyScope: "package_publish"},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.subject, func(t *testing.T) {
+			t.Parallel()
+
+			got := credentialCandidateForSubject(
+				tc.subject,
+				agginventory.CredentialScopeWorkflow,
+				[]string{"workflow_secret_refs"},
+				[]string{"github_app_private_key"},
+				nil,
+				".github/workflows/release.yml",
+				signals,
+			)
+			if got == nil {
+				t.Fatal("expected credential provenance")
+			}
+			if got.TargetSystem != tc.targetSystem || got.LikelyScope != tc.likelyScope {
+				t.Fatalf("expected %s/%s target metadata, got %+v", tc.targetSystem, tc.likelyScope, got)
+			}
+			if containsString(got.ClassificationReasons, "subject:github_app_private_key") {
+				t.Fatalf("did not expect sibling auth context to override %s, got %+v", tc.subject, got)
+			}
+		})
+	}
+}
+
+func TestWorkflowCredentialSubjectsExcludeKnownNonAuthoritySecretRefs(t *testing.T) {
+	t.Parallel()
+
+	signals := findingSignals{EvidenceKV: map[string][]string{
+		"workflow_secret_refs": {
+			"AWS_E2E_ROLE_ARN",
+			"RELEASE_TOKEN",
+			"SECURITY_EMAIL_TO,DOCKERHUB_USERNAME",
+		},
+		"workflow_noncredential_secret_refs": {
+			"AWS_E2E_ROLE_ARN",
+			"DOCKERHUB_USERNAME",
+			"SECURITY_EMAIL_TO",
+		},
+	}}
+	got := workflowCredentialSubjects(signals)
+	if len(got) != 1 || got[0] != "release_token" {
+		t.Fatalf("expected only authority-bearing workflow reference, got %v", got)
+	}
+}
+
+func TestCredentialClassificationTreatsOIDCRoleARNAsTargetIdentifier(t *testing.T) {
+	t.Parallel()
+
+	signals := findingSignals{
+		Locations: []string{".github/workflows/e2e-aws.yml"},
+		EvidenceKV: map[string][]string{
+			"workflow_secret_refs":               {"AWS_E2E_ROLE_ARN"},
+			"workflow_noncredential_secret_refs": {"AWS_E2E_ROLE_ARN"},
+		},
+	}
+	permissions := []string{"contents.read", "id-token.write", "secret.read"}
+	credentials := classifyCredentialProvenances("credentials", permissions, nil, signals)
+	if len(credentials) != 1 {
+		t.Fatalf("expected one OIDC workload credential, got %+v", credentials)
+	}
+	credential := credentials[0]
+	if credential.CredentialKind != agginventory.CredentialKindOIDCWorkloadID ||
+		credential.AccessType != agginventory.CredentialAccessTypeWorkload ||
+		credential.StandingAccess {
+		t.Fatalf("expected workload identity without standing access, got %+v", credential)
+	}
+	if credential.Subject != "id-token.write" {
+		t.Fatalf("role ARN must not become credential subject, got %+v", credential)
+	}
+	authority := classifyCredentialAuthority(nil, signals, true, credentials, nil)
+	if authority == nil || !authority.CredentialPresent || !authority.CredentialReferencedByWorkflow || authority.StandingAccess {
+		t.Fatalf("expected non-standing workflow OIDC authority, got %+v", authority)
+	}
+}
+
+func TestCredentialClassificationDoesNotRecreateNonAuthoritySecretFallback(t *testing.T) {
+	t.Parallel()
+
+	signals := findingSignals{
+		Locations: []string{".github/workflows/notify.yml"},
+		EvidenceKV: map[string][]string{
+			"workflow_secret_refs":               {"SECURITY_EMAIL_TO"},
+			"workflow_noncredential_secret_refs": {"SECURITY_EMAIL_TO"},
+		},
+	}
+	credentials := classifyCredentialProvenances("credentials", []string{"secret.read"}, nil, signals)
+	if len(credentials) != 0 {
+		t.Fatalf("notification recipient must not become durable credential fallback: %+v", credentials)
+	}
+	authority := classifyCredentialAuthority(nil, signals, true, credentials, nil)
+	if authority == nil || authority.CredentialPresent || authority.CredentialReferencedByWorkflow || authority.CredentialUsableByPath {
+		t.Fatalf("notification recipient must not imply credential authority: %+v", authority)
+	}
+}
+
+func TestCredentialClassificationKeepsSecretsGitHubTokenJIT(t *testing.T) {
+	t.Parallel()
+
+	signals := findingSignals{
+		Locations: []string{".github/workflows/release.yml"},
+		EvidenceKV: map[string][]string{
+			"workflow_secret_refs":     {"GITHUB_TOKEN"},
+			"workflow_credential_kind": {"GITHUB_TOKEN|github_workflow_token"},
+			"workflow_builtin_token":   {"github_token"},
+		},
+	}
+	credentials := classifyCredentialProvenances("credentials", []string{"contents.write", "secret.read"}, nil, signals)
+	for _, credential := range credentials {
+		if credential != nil && credential.Subject == "github_token" {
+			if credential.CredentialKind != agginventory.CredentialKindGitHubWorkflowToken ||
+				credential.AccessType != agginventory.CredentialAccessTypeJIT ||
+				credential.StandingAccess {
+				t.Fatalf("expected JIT GitHub workflow token, got %+v", credential)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected GitHub workflow token credential in %+v", credentials)
+}
+
 func TestBuildDerivesActionClassesAndStandingPrivilegeFromCredentialSignals(t *testing.T) {
 	t.Parallel()
 
@@ -1003,6 +1178,86 @@ func TestBuildClassifiesSaaSTokenScopeWithoutSecretValues(t *testing.T) {
 	}
 	if len(entries[0].AuthorityBindings) != 1 || entries[0].AuthorityBindings[0].Kind != agginventory.AuthorityBindingSaaSToken {
 		t.Fatalf("expected saas token authority binding, got %+v", entries[0].AuthorityBindings)
+	}
+}
+
+func TestBuildKeepsIdenticalWorkflowCredentialsRepoScoped(t *testing.T) {
+	t.Parallel()
+
+	location := ".github/workflows/release.yml"
+	legacyInstanceID := identity.AgentInstanceID("compiled_action", location, "release", 0, 0)
+	repos := []string{"acme/service-a", "acme/service-b"}
+	credentialsByRepo := map[string]string{
+		"acme/service-a": "SERVICE_A_DEPLOY_PAT",
+		"acme/service-b": "SERVICE_B_PYPI_API_TOKEN",
+	}
+	tools := []agginventory.Tool{{
+		ToolID:    identity.ToolID("compiled_action", location),
+		ToolType:  "compiled_action",
+		Org:       "acme",
+		Repos:     repos,
+		Locations: []agginventory.ToolLocation{{Repo: repos[0], Location: location}, {Repo: repos[1], Location: location}},
+	}}
+	agents := make([]agginventory.Agent, 0, len(repos))
+	findings := make([]model.Finding, 0, len(repos))
+	for _, repo := range repos {
+		credential := credentialsByRepo[repo]
+		agents = append(agents, agginventory.Agent{
+			AgentID:         identity.AgentID(legacyInstanceID, "acme"),
+			AgentInstanceID: legacyInstanceID,
+			ToolInstanceID:  identity.ToolInstanceID("compiled_action", repo, location, "release", 0, 0),
+			Framework:       "compiled_action",
+			Symbol:          "release",
+			Org:             "acme",
+			Repo:            repo,
+			Location:        location,
+		})
+		findings = append(findings, model.Finding{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    location,
+			Repo:        repo,
+			Org:         "acme",
+			Permissions: []string{"deploy.write", "secret.read"},
+			Evidence: []model.Evidence{
+				{Key: "workflow_name", Value: "release"},
+				{Key: "workflow_secret_refs", Value: credential},
+				{Key: "workflow_credential_kind", Value: credential + "|static_secret"},
+				{Key: "credential_subject", Value: credential},
+				{Key: "credential_provenance_type", Value: "static_secret"},
+				{Key: "credential_scope", Value: agginventory.CredentialScopeWorkflow},
+				{Key: "credential_confidence", Value: "high"},
+			},
+		})
+	}
+
+	_, entries := Build(tools, agents, findings, nil)
+	if len(entries) != 2 {
+		t.Fatalf("expected one privilege entry per repository, got %+v", entries)
+	}
+	for _, entry := range entries {
+		if len(entry.Repos) != 1 {
+			t.Fatalf("expected repo-local path attribution, got %+v", entry)
+		}
+		repo := entry.Repos[0]
+		want := strings.ToLower(credentialsByRepo[repo])
+		got := map[string]struct{}{}
+		for _, credential := range entry.Credentials {
+			if credential != nil {
+				got[credential.Subject] = struct{}{}
+			}
+		}
+		if _, ok := got[want]; !ok {
+			t.Fatalf("expected %s credential %q, got %+v", repo, want, entry.Credentials)
+		}
+		for otherRepo, otherCredential := range credentialsByRepo {
+			if otherRepo == repo {
+				continue
+			}
+			if _, leaked := got[strings.ToLower(otherCredential)]; leaked {
+				t.Fatalf("credential %q from %s leaked into %s path: %+v", otherCredential, otherRepo, repo, entry)
+			}
+		}
 	}
 }
 

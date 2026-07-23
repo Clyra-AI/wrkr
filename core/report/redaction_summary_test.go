@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -46,6 +47,31 @@ func TestSanitizeComposedActionPathsPublicKeepsTransitionStageRefsAligned(t *tes
 
 	checkAlignment(sanitizeComposedActionPathsPublic(input))
 	checkAlignment(sanitizeComposedActionPathsWithConfig(input, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionPaths})))
+}
+
+func TestSanitizeRuntimeContainmentRefsPublic(t *testing.T) {
+	t.Parallel()
+
+	input := &ingest.Summary{Correlations: []ingest.Correlation{{
+		ContainmentScopeRefs:     []string{"agent:private"},
+		AcknowledgedBoundaryRefs: []string{"github:private"},
+		UnresolvedBoundaryRefs:   []string{"cloud:private"},
+		OutOfScopeBoundaryRefs:   []string{"vendor:private"},
+	}}}
+	got := sanitizeRuntimeContainmentRefsPublic(input)
+	for _, refs := range [][]string{
+		got.Correlations[0].ContainmentScopeRefs,
+		got.Correlations[0].AcknowledgedBoundaryRefs,
+		got.Correlations[0].UnresolvedBoundaryRefs,
+		got.Correlations[0].OutOfScopeBoundaryRefs,
+	} {
+		if len(refs) != 1 || !strings.HasPrefix(refs[0], "evidence-") {
+			t.Fatalf("expected containment refs to be redacted, got %+v", got.Correlations[0])
+		}
+	}
+	if input.Correlations[0].ContainmentScopeRefs[0] != "agent:private" {
+		t.Fatalf("expected sanitizer to preserve input, got %+v", input.Correlations[0])
+	}
 }
 
 func TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs(t *testing.T) {
@@ -278,6 +304,18 @@ func TestSanitizeComposedActionPathsPublicRedactsNestedGaitAndContradictionEvide
 		KillSwitch:        risk.GaitCoverageDetail{Status: risk.GaitStatusMissing, EvidenceRefs: []string{"runtime:kill"}},
 		ActionOutcome:     risk.GaitCoverageDetail{Status: risk.GaitStatusPresent, EvidenceRefs: []string{"runtime:outcome"}},
 		ProofVerification: risk.GaitCoverageDetail{Status: risk.GaitStatusPresent, EvidenceRefs: []string{"proof:verify"}},
+		Containment: &risk.ContainmentCoverage{
+			Status:                            risk.ContainmentCoverageUnresolved,
+			StopRequest:                       risk.GaitCoverageDetail{Status: risk.GaitStatusPresent, EvidenceRefs: []string{"runtime:stop"}},
+			CoveredActionDenial:               risk.GaitCoverageDetail{Status: risk.GaitStatusMissing},
+			CapabilityInvalidation:            risk.GaitCoverageDetail{Status: risk.GaitStatusPresent, EvidenceRefs: []string{"runtime:capability"}},
+			DescendantInvalidation:            risk.GaitCoverageDetail{Status: risk.GaitStatusMissing},
+			ExternalRevocationAttempt:         risk.GaitCoverageDetail{Status: risk.GaitStatusPresent, EvidenceRefs: []string{"runtime:revoke"}},
+			ExternalRevocationAcknowledgement: risk.GaitCoverageDetail{Status: risk.GaitStatusMissing},
+			ContainmentReceipt:                risk.GaitCoverageDetail{Status: risk.GaitStatusMissing},
+			ScopeRefs:                         []string{"agent:scope"},
+			UnresolvedBoundaryRefs:            []string{"cloud:boundary"},
+		},
 	}
 	input := []risk.ComposedActionPath{{
 		CompositionID: "cap-1",
@@ -323,6 +361,9 @@ func TestSanitizeComposedActionPathsPublicRedactsNestedGaitAndContradictionEvide
 	assertRedactedRefs("stage gait action outcome", got.Stages[0].GaitCoverage.ActionOutcome.EvidenceRefs)
 	assertRedactedRefs("stage contradiction", got.Stages[0].Contradictions[0].EvidenceRefs)
 	assertRedactedRefs("transition gait proof verification", got.Transitions[0].GaitCoverage.ProofVerification.EvidenceRefs)
+	assertRedactedRefs("composition gait containment stop", got.GaitCoverage.Containment.StopRequest.EvidenceRefs)
+	assertRedactedRefs("composition gait containment scope", got.GaitCoverage.Containment.ScopeRefs)
+	assertRedactedRefs("composition gait containment boundary", got.GaitCoverage.Containment.UnresolvedBoundaryRefs)
 }
 
 func TestSanitizeComposedActionPathsPublicRedactsOutcomeKeyAndAuthorityDeltas(t *testing.T) {

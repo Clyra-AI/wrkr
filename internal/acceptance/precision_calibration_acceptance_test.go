@@ -19,7 +19,7 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 
 	scanPayload := runJSONOK(t, "scan", "--path", scanRoot, "--state", statePath, "--json")
 	scanActionPaths := requireArray(t, scanPayload, "action_paths")
-	deployAgentPathID, _ := firstRepoPath(t, scanActionPaths, "deploy-agent")["path_id"].(string)
+	deployAgentPathID, _ := findAcceptanceRepoPathWithValue(t, scanActionPaths, "deploy-agent", "action_path_type", "ci_cd_workflow")["path_id"].(string)
 
 	runtimeEvidencePath := filepath.Join(t.TempDir(), "runtime-evidence.json")
 	runtimeEvidence := `{
@@ -49,8 +49,8 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 
 	actionPaths := requireArray(t, reportPayload, "action_paths")
 	deployAgent := findAcceptancePathID(t, actionPaths, deployAgentPathID)
-	if deployAgent["action_path_type"] != "agent_instruction_surface" {
-		t.Fatalf("expected deploy-agent instruction surface classification, got %v", deployAgent)
+	if deployAgent["action_path_type"] != "ci_cd_workflow" {
+		t.Fatalf("expected deploy-agent CI workflow classification, got %v", deployAgent)
 	}
 	bomItems := requireArrayFromObject(t, requireObject(t, reportPayload, "agent_action_bom"), "items")
 	deployAgentBOM := findAcceptancePathID(t, bomItems, deployAgentPathID)

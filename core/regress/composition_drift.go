@@ -576,6 +576,9 @@ func compositionGaitCoverageSummary(coverage *risk.GaitCoverage) []string {
 		"action_outcome:" + strings.TrimSpace(coverage.ActionOutcome.Status),
 		"proof_verification:" + strings.TrimSpace(coverage.ProofVerification.Status),
 	}
+	if coverage.Containment != nil {
+		values = append(values, "containment:"+strings.TrimSpace(coverage.Containment.Status))
+	}
 	return mergeSortedStrings(values, nil)
 }
 

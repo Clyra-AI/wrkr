@@ -258,6 +258,75 @@ func TestSaveFiltersComposedRefsAfterSnapshotCaps(t *testing.T) {
 	}
 }
 
+func TestCapSavedActionPathsPreservesGroupedEndpointSurface(t *testing.T) {
+	t.Parallel()
+
+	paths := make([]risk.ActionPath, 0, maxSavedActionPaths+2)
+	for idx := 0; idx < maxSavedActionPaths+1; idx++ {
+		paths = append(paths, risk.ActionPath{
+			PathID:         fmt.Sprintf("apc-ci-%03d", idx),
+			ActionPathType: risk.ActionPathTypeCICDWorkflow,
+		})
+	}
+	paths = append(paths, risk.ActionPath{
+		PathID:         "apc-grouped-endpoints",
+		ActionPathType: risk.ActionPathTypeAIAssistedWorkflow,
+		EndpointRefGroupProjection: agginventory.EndpointRefGroupProjection{
+			EndpointRefCount: 1200,
+		},
+		MutableEndpointSemanticRefs: []string{"endpoint-group:sample"},
+	})
+
+	capped, suppressed := capSavedActionPaths(paths, maxSavedActionPaths)
+	if suppressed != 2 {
+		t.Fatalf("expected two suppressed action paths, got %d", suppressed)
+	}
+	foundGrouped := false
+	for _, path := range capped {
+		if path.PathID == "apc-grouped-endpoints" {
+			foundGrouped = true
+			break
+		}
+	}
+	if !foundGrouped {
+		t.Fatalf("expected grouped endpoint surface to survive cap, got %+v", capped)
+	}
+}
+
+func TestCapSavedComposedActionPathsPreservesDistinctPatterns(t *testing.T) {
+	t.Parallel()
+
+	paths := make([]risk.ComposedActionPath, 0, maxSavedComposedActionPaths+2)
+	for idx := 0; idx < maxSavedComposedActionPaths+1; idx++ {
+		paths = append(paths, risk.ComposedActionPath{
+			CompositionID: fmt.Sprintf("cap-code-%03d", idx),
+			PatternID:     risk.CompositionPatternCodeToDeploy,
+		})
+	}
+	paths = append(paths, risk.ComposedActionPath{
+		CompositionID: "cap-sensitive",
+		PatternID:     risk.CompositionPatternSensitiveReadToEgress,
+	})
+
+	capped, suppressed := capSavedComposedActionPaths(paths, maxSavedComposedActionPaths)
+	if suppressed != 2 {
+		t.Fatalf("expected two suppressed compositions, got %d", suppressed)
+	}
+	if len(capped) != maxSavedComposedActionPaths {
+		t.Fatalf("expected %d saved compositions, got %d", maxSavedComposedActionPaths, len(capped))
+	}
+	foundSensitive := false
+	for _, path := range capped {
+		if path.PatternID == risk.CompositionPatternSensitiveReadToEgress {
+			foundSensitive = true
+			break
+		}
+	}
+	if !foundSensitive {
+		t.Fatalf("expected distinct sensitive-read pattern to survive cap, got %+v", capped)
+	}
+}
+
 func TestSaveRebuildsPolicyOutcomesFromCurrentFindings(t *testing.T) {
 	t.Parallel()
 

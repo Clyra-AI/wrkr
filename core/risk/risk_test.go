@@ -388,8 +388,8 @@ func TestBuildActionPathsCarriesDeliveryChainMetadata(t *testing.T) {
 	if actionPaths[0].ProductionTargetStatus != agginventory.ProductionTargetsStatusNotConfigured {
 		t.Fatalf("expected production target status to carry through, got %+v", actionPaths[0])
 	}
-	if actionPaths[0].RecommendedAction != "proof" {
-		t.Fatalf("expected proof recommendation without production backing, got %+v", actionPaths[0])
+	if !actionPaths[0].WriteCapable || actionPaths[0].RecommendedAction != "control" {
+		t.Fatalf("expected deploy authority to remain write-capable and control-first, got %+v", actionPaths[0])
 	}
 	if choice == nil || choice.Path.DeliveryChainStatus != "pr_merge_deploy" {
 		t.Fatalf("expected control-first selection to preserve delivery metadata, got %+v", choice)

@@ -160,9 +160,17 @@ func pathHasEnforcementEvidence(path risk.ActionPath) bool {
 		return false
 	}
 	return gaitDetailPresent(path.GaitCoverage.PolicyDecision) ||
-		gaitDetailPresent(path.GaitCoverage.KillSwitch) ||
+		(gaitDetailPresent(path.GaitCoverage.KillSwitch) && gaitContainmentConfirmed(path.GaitCoverage.Containment)) ||
 		gaitDetailPresent(path.GaitCoverage.FreezeWindow) ||
 		gaitDetailPresent(path.GaitCoverage.JITCredential)
+}
+
+func gaitContainmentConfirmed(coverage *risk.ContainmentCoverage) bool {
+	return coverage != nil &&
+		strings.TrimSpace(coverage.Status) == risk.ContainmentCoverageContained &&
+		len(coverage.ScopeRefs) > 0 &&
+		gaitDetailPresent(coverage.ContainmentReceipt) &&
+		(gaitDetailPresent(coverage.CoveredActionDenial) || gaitDetailPresent(coverage.CapabilityInvalidation))
 }
 
 func gaitDetailPresent(detail risk.GaitCoverageDetail) bool {

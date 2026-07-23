@@ -391,7 +391,7 @@ func buildActionPath(
 		MatchedProductionTargets:    dedupeSortedStrings(entry.MatchedProductionTargets),
 		GovernanceControls:          append([]agginventory.GovernanceControlMapping(nil), entry.GovernanceControls...),
 	}
-	return path
+	return normalizeActionPathCapability(path)
 }
 
 func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
@@ -454,6 +454,15 @@ func actionPathID(entry agginventory.AgentPrivilegeMapEntry) string {
 }
 
 func actionPathIdentityKey(entry agginventory.AgentPrivilegeMapEntry) string {
+	if isWorkflowActionPathRepresentation(entry) {
+		return strings.Join([]string{
+			strings.TrimSpace(entry.Org),
+			strings.Join(dedupeSortedStrings(entry.Repos), ","),
+			"ci_cd_workflow",
+			strings.TrimSpace(entry.Symbol),
+			strings.TrimSpace(entry.Location),
+		}, "|")
+	}
 	parts := []string{
 		strings.TrimSpace(entry.Org),
 		strings.Join(dedupeSortedStrings(entry.Repos), ","),
@@ -469,6 +478,15 @@ func actionPathIdentityKey(entry agginventory.AgentPrivilegeMapEntry) string {
 }
 
 func actionPathOccurrenceRef(entry agginventory.AgentPrivilegeMapEntry) string {
+	if isWorkflowActionPathRepresentation(entry) {
+		return strings.Join([]string{
+			strings.TrimSpace(entry.Org),
+			strings.Join(dedupeSortedStrings(entry.Repos), ","),
+			strings.TrimSpace(entry.Location),
+			"ci_cd_workflow",
+			strings.TrimSpace(entry.Symbol),
+		}, "|")
+	}
 	parts := []string{
 		strings.TrimSpace(entry.Org),
 		strings.Join(dedupeSortedStrings(entry.Repos), ","),
@@ -478,6 +496,16 @@ func actionPathOccurrenceRef(entry agginventory.AgentPrivilegeMapEntry) string {
 		strings.TrimSpace(entry.ToolID),
 	}
 	return strings.Join(parts, "|")
+}
+
+func isWorkflowActionPathRepresentation(entry agginventory.AgentPrivilegeMapEntry) bool {
+	for _, value := range []string{entry.Framework, entry.ToolType} {
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "ci_agent", "compiled_action":
+			return true
+		}
+	}
+	return false
 }
 
 func hashActionPathIdentity(identity string) string {
@@ -504,6 +532,9 @@ func cloneLocationRange(locationRange *model.LocationRange) *model.LocationRange
 
 func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged := current
+	if isWorkflowActionPathToolType(current.ToolType) && isWorkflowActionPathToolType(incoming.ToolType) {
+		merged.ToolType = "ci_agent"
+	}
 	merged.WriteCapable = current.WriteCapable || incoming.WriteCapable
 	merged.PullRequestWrite = current.PullRequestWrite || incoming.PullRequestWrite
 	merged.MergeExecute = current.MergeExecute || incoming.MergeExecute
@@ -629,7 +660,30 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.WorkflowChainRefs = dedupeSortedStrings(append(append([]string(nil), current.WorkflowChainRefs...), incoming.WorkflowChainRefs...))
 	merged.DecisionTraceRefs = dedupeSortedStrings(append(append([]string(nil), current.DecisionTraceRefs...), incoming.DecisionTraceRefs...))
 	merged.ActionLineage = CloneActionLineage(firstNonNilLineage(current.ActionLineage, incoming.ActionLineage))
-	return merged
+	return normalizeActionPathCapability(merged)
+}
+
+func isWorkflowActionPathToolType(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "ci_agent", "compiled_action":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeActionPathCapability(path ActionPath) ActionPath {
+	path.WriteCapable = agginventory.CanonicalWriteCapable(agginventory.ActionClassInput{
+		WritePathClasses:         path.WritePathClasses,
+		ActionClasses:            path.ActionClasses,
+		MutableEndpointSemantics: path.MutableEndpointSemantics,
+		WriteCapable:             path.WriteCapable,
+		PullRequestWrite:         path.PullRequestWrite,
+		MergeExecute:             path.MergeExecute,
+		DeployWrite:              path.DeployWrite,
+		ProductionWrite:          path.ProductionWrite,
+	})
+	return path
 }
 
 func finalizeActionPathEndpointProjections(paths []ActionPath) []ActionPath {
@@ -742,6 +796,22 @@ func ApplyGovernFirstProfile(profileName string, paths []ActionPath) ([]ActionPa
 	}
 	filtered = ProjectActionPaths(filtered)
 	return filtered, buildActionPathChoice(filtered)
+}
+
+// ApplyFindingProfile keeps assessment-only fixtures and examples out of buyer
+// scoring while callers retain the unfiltered findings in raw scan state.
+func ApplyFindingProfile(profileName string, findings []model.Finding) []model.Finding {
+	if !strings.EqualFold(strings.TrimSpace(profileName), "assessment") {
+		return append([]model.Finding(nil), findings...)
+	}
+	filtered := make([]model.Finding, 0, len(findings))
+	for _, finding := range findings {
+		if assessmentSuppressesFinding(finding) {
+			continue
+		}
+		filtered = append(filtered, finding)
+	}
+	return filtered
 }
 
 func buildActionPathChoice(paths []ActionPath) *ActionPathToControlFirst {
@@ -1216,14 +1286,35 @@ func actionPathDeliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite b
 }
 
 func assessmentSuppressesPath(path ActionPath) bool {
-	for _, value := range []string{path.Repo, path.Location} {
-		if value == "" {
-			continue
+	return assessmentSuppressesRepo(path.Repo) || assessmentSuppressesLocation(path.Location)
+}
+
+func assessmentSuppressesFinding(finding model.Finding) bool {
+	if strings.TrimSpace(finding.FindingType) == "source_discovery" {
+		return false
+	}
+	return assessmentSuppressesRepo(finding.Repo) || assessmentSuppressesLocation(finding.Location)
+}
+
+func assessmentSuppressesRepo(repo string) bool {
+	parts := strings.FieldsFunc(strings.ToLower(strings.TrimSpace(repo)), func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	if len(parts) == 0 {
+		return false
+	}
+	for _, segment := range assessmentSegments(parts[len(parts)-1]) {
+		if assessmentSuppressionToken(segment) {
+			return true
 		}
-		for _, segment := range assessmentSegments(value) {
-			if assessmentSuppressionToken(segment) {
-				return true
-			}
+	}
+	return false
+}
+
+func assessmentSuppressesLocation(location string) bool {
+	for _, segment := range assessmentSegments(location) {
+		if assessmentSuppressionToken(segment) {
+			return true
 		}
 	}
 	return false
@@ -1285,7 +1376,7 @@ func assessmentSegmentCandidates(segment string) []string {
 
 func assessmentSuppressionToken(value string) bool {
 	switch value {
-	case "examples", "example", "sample", "samples", "demo", "tests", "test", "testdata", "fixtures", "vendor", "node_modules", ".venv", "venv", "generated", "__generated__":
+	case "examples", "example", "sample", "samples", "demo", "scenarios", "scenario", "tests", "test", "testdata", "fixtures", "fixture", "vendor", "node_modules", ".venv", "venv", "generated", "__generated__":
 		return true
 	default:
 		return false

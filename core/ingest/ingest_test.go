@@ -117,3 +117,61 @@ func TestCorrelateHonorsExplicitUnmatchedStatusInSummary(t *testing.T) {
 		t.Fatalf("expected unmatched correlation to be preserved, got %+v", summary.Correlations)
 	}
 }
+
+func TestCorrelatePreservesScopedContainmentEvidence(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
+	bundle, err := Normalize(Bundle{
+		GeneratedAt: now,
+		Records: []Record{
+			{
+				PathID:                   "apc-contained",
+				Source:                   "gait",
+				ObservedAt:               now,
+				EvidenceClass:            EvidenceClassContainmentReceipt,
+				ContainmentStatus:        ContainmentStatusContained,
+				ContainmentScopeRefs:     []string{"agent:parent", "agent:child"},
+				AcknowledgedBoundaryRefs: []string{"github:token:revoked"},
+			},
+			{
+				PathID:                 "apc-contained",
+				Source:                 "gait",
+				ObservedAt:             now,
+				EvidenceClass:          EvidenceClassDescendantInvalidation,
+				ContainmentScopeRefs:   []string{"agent:child"},
+				UnresolvedBoundaryRefs: []string{"cloud:session:unknown"},
+				ContainmentStatus:      ContainmentStatusUnresolved,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("normalize containment evidence: %v", err)
+	}
+	summary := Correlate(state.Snapshot{RiskReport: &risk.Report{ActionPaths: []risk.ActionPath{{PathID: "apc-contained"}}}}, "runtime-evidence.json", bundle)
+	if len(summary.Correlations) != 1 {
+		t.Fatalf("expected one containment correlation, got %+v", summary.Correlations)
+	}
+	got := summary.Correlations[0]
+	if got.ContainmentStatus != ContainmentStatusUnresolved {
+		t.Fatalf("expected unresolved to dominate mixed containment evidence, got %+v", got)
+	}
+	if len(got.ContainmentScopeRefs) != 2 || len(got.AcknowledgedBoundaryRefs) != 1 || len(got.UnresolvedBoundaryRefs) != 1 {
+		t.Fatalf("expected scoped containment refs to survive correlation, got %+v", got)
+	}
+}
+
+func TestNormalizeRejectsUnknownContainmentStatus(t *testing.T) {
+	t.Parallel()
+
+	_, err := Normalize(Bundle{Records: []Record{{
+		PathID:            "apc-contained",
+		Source:            "gait",
+		ObservedAt:        time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		EvidenceClass:     EvidenceClassStopRequest,
+		ContainmentStatus: "complete_enough",
+	}}})
+	if err == nil {
+		t.Fatal("expected unknown containment status to fail closed")
+	}
+}

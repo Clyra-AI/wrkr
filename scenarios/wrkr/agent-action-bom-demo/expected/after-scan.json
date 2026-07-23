@@ -50,7 +50,7 @@
       "built_in:kubernetes",
       "built_in:release_automation"
     ],
-    "path_id": "apc-6626703372d7",
+    "path_id": "apc-49d0b638e7b5",
     "policy_coverage_status": "matched",
     "repo": "demo-app",
     "review_burden": "critical",

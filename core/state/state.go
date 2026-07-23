@@ -31,11 +31,11 @@ const ApprovalInventoryVersion = "1"
 const (
 	maxSavedAttackPaths           = 150
 	maxSavedActionPaths           = 150
-	maxSavedComposedActionPaths   = 150
-	maxSavedBacklogItems          = 150
-	maxSavedGraphNodes            = 5000
-	maxSavedGraphEdges            = 7500
-	maxSavedWorkflowChains        = 150
+	maxSavedComposedActionPaths   = 10
+	maxSavedBacklogItems          = 25
+	maxSavedGraphNodes            = 200
+	maxSavedGraphEdges            = 300
+	maxSavedWorkflowChains        = 25
 	maxSavedRankedFindings        = 200
 	maxSavedRepoExposureSummaries = 150
 )
@@ -147,7 +147,6 @@ func Save(path string, snapshot Snapshot) error {
 	snapshot = FinalizeSnapshotForOutput(snapshot)
 	if err := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
 		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "  ")
 		return encoder.Encode(snapshot)
 	}); err != nil {
 		return fmt.Errorf("write state: %w", err)
@@ -309,8 +308,8 @@ func applySnapshotSignalCaps(snapshot *Snapshot) {
 	if snapshot.RiskReport != nil {
 		snapshot.RiskReport.Ranked, suppressed.RankedFindings = outputsignal.CapSlice(snapshot.RiskReport.Ranked, maxSavedRankedFindings)
 		snapshot.RiskReport.AttackPaths, suppressed.AttackPaths = outputsignal.CapSlice(snapshot.RiskReport.AttackPaths, maxSavedAttackPaths)
-		snapshot.RiskReport.ActionPaths, suppressed.ActionPaths = outputsignal.CapSlice(snapshot.RiskReport.ActionPaths, maxSavedActionPaths)
-		snapshot.RiskReport.ComposedActionPaths, suppressed.ComposedActionPaths = outputsignal.CapSlice(snapshot.RiskReport.ComposedActionPaths, maxSavedComposedActionPaths)
+		snapshot.RiskReport.ActionPaths, suppressed.ActionPaths = capSavedActionPaths(snapshot.RiskReport.ActionPaths, maxSavedActionPaths)
+		snapshot.RiskReport.ComposedActionPaths, suppressed.ComposedActionPaths = capSavedComposedActionPaths(snapshot.RiskReport.ComposedActionPaths, maxSavedComposedActionPaths)
 		allowedCompositionIDs := allowedSavedCompositionIDs(snapshot.RiskReport.ComposedActionPaths)
 		allowedContractRefs := allowedSavedContractRefs(snapshot.RiskReport.ComposedActionPaths)
 		if len(allowedCompositionIDs) > 0 || len(allowedContractRefs) > 0 {
@@ -335,6 +334,108 @@ func applySnapshotSignalCaps(snapshot *Snapshot) {
 	}
 
 	snapshot.SuppressedCounts = outputsignal.MergeSuppressedCounts(snapshot.SuppressedCounts, suppressed)
+}
+
+func capSavedActionPaths(paths []risk.ActionPath, limit int) ([]risk.ActionPath, int) {
+	if limit <= 0 {
+		return nil, len(paths)
+	}
+	if len(paths) <= limit {
+		return paths, 0
+	}
+
+	selected := make([]bool, len(paths))
+	selectedCount := 0
+	for index, path := range paths {
+		if path.EndpointRefCount <= len(path.MutableEndpointSemanticRefs) {
+			continue
+		}
+		selected[index] = true
+		selectedCount++
+		if selectedCount == limit {
+			break
+		}
+	}
+	seenTypes := map[string]struct{}{}
+	for index, path := range paths {
+		if selectedCount == limit {
+			break
+		}
+		pathType := strings.TrimSpace(path.ActionPathType)
+		if _, ok := seenTypes[pathType]; ok {
+			continue
+		}
+		seenTypes[pathType] = struct{}{}
+		if selected[index] {
+			continue
+		}
+		selected[index] = true
+		selectedCount++
+	}
+	for index := range paths {
+		if selectedCount == limit {
+			break
+		}
+		if selected[index] {
+			continue
+		}
+		selected[index] = true
+		selectedCount++
+	}
+
+	capped := make([]risk.ActionPath, 0, selectedCount)
+	for index, path := range paths {
+		if selected[index] {
+			capped = append(capped, path)
+		}
+	}
+	return capped, len(paths) - len(capped)
+}
+
+func capSavedComposedActionPaths(paths []risk.ComposedActionPath, limit int) ([]risk.ComposedActionPath, int) {
+	if limit <= 0 {
+		return nil, len(paths)
+	}
+	if len(paths) <= limit {
+		return paths, 0
+	}
+
+	selected := make([]bool, len(paths))
+	selectedCount := 0
+	seenPatterns := map[string]struct{}{}
+	for index, path := range paths {
+		pattern := strings.TrimSpace(path.PatternID)
+		if pattern == "" {
+			pattern = strings.TrimSpace(path.Pattern.PatternID)
+		}
+		if _, ok := seenPatterns[pattern]; ok {
+			continue
+		}
+		seenPatterns[pattern] = struct{}{}
+		selected[index] = true
+		selectedCount++
+		if selectedCount == limit {
+			break
+		}
+	}
+	for index := range paths {
+		if selectedCount == limit {
+			break
+		}
+		if selected[index] {
+			continue
+		}
+		selected[index] = true
+		selectedCount++
+	}
+
+	capped := make([]risk.ComposedActionPath, 0, selectedCount)
+	for index, path := range paths {
+		if selected[index] {
+			capped = append(capped, path)
+		}
+	}
+	return capped, len(paths) - len(capped)
 }
 
 func allowedSavedCompositionIDs(paths []risk.ComposedActionPath) map[string]struct{} {

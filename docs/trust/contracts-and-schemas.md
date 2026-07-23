@@ -48,7 +48,7 @@ Compatibility aliases such as `missing_approval_paths`, `missing_policy_paths`, 
 
 Wrkr's Sprint 2 enterprise-evidence surface stays local-file based and deterministic.
 
-- `schemas/v1/evidence/external-control-evidence.schema.json` is the public v1 sidecar contract for imported ownership, approval, branch protection, deployment approvals, required checks, freeze windows, kill switches, and other external control evidence.
+- `schemas/v1/evidence/external-control-evidence.schema.json` is the public v1 sidecar contract for imported ownership, approval, branch protection, deployment approvals, required checks, freeze windows, kill switches, and scoped containment evidence. Containment records may distinguish requests, denials, capability or descendant invalidation, external revocation attempts and acknowledgements, receipts, and unresolved or out-of-scope boundaries.
 - `schemas/v1/evidence/control-declarations.schema.json` is the public v1 declaration contract for owner, target, control, and review-disposition inputs.
 - `wrkr-control-declarations.yaml` and `.wrkr/control-declarations.yaml` are versioned declaration inputs for owner mappings, target classes, non-production declarations, declared control links, and additive review dispositions.
 - `action_paths[*].evidence_decisions[]` and `agent_action_bom.items[*].evidence_decisions[]` preserve source precedence, freshness, selected evidence, and rejected lower-precedence candidates instead of flattening imported evidence to one opaque winner.

@@ -88,18 +88,20 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		if strings.TrimSpace(signals.Tool) != "" {
 			evidence = append(evidence, model.Evidence{Key: "tool", Value: signals.Tool})
 		}
-		if provenanceType, subject := credentialProvenanceForWorkflow(content); provenanceType != "" {
-			evidence = append(evidence,
-				model.Evidence{Key: "credential_provenance_type", Value: provenanceType},
-				model.Evidence{Key: "credential_subject", Value: subject},
-				model.Evidence{Key: "credential_scope", Value: "workflow"},
-				model.Evidence{Key: "credential_confidence", Value: "high"},
-			)
-		}
 		if workflowErr == nil {
 			evidence = append(evidence, workflowAnalysis.Evidence...)
-		} else if len(workflowAnalysis.Evidence) > 0 {
-			evidence = append(evidence, workflowAnalysis.Evidence...)
+		} else {
+			if provenanceType, subject := credentialProvenanceForWorkflow(content); provenanceType != "" {
+				evidence = append(evidence,
+					model.Evidence{Key: "credential_provenance_type", Value: provenanceType},
+					model.Evidence{Key: "credential_subject", Value: subject},
+					model.Evidence{Key: "credential_scope", Value: "workflow"},
+					model.Evidence{Key: "credential_confidence", Value: "high"},
+				)
+			}
+			if len(workflowAnalysis.Evidence) > 0 {
+				evidence = append(evidence, workflowAnalysis.Evidence...)
+			}
 		}
 		findings = append(findings, model.Finding{
 			FindingType: "ci_autonomy",

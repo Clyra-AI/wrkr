@@ -16,6 +16,11 @@ const TargetModeMulti = "multi"
 const TargetModePublicSurface = "public-surface"
 
 const (
+	RepoContentStatusAvailable = "available"
+	RepoContentStatusEmpty     = "empty"
+)
+
+const (
 	PublicSourceClassRepo            = "public_repo"
 	PublicSourceClassDocs            = "public_docs"
 	PublicSourceClassSDK             = "public_sdk"
@@ -51,6 +56,7 @@ type RepoManifest struct {
 	Location          string                 `json:"location"`
 	ScanRoot          string                 `json:"-" yaml:"-"`
 	Source            string                 `json:"source"`
+	ContentStatus     string                 `json:"content_status,omitempty"`
 	OwnershipMetadata *RepoOwnershipMetadata `json:"ownership_metadata,omitempty"`
 }
 

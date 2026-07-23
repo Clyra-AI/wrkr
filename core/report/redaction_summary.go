@@ -10,6 +10,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -481,6 +482,7 @@ func sanitizeGaitCoveragePublic(in *risk.GaitCoverage) *risk.GaitCoverage {
 	out.KillSwitch.EvidenceRefs = redactStringSlice(out.KillSwitch.EvidenceRefs, "evidence")
 	out.ActionOutcome.EvidenceRefs = redactStringSlice(out.ActionOutcome.EvidenceRefs, "evidence")
 	out.ProofVerification.EvidenceRefs = redactStringSlice(out.ProofVerification.EvidenceRefs, "evidence")
+	sanitizeContainmentCoverageRefs(out.Containment, func(values []string) []string { return redactStringSlice(values, "evidence") })
 	return out
 }
 
@@ -496,7 +498,48 @@ func sanitizeGaitCoverageWithConfig(in *risk.GaitCoverage, config RedactionConfi
 	out.KillSwitch.EvidenceRefs = maybeRedactEvidenceRefSlice(out.KillSwitch.EvidenceRefs, config)
 	out.ActionOutcome.EvidenceRefs = maybeRedactEvidenceRefSlice(out.ActionOutcome.EvidenceRefs, config)
 	out.ProofVerification.EvidenceRefs = maybeRedactEvidenceRefSlice(out.ProofVerification.EvidenceRefs, config)
+	sanitizeContainmentCoverageRefs(out.Containment, func(values []string) []string { return maybeRedactEvidenceRefSlice(values, config) })
 	return out
+}
+
+func sanitizeContainmentCoverageRefs(coverage *risk.ContainmentCoverage, sanitize func([]string) []string) {
+	if coverage == nil || sanitize == nil {
+		return
+	}
+	coverage.StopRequest.EvidenceRefs = sanitize(coverage.StopRequest.EvidenceRefs)
+	coverage.CoveredActionDenial.EvidenceRefs = sanitize(coverage.CoveredActionDenial.EvidenceRefs)
+	coverage.CapabilityInvalidation.EvidenceRefs = sanitize(coverage.CapabilityInvalidation.EvidenceRefs)
+	coverage.DescendantInvalidation.EvidenceRefs = sanitize(coverage.DescendantInvalidation.EvidenceRefs)
+	coverage.ExternalRevocationAttempt.EvidenceRefs = sanitize(coverage.ExternalRevocationAttempt.EvidenceRefs)
+	coverage.ExternalRevocationAcknowledgement.EvidenceRefs = sanitize(coverage.ExternalRevocationAcknowledgement.EvidenceRefs)
+	coverage.ContainmentReceipt.EvidenceRefs = sanitize(coverage.ContainmentReceipt.EvidenceRefs)
+	coverage.ScopeRefs = sanitize(coverage.ScopeRefs)
+	coverage.AcknowledgedBoundaryRefs = sanitize(coverage.AcknowledgedBoundaryRefs)
+	coverage.UnresolvedBoundaryRefs = sanitize(coverage.UnresolvedBoundaryRefs)
+	coverage.OutOfScopeBoundaryRefs = sanitize(coverage.OutOfScopeBoundaryRefs)
+}
+
+func sanitizeRuntimeContainmentRefsPublic(in *ingest.Summary) *ingest.Summary {
+	return sanitizeRuntimeContainmentRefs(in, func(values []string) []string { return redactStringSlice(values, "evidence") })
+}
+
+func sanitizeRuntimeContainmentRefsWithConfig(in *ingest.Summary, config RedactionConfig) *ingest.Summary {
+	return sanitizeRuntimeContainmentRefs(in, func(values []string) []string { return maybeRedactEvidenceRefSlice(values, config) })
+}
+
+func sanitizeRuntimeContainmentRefs(in *ingest.Summary, sanitize func([]string) []string) *ingest.Summary {
+	if in == nil || sanitize == nil {
+		return in
+	}
+	out := *in
+	out.Correlations = append([]ingest.Correlation(nil), in.Correlations...)
+	for idx := range out.Correlations {
+		out.Correlations[idx].ContainmentScopeRefs = sanitize(out.Correlations[idx].ContainmentScopeRefs)
+		out.Correlations[idx].AcknowledgedBoundaryRefs = sanitize(out.Correlations[idx].AcknowledgedBoundaryRefs)
+		out.Correlations[idx].UnresolvedBoundaryRefs = sanitize(out.Correlations[idx].UnresolvedBoundaryRefs)
+		out.Correlations[idx].OutOfScopeBoundaryRefs = sanitize(out.Correlations[idx].OutOfScopeBoundaryRefs)
+	}
+	return &out
 }
 
 func sanitizeContradictionsPublic(in []evidencepolicy.Contradiction) []evidencepolicy.Contradiction {

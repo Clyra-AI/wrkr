@@ -47,7 +47,7 @@ func TestRenderMarkdownIncludesWave1AutonomyAndGovernedPathFields(t *testing.T) 
 		"Delegation readiness:",
 		"autonomy=prod or customer impacting",
 		"readiness=blocked",
-		"recommended_control=block standing credential",
+		"recommendation=block standing credential",
 		"governed_view=",
 		"contract=",
 	} {

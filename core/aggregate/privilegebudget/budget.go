@@ -61,7 +61,11 @@ func Build(
 	budget.ProductionWrite.Count = &zero
 
 	for _, tool := range tools {
-		writeCapable := hasAnyPermission(tool.Permissions, writeSet) || mutableEndpointWriteCapable(tool.MutableEndpointSemantics)
+		writeCapable := agginventory.CanonicalWriteCapable(agginventory.ActionClassInput{
+			Permissions:              tool.Permissions,
+			MutableEndpointSemantics: tool.MutableEndpointSemantics,
+			WriteCapable:             hasAnyPermission(tool.Permissions, writeSet),
+		})
 		credentialAccess := hasCredentialAccess(tool)
 		execCapable := hasExecPermission(tool.Permissions)
 		if writeCapable {
@@ -99,7 +103,12 @@ func Build(
 			productionWrite := false
 			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation, signalsByRepo)
 			mutableEndpointSemantics := mergeMutableEndpointSemantics(tool.MutableEndpointSemantics, mutableEndpointSemanticsFromSignals(signal))
-			writeCapable = writeCapable || mutableEndpointWriteCapable(mutableEndpointSemantics)
+			writeCapable = agginventory.CanonicalWriteCapable(agginventory.ActionClassInput{
+				Permissions:              tool.Permissions,
+				MutableEndpointSemantics: mutableEndpointSemantics,
+				WriteCapable:             writeCapable,
+				PullRequestWrite:         pullRequestWrite,
+			})
 			writePathClasses := agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, primaryLocation(tool), tool.ToolType)
 			if productionConfigured && writeCapable {
 				matchedTargets = matchedProductionTargets(tool.Repos, signal, effectiveProductionRules)
@@ -289,8 +298,12 @@ func buildInstanceEntries(
 			continue
 		}
 		tool := lookupToolForAgent(agent, toolIndex)
+		scopedSignals := signalsByInstance[strings.TrimSpace(agent.ToolInstanceID)]
+		if isEmptyFindingSignals(scopedSignals) {
+			scopedSignals = signalsByInstance[instanceID]
+		}
 		signals := mergeFindingSignalSets(
-			signalsByInstance[instanceID],
+			scopedSignals,
 			matchingSignalsForAgent(agent, tool, signalsByRepoLocation, signalsByRepo),
 		)
 		permissions := cloneStringSlice(signals.Permissions)
@@ -298,11 +311,11 @@ func buildInstanceEntries(
 			permissions = cloneStringSlice(tool.Permissions)
 		}
 		repos := cloneStringSlice(signals.Repos)
-		if len(repos) == 0 {
-			repos = cloneStringSlice(tool.Repos)
-		}
 		if len(repos) == 0 && strings.TrimSpace(agent.Repo) != "" {
 			repos = []string{strings.TrimSpace(agent.Repo)}
+		}
+		if len(repos) == 0 {
+			repos = cloneStringSlice(tool.Repos)
 		}
 
 		framework := fallbackFramework(agent.Framework, tool.ToolType)
@@ -326,12 +339,20 @@ func buildInstanceEntries(
 		}
 
 		mutableEndpointSemantics := mergeMutableEndpointSemantics(tool.MutableEndpointSemantics, mutableEndpointSemanticsFromSignals(signals))
-		writeCapable := hasAnyPermission(permissions, writeSet) || mutableEndpointWriteCapable(mutableEndpointSemantics)
+		writeCapable := hasAnyPermission(permissions, writeSet)
 		credentialAccess := hasCredentialAccessForSurface(dataClass, permissions, agent.BoundAuthSurfaces)
 		execCapable := hasExecPermission(permissions)
 		pullRequestWrite := hasExactPermission(permissions, "pull_request.write")
 		mergeExecute := hasExactPermission(permissions, "merge.execute")
 		deployWrite := hasExactPermission(permissions, "deploy.write")
+		writeCapable = agginventory.CanonicalWriteCapable(agginventory.ActionClassInput{
+			Permissions:              permissions,
+			MutableEndpointSemantics: mutableEndpointSemantics,
+			WriteCapable:             writeCapable,
+			PullRequestWrite:         pullRequestWrite,
+			MergeExecute:             mergeExecute,
+			DeployWrite:              deployWrite,
+		})
 		writePathClasses := agginventory.DeriveWritePathClasses(permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, agent.Location, framework)
 		matchedTargets := []string{}
 		productionWrite := false
@@ -448,50 +469,32 @@ func buildInstanceEntries(
 func buildSignalsByInstance(findings []model.Finding) map[string]findingSignals {
 	out := map[string]findingSignals{}
 	for _, finding := range findings {
-		instanceID := agentInstanceIDForFinding(finding)
-		if instanceID == "" {
-			continue
-		}
-		entry := out[instanceID]
-		if entry.EvidenceKV == nil {
-			entry.EvidenceKV = map[string][]string{}
-		}
-		if repo := strings.TrimSpace(finding.Repo); repo != "" {
-			entry.Repos = append(entry.Repos, repo)
-			entry.Values = append(entry.Values, normalizeToken(repo))
-		}
-		if location := strings.TrimSpace(finding.Location); location != "" {
-			entry.Locations = append(entry.Locations, location)
-			entry.Values = append(entry.Values, normalizeToken(location))
-			entry.Values = append(entry.Values, extractHost(location)...)
-		}
-		entry.Permissions = append(entry.Permissions, finding.Permissions...)
-		for _, permission := range finding.Permissions {
-			if normalized := normalizeToken(permission); normalized != "" {
-				entry.Values = append(entry.Values, normalized)
+		for _, instanceID := range agentInstanceKeysForFinding(finding) {
+			if instanceID == "" {
+				continue
 			}
+			entry := out[instanceID]
+			if entry.EvidenceKV == nil {
+				entry.EvidenceKV = map[string][]string{}
+			}
+			mergeFindingSignal(&entry, finding)
+			out[instanceID] = entry
 		}
-		for _, evidence := range finding.Evidence {
-			key := normalizeToken(evidence.Key)
-			value := strings.TrimSpace(evidence.Value)
-			normalizedValue := normalizeToken(value)
-			if key != "" {
-				entry.Values = append(entry.Values, key)
-			}
-			if normalizedValue != "" {
-				entry.Values = append(entry.Values, normalizedValue)
-				entry.Values = append(entry.Values, extractHost(value)...)
-			}
-			if key != "" && normalizedValue != "" {
-				entry.EvidenceKV[key] = append(entry.EvidenceKV[key], normalizedValue)
-			}
-		}
-		out[instanceID] = entry
 	}
 	for key, entry := range out {
 		out[key] = normalizeFindingSignals(entry)
 	}
 	return out
+}
+
+func agentInstanceKeysForFinding(finding model.Finding) []string {
+	legacy := agentInstanceIDForFinding(finding)
+	symbol, startLine, endLine := agentIdentityPartsForFinding(finding)
+	scoped := identity.ToolInstanceID(finding.ToolType, finding.Repo, finding.Location, symbol, startLine, endLine)
+	if scoped == legacy {
+		return []string{scoped}
+	}
+	return []string{scoped, legacy}
 }
 
 func mergeFindingSignal(entry *findingSignals, finding model.Finding) {
@@ -627,10 +630,15 @@ func lookupToolForAgent(agent agginventory.Agent, index toolIndex) agginventory.
 }
 
 func agentInstanceIDForFinding(finding model.Finding) string {
+	symbol, startLine, endLine := agentIdentityPartsForFinding(finding)
+	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+}
+
+func agentIdentityPartsForFinding(finding model.Finding) (string, int, int) {
 	symbol := ""
 	for _, evidence := range finding.Evidence {
 		key := strings.ToLower(strings.TrimSpace(evidence.Key))
-		if key == "symbol" || key == "name" || key == "agent_name" {
+		if key == "symbol" || key == "name" || key == "agent_name" || key == "workflow_name" || key == "operation_id" {
 			symbol = strings.TrimSpace(evidence.Value)
 			break
 		}
@@ -641,7 +649,7 @@ func agentInstanceIDForFinding(finding model.Finding) string {
 		startLine = finding.LocationRange.StartLine
 		endLine = finding.LocationRange.EndLine
 	}
-	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+	return symbol, startLine, endLine
 }
 
 func inferAgentDataClass(agent agginventory.Agent, permissions []string) string {
@@ -856,8 +864,9 @@ func matchingSignalsForAgent(agent agginventory.Agent, tool agginventory.Tool, s
 	repos := []string{}
 	if strings.TrimSpace(agent.Repo) != "" {
 		repos = append(repos, strings.TrimSpace(agent.Repo))
+	} else {
+		repos = append(repos, tool.Repos...)
 	}
-	repos = append(repos, tool.Repos...)
 	repos = dedupeSortedPreserveCase(repos)
 
 	merged := findingSignals{}
@@ -884,40 +893,42 @@ func filteredRepoLocationSignals(signal findingSignals) findingSignals {
 		EvidenceKV: map[string][]string{},
 	}
 	allowedKeys := map[string]struct{}{
-		"workflow_secret_refs":        {},
-		"credential_keys":             {},
-		"credential_provenance_type":  {},
-		"credential_subject":          {},
-		"credential_scope":            {},
-		"credential_confidence":       {},
-		"workflow_builtin_token":      {},
-		"workflow_token_permission":   {},
-		"identity_type":               {},
-		"subject":                     {},
-		"workflow_triggers":           {},
-		"approval_source":             {},
-		"deployment_gate":             {},
-		"human_gate":                  {},
-		"mutable_endpoint_semantic":   {},
-		"auto_deploy":                 {},
-		"proof_requirement":           {},
-		"env_key":                     {},
-		"env_value":                   {},
-		"server":                      {},
-		"url":                         {},
-		"authority_binding":           {},
-		"workflow_environment":        {},
-		"target_class_hint":           {},
-		"credential_target_system":    {},
-		"credential_likely_scope":     {},
-		"credential_scope_confidence": {},
-		"delivery_harness":            {},
-		"resolver_ref":                {},
-		"eval_config_ref":             {},
-		"dry_run_required":            {},
-		"sandbox_gate":                {},
-		"test_gate":                   {},
-		"validation_requirement":      {},
+		"workflow_secret_refs":               {},
+		"workflow_noncredential_secret_refs": {},
+		"workflow_credential_kind":           {},
+		"credential_keys":                    {},
+		"credential_provenance_type":         {},
+		"credential_subject":                 {},
+		"credential_scope":                   {},
+		"credential_confidence":              {},
+		"workflow_builtin_token":             {},
+		"workflow_token_permission":          {},
+		"identity_type":                      {},
+		"subject":                            {},
+		"workflow_triggers":                  {},
+		"approval_source":                    {},
+		"deployment_gate":                    {},
+		"human_gate":                         {},
+		"mutable_endpoint_semantic":          {},
+		"auto_deploy":                        {},
+		"proof_requirement":                  {},
+		"env_key":                            {},
+		"env_value":                          {},
+		"server":                             {},
+		"url":                                {},
+		"authority_binding":                  {},
+		"workflow_environment":               {},
+		"target_class_hint":                  {},
+		"credential_target_system":           {},
+		"credential_likely_scope":            {},
+		"credential_scope_confidence":        {},
+		"delivery_harness":                   {},
+		"resolver_ref":                       {},
+		"eval_config_ref":                    {},
+		"dry_run_required":                   {},
+		"sandbox_gate":                       {},
+		"test_gate":                          {},
+		"validation_requirement":             {},
 	}
 	for key, values := range signal.EvidenceKV {
 		if _, ok := allowedKeys[key]; !ok {
@@ -965,20 +976,22 @@ func stripRepoWideAuthoritySignals(signal findingSignals) findingSignals {
 		return findingSignals{}
 	}
 	blockedKeys := map[string]struct{}{
-		"workflow_secret_refs":        {},
-		"credential_keys":             {},
-		"credential_provenance_type":  {},
-		"credential_subject":          {},
-		"credential_scope":            {},
-		"credential_confidence":       {},
-		"workflow_builtin_token":      {},
-		"workflow_token_permission":   {},
-		"identity_type":               {},
-		"subject":                     {},
-		"authority_binding":           {},
-		"credential_target_system":    {},
-		"credential_likely_scope":     {},
-		"credential_scope_confidence": {},
+		"workflow_secret_refs":               {},
+		"workflow_noncredential_secret_refs": {},
+		"workflow_credential_kind":           {},
+		"credential_keys":                    {},
+		"credential_provenance_type":         {},
+		"credential_subject":                 {},
+		"credential_scope":                   {},
+		"credential_confidence":              {},
+		"workflow_builtin_token":             {},
+		"workflow_token_permission":          {},
+		"identity_type":                      {},
+		"subject":                            {},
+		"authority_binding":                  {},
+		"credential_target_system":           {},
+		"credential_likely_scope":            {},
+		"credential_scope_confidence":        {},
 	}
 	out := findingSignals{
 		Repos:      append([]string(nil), signal.Repos...),
@@ -1230,10 +1243,11 @@ func classifyCredentialAuthority(
 ) *agginventory.CredentialAuthority {
 	provenance = agginventory.CredentialRollup(credentials, provenance)
 	normalizedProvenance := agginventory.NormalizeCredentialProvenance(provenance)
-	referencedByWorkflow := len(signals.EvidenceKV["workflow_secret_refs"]) > 0 ||
+	workflowCredentialRefs := workflowCredentialSubjects(signals)
+	referencedByWorkflow := len(workflowCredentialRefs) > 0 ||
 		hasAnySignalValue(signals, "workflow_builtin_token", "github_token") ||
 		firstSignalValue(signals, "credential_scope") == agginventory.CredentialScopeWorkflow ||
-		strings.EqualFold(inferredCredentialScope(signals, authSurfaces), agginventory.CredentialScopeWorkflow)
+		(normalizedProvenance != nil && normalizedProvenance.Scope == agginventory.CredentialScopeWorkflow)
 	present := normalizedProvenance != nil ||
 		referencedByWorkflow ||
 		hasAnySignalValue(signals, "identity_type", "github_app", "service_account", "bot_user") ||
@@ -1254,7 +1268,7 @@ func classifyCredentialAuthority(
 	switch {
 	case hasAnySignalValue(signals, "workflow_builtin_token", "github_token"):
 		source = agginventory.CredentialSourceWorkflowBuiltin
-	case len(signals.EvidenceKV["workflow_secret_refs"]) > 0:
+	case len(workflowCredentialRefs) > 0:
 		source = agginventory.CredentialSourceWorkflowSecretRef
 	case hasAnySignalValue(signals, "identity_type", "github_app", "service_account", "bot_user"):
 		source = agginventory.CredentialSourceNonHumanIdentity
@@ -1337,7 +1351,7 @@ func classifyCredentialProvenances(dataClass string, permissions []string, authS
 			candidates = append(candidates, candidate)
 		}
 	}
-	for _, subject := range credentialSignalSubjects(signals.EvidenceKV["workflow_secret_refs"]) {
+	for _, subject := range workflowCredentialSubjects(signals) {
 		if candidate := credentialCandidateForSubject(subject, agginventory.CredentialScopeWorkflow, []string{"workflow_secret_refs", "repo_workflow_secret_correlation"}, authSurfaces, permissions, evidenceLocation, signals); candidate != nil {
 			candidates = append(candidates, candidate)
 		}
@@ -1347,6 +1361,9 @@ func classifyCredentialProvenances(dataClass string, permissions []string, authS
 	}
 	if direct := directCredentialProvenance(signals); direct != nil {
 		return agginventory.NormalizeCredentialProvenances([]*agginventory.CredentialProvenance{direct})
+	}
+	if hasOnlyNoncredentialWorkflowSecretRefs(signals) && !hasIndependentCredentialFallbackSignal(permissions, authSurfaces, signals) {
+		return nil
 	}
 	if !hasCredentialAccessForSurface(dataClass, permissions, authSurfaces) {
 		return nil
@@ -1363,6 +1380,15 @@ func credentialCandidateForSubject(subject string, scope string, evidenceBasis [
 		return nil
 	}
 	kind, accessType, reasons := classifyCredentialKind(subject, authSurfaces, permissions, signals)
+	if typedKind, ok := typedCredentialKind(signals, subject); ok {
+		kind = typedKind
+		accessType = credentialAccessTypeForKind(kind)
+		reasons = mergeSortedEvidence(
+			credentialClassificationContextReasons(reasons),
+			[]string{"detector:workflow_credential_kind", typedCredentialKindReason(kind)},
+		)
+		evidenceBasis = append(evidenceBasis, "workflow_credential_kind")
+	}
 	return decorateCredentialProvenance(&agginventory.CredentialProvenance{
 		Type:                  credentialProvenanceTypeFor(kind, accessType),
 		Subject:               subject,
@@ -1374,6 +1400,47 @@ func credentialCandidateForSubject(subject string, scope string, evidenceBasis [
 		EvidenceLocation:      evidenceLocation,
 		ClassificationReasons: reasons,
 	}, authSurfaces, signals)
+}
+
+func credentialClassificationContextReasons(reasons []string) []string {
+	out := make([]string, 0, len(reasons))
+	for _, reason := range reasons {
+		normalized := strings.TrimSpace(reason)
+		if normalized == "" || strings.HasPrefix(normalized, "subject:") || strings.HasPrefix(normalized, "fallback:") {
+			continue
+		}
+		out = append(out, normalized)
+	}
+	return dedupeSorted(out)
+}
+
+func typedCredentialKindReason(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case agginventory.CredentialKindGitHubWorkflowToken:
+		return "subject:github_workflow_token"
+	case agginventory.CredentialKindGitHubAppKey:
+		return "subject:github_app_private_key"
+	case agginventory.CredentialKindGitHubPAT:
+		return "subject:github_pat"
+	case agginventory.CredentialKindDeployKey:
+		return "subject:deploy_key"
+	case agginventory.CredentialKindCloudAdminKey:
+		return "subject:cloud_admin_key"
+	case agginventory.CredentialKindCloudAccessKey:
+		return "subject:cloud_access_key"
+	case agginventory.CredentialKindOIDCWorkloadID:
+		return "subject:oidc_workload_identity"
+	case agginventory.CredentialKindDelegatedOAuth:
+		return "subject:oauth"
+	case agginventory.CredentialKindInheritedHuman:
+		return "subject:inherited_human"
+	case agginventory.CredentialKindStaticSecret:
+		return "subject:static_secret"
+	case agginventory.CredentialKindUnknownDurable:
+		return "fallback:unknown_durable"
+	default:
+		return "subject:" + firstNonEmptyString(strings.TrimSpace(kind), "unknown")
+	}
 }
 
 func credentialSignalSubjects(values []string) []string {
@@ -1389,6 +1456,47 @@ func credentialSignalSubjects(values []string) []string {
 		}
 	}
 	return dedupeSorted(out)
+}
+
+func workflowCredentialSubjects(signals findingSignals) []string {
+	subjects := credentialSignalSubjects(signals.EvidenceKV["workflow_secret_refs"])
+	excluded := credentialSignalSubjects(signals.EvidenceKV["workflow_noncredential_secret_refs"])
+	if len(subjects) == 0 || len(excluded) == 0 {
+		return subjects
+	}
+	excludedSet := make(map[string]struct{}, len(excluded))
+	for _, subject := range excluded {
+		excludedSet[subject] = struct{}{}
+	}
+	out := make([]string, 0, len(subjects))
+	for _, subject := range subjects {
+		if _, skip := excludedSet[subject]; !skip {
+			out = append(out, subject)
+		}
+	}
+	return out
+}
+
+func hasOnlyNoncredentialWorkflowSecretRefs(signals findingSignals) bool {
+	return len(credentialSignalSubjects(signals.EvidenceKV["workflow_secret_refs"])) > 0 &&
+		len(workflowCredentialSubjects(signals)) == 0
+}
+
+func hasIndependentCredentialFallbackSignal(permissions, authSurfaces []string, signals findingSignals) bool {
+	if hasAnySignalValue(signals, "identity_type", "service_account", "github_app", "bot_user") {
+		return true
+	}
+	for _, permission := range permissions {
+		normalized := normalizeToken(permission)
+		if normalized == "id-token.write" ||
+			strings.Contains(normalized, "oauth") ||
+			strings.Contains(normalized, "oidc") ||
+			strings.Contains(normalized, "token") ||
+			strings.Contains(normalized, "credential") {
+			return true
+		}
+	}
+	return hasCredentialAccessForSurface("", nil, authSurfaces)
 }
 
 func workflowBuiltInTokenProvenance(permissions []string, signals findingSignals) *agginventory.CredentialProvenance {
@@ -1618,7 +1726,7 @@ func classifyCredentialKind(subject string, authSurfaces []string, permissions [
 	candidates := append([]string(nil), authSurfaces...)
 	candidates = append(candidates, signals.EvidenceKV["credential_subject"]...)
 	if subjectText == "" {
-		candidates = append(candidates, signals.EvidenceKV["workflow_secret_refs"]...)
+		candidates = append(candidates, workflowCredentialSubjects(signals)...)
 		candidates = append(candidates, signals.EvidenceKV["credential_keys"]...)
 	}
 	aggregateText := normalizeToken(strings.Join(candidates, ","))
@@ -1640,6 +1748,7 @@ func classifyCredentialKindFromText(text string, subject string, signals finding
 	if text == "" {
 		return "", "", nil, false
 	}
+	tokens := credentialIdentifierTokens(text)
 	reasons := []string{}
 	addReason := func(value string) {
 		if strings.TrimSpace(value) != "" {
@@ -1652,10 +1761,10 @@ func classifyCredentialKindFromText(text string, subject string, signals finding
 		reasons = append(reasons, "subject:github_workflow_token")
 		reasons = append(reasons, prefixedEvidence("workflow_token_permission", signals.EvidenceKV["workflow_token_permission"])...)
 		return agginventory.CredentialKindGitHubWorkflowToken, agginventory.CredentialAccessTypeJIT, reasons, true
-	case (strings.Contains(text, "github_app") || strings.Contains(text, "gh_app")) && (strings.Contains(text, "private_key") || strings.Contains(text, "app_key")):
+	case containsAnyIdentifierToken(tokens, "github", "gh") && containsIdentifierToken(tokens, "app") && containsIdentifierToken(tokens, "key"):
 		addReason("subject:github_app_private_key")
 		return agginventory.CredentialKindGitHubAppKey, agginventory.CredentialAccessTypeStanding, reasons, true
-	case strings.Contains(text, "deploy_key") || strings.Contains(text, "ssh_key"):
+	case containsAnyIdentifierToken(tokens, "deploy", "ssh") && containsIdentifierToken(tokens, "key"):
 		addReason("subject:deploy_key")
 		return agginventory.CredentialKindDeployKey, agginventory.CredentialAccessTypeStanding, reasons, true
 	case hasCloudAdminSignal(text):
@@ -1664,20 +1773,20 @@ func classifyCredentialKindFromText(text string, subject string, signals finding
 	case hasCloudAccessSignal(text):
 		addReason("subject:cloud_access_key")
 		return agginventory.CredentialKindCloudAccessKey, agginventory.CredentialAccessTypeStanding, reasons, true
-	case strings.Contains(text, "pat") || strings.Contains(text, "personal_access_token") || strings.Contains(text, "github_token"):
+	case containsIdentifierToken(tokens, "pat") || containsIdentifierSequence(tokens, "personal", "access", "token"):
 		addReason("subject:github_pat")
 		return agginventory.CredentialKindGitHubPAT, agginventory.CredentialAccessTypeStanding, reasons, true
-	case strings.Contains(text, "oauth"):
+	case containsIdentifierToken(tokens, "oauth") || containsIdentifierToken(tokens, "oauth2"):
 		addReason("subject:oauth")
 		return agginventory.CredentialKindDelegatedOAuth, agginventory.CredentialAccessTypeDelegated, reasons, true
-	case strings.Contains(text, "oidc") || strings.Contains(text, "workload_identity") || strings.Contains(text, "assume_role") || strings.Contains(text, "sts"):
+	case containsIdentifierToken(tokens, "oidc") || containsIdentifierSequence(tokens, "workload", "identity") || containsIdentifierSequence(tokens, "assume", "role") || containsIdentifierToken(tokens, "sts"):
 		addReason("subject:oidc_workload_identity")
 		if boolSignalState(signals.EvidenceKV["human_gate"]) == "true" || strings.Contains(stringSignalState(signals.EvidenceKV["approval_source"], ""), "manual") {
 			addReason("gate:jit_evidence")
 			return agginventory.CredentialKindJITCredential, agginventory.CredentialAccessTypeJIT, reasons, true
 		}
 		return agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialAccessTypeWorkload, reasons, true
-	case strings.Contains(text, "github_actor") || strings.Contains(text, "user_token") || strings.Contains(text, "bot_user"):
+	case containsIdentifierSequence(tokens, "github", "actor") || containsIdentifierSequence(tokens, "user", "token") || containsIdentifierSequence(tokens, "bot", "user"):
 		addReason("subject:inherited_human")
 		return agginventory.CredentialKindInheritedHuman, agginventory.CredentialAccessTypeInherited, reasons, true
 	default:
@@ -1698,13 +1807,104 @@ func classifyCredentialKindFromPermissions(permissions []string, signals finding
 }
 
 func hasCloudAdminSignal(value string) bool {
-	return (strings.Contains(value, "aws") || strings.Contains(value, "gcp") || strings.Contains(value, "azure") || strings.Contains(value, "cloud")) &&
-		(strings.Contains(value, "admin") || strings.Contains(value, "root") || strings.Contains(value, "owner"))
+	tokens := credentialIdentifierTokens(value)
+	return containsAnyIdentifierToken(tokens, "aws", "gcp", "azure", "cloud") &&
+		containsAnyIdentifierToken(tokens, "admin", "root", "owner")
 }
 
 func hasCloudAccessSignal(value string) bool {
-	return (strings.Contains(value, "aws") || strings.Contains(value, "gcp") || strings.Contains(value, "azure") || strings.Contains(value, "cloud")) &&
-		(strings.Contains(value, "access_key") || strings.Contains(value, "secret_key") || strings.Contains(value, "service_account") || strings.Contains(value, "credentials"))
+	tokens := credentialIdentifierTokens(value)
+	return containsAnyIdentifierToken(tokens, "aws", "gcp", "azure", "cloud") &&
+		(containsIdentifierSequence(tokens, "access", "key") ||
+			containsIdentifierSequence(tokens, "secret", "key") ||
+			containsIdentifierSequence(tokens, "service", "account") ||
+			containsAnyIdentifierToken(tokens, "credential", "credentials"))
+}
+
+func typedCredentialKind(signals findingSignals, subject string) (string, bool) {
+	subject = normalizeToken(subject)
+	for _, raw := range signals.EvidenceKV["workflow_credential_kind"] {
+		parts := strings.SplitN(strings.TrimSpace(raw), "|", 2)
+		if len(parts) != 2 || normalizeToken(parts[0]) != subject {
+			continue
+		}
+		kind := normalizeToken(parts[1])
+		switch kind {
+		case agginventory.CredentialKindGitHubPAT,
+			agginventory.CredentialKindGitHubWorkflowToken,
+			agginventory.CredentialKindGitHubAppKey,
+			agginventory.CredentialKindDeployKey,
+			agginventory.CredentialKindCloudAdminKey,
+			agginventory.CredentialKindCloudAccessKey,
+			agginventory.CredentialKindOIDCWorkloadID,
+			agginventory.CredentialKindDelegatedOAuth,
+			agginventory.CredentialKindJITCredential,
+			agginventory.CredentialKindInheritedHuman,
+			agginventory.CredentialKindStaticSecret,
+			agginventory.CredentialKindUnknownDurable,
+			agginventory.CredentialKindUnknown:
+			return kind, true
+		}
+	}
+	return "", false
+}
+
+func credentialAccessTypeForKind(kind string) string {
+	switch strings.TrimSpace(kind) {
+	case agginventory.CredentialKindGitHubWorkflowToken, agginventory.CredentialKindJITCredential:
+		return agginventory.CredentialAccessTypeJIT
+	case agginventory.CredentialKindOIDCWorkloadID:
+		return agginventory.CredentialAccessTypeWorkload
+	case agginventory.CredentialKindDelegatedOAuth:
+		return agginventory.CredentialAccessTypeDelegated
+	case agginventory.CredentialKindInheritedHuman:
+		return agginventory.CredentialAccessTypeInherited
+	default:
+		return agginventory.CredentialAccessTypeStanding
+	}
+}
+
+func credentialIdentifierTokens(value string) []string {
+	return strings.FieldsFunc(strings.ToLower(strings.TrimSpace(value)), func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+	})
+}
+
+func containsAnyIdentifierToken(tokens []string, candidates ...string) bool {
+	for _, candidate := range candidates {
+		if containsIdentifierToken(tokens, candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsIdentifierToken(tokens []string, candidate string) bool {
+	for _, token := range tokens {
+		if token == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func containsIdentifierSequence(tokens []string, sequence ...string) bool {
+	if len(sequence) == 0 || len(tokens) < len(sequence) {
+		return false
+	}
+	for start := 0; start <= len(tokens)-len(sequence); start++ {
+		matched := true
+		for offset := range sequence {
+			if tokens[start+offset] != sequence[offset] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
 
 func inferredCredentialScope(signals findingSignals, authSurfaces []string) string {

@@ -1,5 +1,5 @@
 {
-  "bom_id": "bom-c17374c7c270",
+  "bom_id": "bom-8480e32e13b8",
   "items": [
     {
       "action_path_type": "agent_instruction_surface",
@@ -452,7 +452,7 @@
           ]
         },
         {
-          "closure_recommendation": "remediate standing production deploy paths first",
+          "closure_recommendation": "resolve credential authority, then remediate the highest-impact paths first",
           "count": 2,
           "dimensions": {
             "action_class": "deploy",
@@ -798,7 +798,7 @@
           ]
         },
         {
-          "closure_recommendation": "remediate standing production deploy paths first",
+          "closure_recommendation": "resolve credential authority, then remediate the highest-impact paths first",
           "count": 1,
           "dimensions": {
             "action_class": "write",

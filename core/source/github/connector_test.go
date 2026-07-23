@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 )
 
@@ -608,6 +609,37 @@ func TestMaterializeRepoFailsClosedOnTruncatedTree(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "truncated") {
 		t.Fatalf("expected truncated error, got %v", err)
+	}
+}
+
+func TestMaterializeRepoTreatsEmptyRepositoryAsSuccessfulNoContent(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/empty":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/empty","default_branch":"main"}`)
+		case "/repos/acme/empty/git/trees/main":
+			w.WriteHeader(http.StatusConflict)
+			_, _ = fmt.Fprint(w, `{"message":"Git Repository is empty."}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
+	manifest, err := connector.MaterializeRepo(context.Background(), "acme/empty", tmp)
+	if err != nil {
+		t.Fatalf("empty repository must be a successful no-content result: %v", err)
+	}
+	if manifest.ContentStatus != source.RepoContentStatusEmpty {
+		t.Fatalf("expected content_status=empty, got %+v", manifest)
+	}
+	info, err := os.Stat(filepath.Join(tmp, "acme", "empty"))
+	if err != nil || !info.IsDir() {
+		t.Fatalf("expected deterministic empty scan root, info=%+v err=%v", info, err)
 	}
 }
 

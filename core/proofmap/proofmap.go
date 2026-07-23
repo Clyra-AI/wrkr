@@ -1209,6 +1209,9 @@ func decisionTraceGaitCoverageSummary(coverage *risk.GaitCoverage) map[string]st
 		"action_outcome":     strings.TrimSpace(coverage.ActionOutcome.Status),
 		"proof_verification": strings.TrimSpace(coverage.ProofVerification.Status),
 	}
+	if coverage.Containment != nil {
+		out["containment"] = strings.TrimSpace(coverage.Containment.Status)
+	}
 	for key, value := range out {
 		if value == "" {
 			delete(out, key)
@@ -1412,6 +1415,20 @@ func decisionTraceEvidenceRefs(path risk.ActionPath) []string {
 	if path.IntroducedBy != nil {
 		values = append(values, attribution.EvidenceRefs(path.IntroducedBy)...)
 	}
+	if path.GaitCoverage != nil && path.GaitCoverage.Containment != nil {
+		containment := path.GaitCoverage.Containment
+		values = append(values, containment.StopRequest.EvidenceRefs...)
+		values = append(values, containment.CoveredActionDenial.EvidenceRefs...)
+		values = append(values, containment.CapabilityInvalidation.EvidenceRefs...)
+		values = append(values, containment.DescendantInvalidation.EvidenceRefs...)
+		values = append(values, containment.ExternalRevocationAttempt.EvidenceRefs...)
+		values = append(values, containment.ExternalRevocationAcknowledgement.EvidenceRefs...)
+		values = append(values, containment.ContainmentReceipt.EvidenceRefs...)
+		values = append(values, containment.ScopeRefs...)
+		values = append(values, containment.AcknowledgedBoundaryRefs...)
+		values = append(values, containment.UnresolvedBoundaryRefs...)
+		values = append(values, containment.OutOfScopeBoundaryRefs...)
+	}
 	return uniqueSortedStrings(values)
 }
 
@@ -1419,6 +1436,9 @@ func decisionTraceProofRefs(path risk.ActionPath) []string {
 	values := append([]string(nil), path.PolicyEvidenceRefs...)
 	if path.GaitCoverage != nil {
 		values = append(values, path.GaitCoverage.ProofVerification.EvidenceRefs...)
+		if path.GaitCoverage.Containment != nil {
+			values = append(values, path.GaitCoverage.Containment.ContainmentReceipt.EvidenceRefs...)
+		}
 	}
 	return uniqueSortedStrings(values)
 }

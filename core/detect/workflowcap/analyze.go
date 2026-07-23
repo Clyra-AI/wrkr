@@ -31,8 +31,8 @@ type Result struct {
 }
 
 var (
-	workflowSecretRefRE   = regexp.MustCompile(`\${{\s*secrets\.([A-Za-z0-9_]+)\s*}}`)
-	workflowGitHubTokenRE = regexp.MustCompile(`\${{\s*github\.token\s*}}`)
+	workflowSecretRefRE   = regexp.MustCompile(`\${{[^}\n]*\bsecrets\.([A-Za-z0-9_]+)\b[^}\n]*}}`)
+	workflowGitHubTokenRE = regexp.MustCompile(`\${{\s*(?:github\.token|secrets\.GITHUB_TOKEN)\s*}}`)
 )
 
 type workflowDocument struct {
@@ -53,6 +53,7 @@ type workflowStep struct {
 	Name string            `yaml:"name"`
 	Uses string            `yaml:"uses"`
 	Run  string            `yaml:"run"`
+	If   string            `yaml:"if"`
 	Env  map[string]string `yaml:"env"`
 	With map[string]any    `yaml:"with"`
 }
@@ -224,6 +225,9 @@ func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseErr
 		if perms.allows("pull-requests") {
 			addCapabilityReason(capabilityReasons, "pull_request.write", "permissions.pull-requests=write")
 		}
+		if perms.allows("id-token") {
+			addCapabilityReason(capabilityReasons, "id-token.write", "permissions.id-token=write")
+		}
 
 		jobApprovalSource := ""
 		jobDeploymentGate := ""
@@ -394,9 +398,7 @@ func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseErr
 	if targetClassHint := workflowTargetClassHint(result); targetClassHint != "" {
 		evidence = append(evidence, model.Evidence{Key: "target_class_hint", Value: targetClassHint})
 	}
-	for _, ref := range sortedSet(secretRefs) {
-		evidence = append(evidence, model.Evidence{Key: "workflow_secret_refs", Value: ref})
-	}
+	evidence = appendWorkflowSecretEvidence(evidence, secretRefs)
 	if len(authSurfaces) > 0 {
 		evidence = append(evidence, model.Evidence{Key: "auth_surfaces", Value: strings.Join(sortedSet(authSurfaces), ",")})
 	}
@@ -510,6 +512,7 @@ func normalizedStepValues(step workflowStep, jobEnv map[string]string) []string 
 		strings.ToLower(strings.TrimSpace(step.Name)),
 		strings.ToLower(strings.TrimSpace(step.Uses)),
 		strings.ToLower(strings.TrimSpace(step.Run)),
+		strings.ToLower(strings.TrimSpace(step.If)),
 	}
 	for _, env := range []map[string]string{jobEnv, step.Env} {
 		for key, value := range env {
@@ -556,6 +559,12 @@ func workflowCredentialRefs(step workflowStep, jobEnv map[string]string) ([]stri
 			builtinToken = true
 		}
 	}
+	for _, value := range []string{step.Run, step.If} {
+		collectWorkflowCredentialRef(refs, "", value)
+		if workflowUsesGitHubToken("", value) {
+			builtinToken = true
+		}
+	}
 	out := make([]string, 0, len(refs))
 	for ref := range refs {
 		out = append(out, ref)
@@ -570,9 +579,6 @@ func collectWorkflowCredentialRef(target map[string]struct{}, key, value string)
 			target[strings.TrimSpace(match[1])] = struct{}{}
 		}
 	}
-	if sensitiveCredentialName(key) && strings.TrimSpace(value) != "" && !workflowUsesGitHubToken(key, value) {
-		target[strings.TrimSpace(key)] = struct{}{}
-	}
 }
 
 func workflowUsesGitHubToken(key, value string) bool {
@@ -582,15 +588,114 @@ func workflowUsesGitHubToken(key, value string) bool {
 }
 
 func sensitiveCredentialName(key string) bool {
-	key = strings.ToUpper(strings.TrimSpace(key))
-	if key == "" {
+	tokens := credentialNameTokens(key)
+	if len(tokens) == 0 {
 		return false
 	}
-	return strings.Contains(key, "TOKEN") ||
-		strings.Contains(key, "SECRET") ||
-		strings.Contains(key, "PAT") ||
-		strings.Contains(key, "KEY") ||
-		strings.Contains(key, "CREDENTIAL")
+	if containsCredentialSequence(tokens, "persist", "credentials") {
+		return false
+	}
+	for _, token := range tokens {
+		switch token {
+		case "token", "secret", "secrets", "credential", "credentials", "password", "passwd", "pat", "webhook":
+			return true
+		}
+	}
+	if !containsCredentialToken(tokens, "key") {
+		return false
+	}
+	for _, token := range tokens {
+		switch token {
+		case "api", "access", "admin", "app", "cloud", "deploy", "private", "secret", "signing", "ssh":
+			return true
+		}
+	}
+	return false
+}
+
+func credentialKindForReference(ref string) string {
+	tokens := credentialNameTokens(ref)
+	switch {
+	case len(tokens) == 2 && containsCredentialSequence(tokens, "github", "token"):
+		return "github_workflow_token"
+	case containsCredentialToken(tokens, "github") && containsCredentialToken(tokens, "app") && containsCredentialToken(tokens, "key"):
+		return "github_app_key"
+	case (containsCredentialToken(tokens, "deploy") || containsCredentialToken(tokens, "ssh")) && containsCredentialToken(tokens, "key"):
+		return "deploy_key"
+	case containsAnyCredentialToken(tokens, "aws", "azure", "gcp", "cloud") && containsAnyCredentialToken(tokens, "admin", "owner", "root"):
+		return "cloud_admin_key"
+	case containsAnyCredentialToken(tokens, "aws", "azure", "gcp", "cloud") && containsAnyCredentialToken(tokens, "access", "credential", "credentials", "service"):
+		return "cloud_access_key"
+	case containsCredentialToken(tokens, "pat") || containsCredentialSequence(tokens, "personal", "access", "token"):
+		return "github_pat"
+	case containsCredentialToken(tokens, "oauth"):
+		return "delegated_oauth"
+	case containsCredentialToken(tokens, "oidc") || containsCredentialSequence(tokens, "workload", "identity"):
+		return "oidc_workload_identity"
+	case sensitiveCredentialName(ref):
+		return "static_secret"
+	default:
+		return ""
+	}
+}
+
+func appendWorkflowSecretEvidence(evidence []model.Evidence, secretRefs map[string]struct{}) []model.Evidence {
+	for _, ref := range sortedSet(secretRefs) {
+		evidence = append(evidence, model.Evidence{Key: "workflow_secret_refs", Value: ref})
+		if kind := credentialKindForReference(ref); kind != "" {
+			evidence = append(evidence, model.Evidence{Key: "workflow_credential_kind", Value: ref + "|" + kind})
+			continue
+		}
+		evidence = append(evidence, model.Evidence{Key: "workflow_noncredential_secret_refs", Value: ref})
+	}
+	return evidence
+}
+
+func credentialNameTokens(value string) []string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return nil
+	}
+	return strings.FieldsFunc(value, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+	})
+}
+
+func containsAnyCredentialToken(tokens []string, candidates ...string) bool {
+	for _, candidate := range candidates {
+		if containsCredentialToken(tokens, candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsCredentialToken(tokens []string, candidate string) bool {
+	for _, token := range tokens {
+		if token == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func containsCredentialSequence(tokens []string, sequence ...string) bool {
+	if len(sequence) == 0 || len(tokens) < len(sequence) {
+		return false
+	}
+	for start := 0; start <= len(tokens)-len(sequence); start++ {
+		matched := true
+		for offset := range sequence {
+			if tokens[start+offset] != sequence[offset] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
 }
 
 func workflowAuthSurfaces(step workflowStep, jobEnv map[string]string) []string {

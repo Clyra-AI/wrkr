@@ -50,6 +50,9 @@ func TestBuyerActionRegistryHardeningAcceptance(t *testing.T) {
 		"Wrkr Design Partner Summary",
 		"## Top Validated Findings",
 		"Boundary: static posture from saved scan state only; no live runtime observation, endpoint probing, or control-layer enforcement",
+		"Evidence class: confirmed path",
+		"Inferred relationship:",
+		"Unresolved context:",
 	} {
 		if !strings.Contains(markdown, want) {
 			t.Fatalf("expected markdown to contain %q, got %q", want, markdown)

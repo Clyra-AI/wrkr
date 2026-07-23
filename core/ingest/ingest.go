@@ -22,27 +22,38 @@ const (
 	RecordKindRuntime         = "runtime"
 	RecordKindExternalControl = "external_control"
 
-	EvidenceClassPolicyDecision       = "policy_decision"
-	EvidenceClassApproval             = "approval"
-	EvidenceClassJITCredential        = "jit_credential" // #nosec G101 -- Deterministic runtime evidence label, not credential material.
-	EvidenceClassFreezeWindow         = "freeze_window"
-	EvidenceClassKillSwitch           = "kill_switch"
-	EvidenceClassActionOutcome        = "action_outcome"
-	EvidenceClassProofVerify          = "proof_verification"
-	EvidenceClassOwnerAssignment      = "owner_assignment"
-	EvidenceClassPolicyRecord         = "policy_record"
-	EvidenceClassBranchProtection     = "branch_protection"
-	EvidenceClassProtectedEnvironment = "protected_environment"
-	EvidenceClassDeploymentApproval   = "deployment_approval"
-	EvidenceClassRequiredCheck        = "required_check"
-	EvidenceClassSecurityGate         = "security_gate"
-	EvidenceClassWorkflowPermission   = "workflow_permission"
-	EvidenceClassMergeMetadata        = "merge_metadata"
-	EvidenceClassOther                = "other"
-	CorrelationStatusMatched          = "matched"
-	CorrelationStatusUnmatched        = "unmatched"
-	CorrelationStatusStale            = "stale"
-	CorrelationStatusConflict         = "conflict"
+	EvidenceClassPolicyDecision                    = "policy_decision"
+	EvidenceClassApproval                          = "approval"
+	EvidenceClassJITCredential                     = "jit_credential" // #nosec G101 -- Deterministic runtime evidence label, not credential material.
+	EvidenceClassFreezeWindow                      = "freeze_window"
+	EvidenceClassKillSwitch                        = "kill_switch"
+	EvidenceClassStopRequest                       = "stop_request"
+	EvidenceClassCoveredActionDenial               = "covered_action_denial"
+	EvidenceClassCapabilityInvalidation            = "capability_invalidation"
+	EvidenceClassDescendantInvalidation            = "descendant_invalidation"
+	EvidenceClassExternalRevocationAttempt         = "external_revocation_attempt"
+	EvidenceClassExternalRevocationAcknowledgement = "external_revocation_acknowledgement"
+	EvidenceClassContainmentReceipt                = "containment_receipt"
+	EvidenceClassActionOutcome                     = "action_outcome"
+	EvidenceClassProofVerify                       = "proof_verification"
+	EvidenceClassOwnerAssignment                   = "owner_assignment"
+	EvidenceClassPolicyRecord                      = "policy_record"
+	EvidenceClassBranchProtection                  = "branch_protection"
+	EvidenceClassProtectedEnvironment              = "protected_environment"
+	EvidenceClassDeploymentApproval                = "deployment_approval"
+	EvidenceClassRequiredCheck                     = "required_check"
+	EvidenceClassSecurityGate                      = "security_gate"
+	EvidenceClassWorkflowPermission                = "workflow_permission"
+	EvidenceClassMergeMetadata                     = "merge_metadata"
+	EvidenceClassOther                             = "other"
+	CorrelationStatusMatched                       = "matched"
+	CorrelationStatusUnmatched                     = "unmatched"
+	CorrelationStatusStale                         = "stale"
+	CorrelationStatusConflict                      = "conflict"
+	ContainmentStatusContained                     = "contained"
+	ContainmentStatusPartial                       = "partially_contained"
+	ContainmentStatusUnresolved                    = "unresolved"
+	ContainmentStatusOutOfScope                    = "out_of_scope"
 )
 
 type Bundle struct {
@@ -94,37 +105,47 @@ type Record struct {
 	Producer                  string   `json:"producer,omitempty"`
 	EvidenceState             string   `json:"evidence_state,omitempty"`
 	ReasonCodes               []string `json:"reason_codes,omitempty"`
+	ContainmentStatus         string   `json:"containment_status,omitempty"`
+	ContainmentScopeRefs      []string `json:"containment_scope_refs,omitempty"`
+	AcknowledgedBoundaryRefs  []string `json:"acknowledged_boundary_refs,omitempty"`
+	UnresolvedBoundaryRefs    []string `json:"unresolved_boundary_refs,omitempty"`
+	OutOfScopeBoundaryRefs    []string `json:"out_of_scope_boundary_refs,omitempty"`
 }
 
 type Correlation struct {
-	PathID           string   `json:"path_id"`
-	AgentID          string   `json:"agent_id,omitempty"`
-	RecordKinds      []string `json:"record_kinds,omitempty"`
-	SourceTypes      []string `json:"source_types,omitempty"`
-	Tool             string   `json:"tool,omitempty"`
-	Repo             string   `json:"repo,omitempty"`
-	Service          string   `json:"service,omitempty"`
-	Workflow         string   `json:"workflow,omitempty"`
-	Environment      string   `json:"environment,omitempty"`
-	Path             string   `json:"path,omitempty"`
-	Location         string   `json:"location,omitempty"`
-	Target           string   `json:"target,omitempty"`
-	Status           string   `json:"status"`
-	EvidenceClasses  []string `json:"evidence_classes,omitempty"`
-	ActionClasses    []string `json:"action_classes,omitempty"`
-	Sources          []string `json:"sources,omitempty"`
-	PolicyRefs       []string `json:"policy_refs,omitempty"`
-	ProofRefs        []string `json:"proof_refs,omitempty"`
-	GraphNodeRefs    []string `json:"graph_node_refs,omitempty"`
-	GraphEdgeRefs    []string `json:"graph_edge_refs,omitempty"`
-	RecordIDs        []string `json:"record_ids,omitempty"`
-	RequiredChecks   []string `json:"required_checks,omitempty"`
-	Owners           []string `json:"owners,omitempty"`
-	UnmatchedReasons []string `json:"unmatched_reasons,omitempty"`
-	LatestObservedAt string   `json:"latest_observed_at,omitempty"`
-	FreshnessState   string   `json:"freshness_state,omitempty"`
-	FreshnessStates  []string `json:"freshness_states,omitempty"`
-	BoundaryLabel    string   `json:"boundary_label,omitempty"`
+	PathID                   string   `json:"path_id"`
+	AgentID                  string   `json:"agent_id,omitempty"`
+	RecordKinds              []string `json:"record_kinds,omitempty"`
+	SourceTypes              []string `json:"source_types,omitempty"`
+	Tool                     string   `json:"tool,omitempty"`
+	Repo                     string   `json:"repo,omitempty"`
+	Service                  string   `json:"service,omitempty"`
+	Workflow                 string   `json:"workflow,omitempty"`
+	Environment              string   `json:"environment,omitempty"`
+	Path                     string   `json:"path,omitempty"`
+	Location                 string   `json:"location,omitempty"`
+	Target                   string   `json:"target,omitempty"`
+	Status                   string   `json:"status"`
+	EvidenceClasses          []string `json:"evidence_classes,omitempty"`
+	ActionClasses            []string `json:"action_classes,omitempty"`
+	Sources                  []string `json:"sources,omitempty"`
+	PolicyRefs               []string `json:"policy_refs,omitempty"`
+	ProofRefs                []string `json:"proof_refs,omitempty"`
+	GraphNodeRefs            []string `json:"graph_node_refs,omitempty"`
+	GraphEdgeRefs            []string `json:"graph_edge_refs,omitempty"`
+	RecordIDs                []string `json:"record_ids,omitempty"`
+	RequiredChecks           []string `json:"required_checks,omitempty"`
+	Owners                   []string `json:"owners,omitempty"`
+	UnmatchedReasons         []string `json:"unmatched_reasons,omitempty"`
+	LatestObservedAt         string   `json:"latest_observed_at,omitempty"`
+	FreshnessState           string   `json:"freshness_state,omitempty"`
+	FreshnessStates          []string `json:"freshness_states,omitempty"`
+	BoundaryLabel            string   `json:"boundary_label,omitempty"`
+	ContainmentStatus        string   `json:"containment_status,omitempty"`
+	ContainmentScopeRefs     []string `json:"containment_scope_refs,omitempty"`
+	AcknowledgedBoundaryRefs []string `json:"acknowledged_boundary_refs,omitempty"`
+	UnresolvedBoundaryRefs   []string `json:"unresolved_boundary_refs,omitempty"`
+	OutOfScopeBoundaryRefs   []string `json:"out_of_scope_boundary_refs,omitempty"`
 }
 
 type Summary struct {
@@ -300,6 +321,11 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 		item.RecordIDs = mergeStrings(append(append([]string(nil), item.RecordIDs...), record.RecordID)...)
 		item.RequiredChecks = mergeStrings(append(append([]string(nil), item.RequiredChecks...), record.RequiredChecks...)...)
 		item.Owners = mergeStrings(append(append([]string(nil), item.Owners...), record.Owner)...)
+		item.ContainmentStatus = mergeContainmentStatus(item.ContainmentStatus, record.ContainmentStatus)
+		item.ContainmentScopeRefs = mergeStrings(append(append([]string(nil), item.ContainmentScopeRefs...), record.ContainmentScopeRefs...)...)
+		item.AcknowledgedBoundaryRefs = mergeStrings(append(append([]string(nil), item.AcknowledgedBoundaryRefs...), record.AcknowledgedBoundaryRefs...)...)
+		item.UnresolvedBoundaryRefs = mergeStrings(append(append([]string(nil), item.UnresolvedBoundaryRefs...), record.UnresolvedBoundaryRefs...)...)
+		item.OutOfScopeBoundaryRefs = mergeStrings(append(append([]string(nil), item.OutOfScopeBoundaryRefs...), record.OutOfScopeBoundaryRefs...)...)
 		item.FreshnessStates = mergeStrings(append(append([]string(nil), item.FreshnessStates...), record.FreshnessState)...)
 		item.FreshnessState = mergeFreshnessState(item.FreshnessState, record.FreshnessState)
 		if item.LatestObservedAt == "" || strings.TrimSpace(record.ObservedAt) > item.LatestObservedAt {
@@ -383,6 +409,15 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 	record.Producer = strings.TrimSpace(record.Producer)
 	record.EvidenceState = strings.TrimSpace(record.EvidenceState)
 	record.ReasonCodes = mergeStrings(record.ReasonCodes...)
+	requestedContainmentStatus := strings.TrimSpace(record.ContainmentStatus)
+	record.ContainmentStatus = normalizeContainmentStatus(record.ContainmentStatus)
+	if requestedContainmentStatus != "" && record.ContainmentStatus == "" {
+		return Record{}, fmt.Errorf("runtime evidence record containment_status is invalid for %s", fallbackRecordLabel(firstNonEmpty(record.RecordID, record.PathID, record.ResolutionKey, record.AgentID, record.Source)))
+	}
+	record.ContainmentScopeRefs = mergeStrings(record.ContainmentScopeRefs...)
+	record.AcknowledgedBoundaryRefs = mergeStrings(record.AcknowledgedBoundaryRefs...)
+	record.UnresolvedBoundaryRefs = mergeStrings(record.UnresolvedBoundaryRefs...)
+	record.OutOfScopeBoundaryRefs = mergeStrings(record.OutOfScopeBoundaryRefs...)
 	if err := normalizeActionContractLifecycleRecord(&record); err != nil {
 		return Record{}, err
 	}
@@ -787,6 +822,20 @@ func normalizeEvidenceClass(value string) string {
 		return EvidenceClassFreezeWindow
 	case EvidenceClassKillSwitch, "killswitch":
 		return EvidenceClassKillSwitch
+	case EvidenceClassStopRequest, "stop_requested":
+		return EvidenceClassStopRequest
+	case EvidenceClassCoveredActionDenial, "action_denied_after_stop":
+		return EvidenceClassCoveredActionDenial
+	case EvidenceClassCapabilityInvalidation, "capability_invalidated":
+		return EvidenceClassCapabilityInvalidation
+	case EvidenceClassDescendantInvalidation, "descendants_invalidated":
+		return EvidenceClassDescendantInvalidation
+	case EvidenceClassExternalRevocationAttempt, "external_revocation_requested":
+		return EvidenceClassExternalRevocationAttempt
+	case EvidenceClassExternalRevocationAcknowledgement, "external_revocation_ack", "external_revocation_acknowledged":
+		return EvidenceClassExternalRevocationAcknowledgement
+	case EvidenceClassContainmentReceipt, "stop_receipt":
+		return EvidenceClassContainmentReceipt
 	case EvidenceClassActionOutcome, "action_result":
 		return EvidenceClassActionOutcome
 	case EvidenceClassProofVerify, "proof_verified":
@@ -831,6 +880,45 @@ func normalizeRecordStatus(value string) string {
 		return CorrelationStatusConflict
 	default:
 		return ""
+	}
+}
+
+func normalizeContainmentStatus(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case ContainmentStatusContained:
+		return ContainmentStatusContained
+	case ContainmentStatusPartial, "partial":
+		return ContainmentStatusPartial
+	case ContainmentStatusUnresolved:
+		return ContainmentStatusUnresolved
+	case ContainmentStatusOutOfScope, "out-of-scope":
+		return ContainmentStatusOutOfScope
+	default:
+		return ""
+	}
+}
+
+func mergeContainmentStatus(current, incoming string) string {
+	current = normalizeContainmentStatus(current)
+	incoming = normalizeContainmentStatus(incoming)
+	if containmentStatusRank(incoming) > containmentStatusRank(current) {
+		return incoming
+	}
+	return current
+}
+
+func containmentStatusRank(value string) int {
+	switch normalizeContainmentStatus(value) {
+	case ContainmentStatusUnresolved:
+		return 4
+	case ContainmentStatusOutOfScope:
+		return 3
+	case ContainmentStatusPartial:
+		return 2
+	case ContainmentStatusContained:
+		return 1
+	default:
+		return 0
 	}
 }
 
@@ -1066,7 +1154,7 @@ func unmatchedReasonsForRecord(record Record) []string {
 }
 
 func rejectSecretLikeValues(record Record) error {
-	for _, value := range append([]string{
+	values := append([]string{
 		record.Owner,
 		record.Source,
 		record.Issuer,
@@ -1074,7 +1162,13 @@ func rejectSecretLikeValues(record Record) error {
 		record.Workflow,
 		record.Environment,
 		record.Branch,
-	}, append(append([]string(nil), record.EvidenceRefs...), record.RequiredChecks...)...) {
+	}, record.EvidenceRefs...)
+	values = append(values, record.RequiredChecks...)
+	values = append(values, record.ContainmentScopeRefs...)
+	values = append(values, record.AcknowledgedBoundaryRefs...)
+	values = append(values, record.UnresolvedBoundaryRefs...)
+	values = append(values, record.OutOfScopeBoundaryRefs...)
+	for _, value := range values {
 		if looksSecretLike(value) {
 			return fmt.Errorf("external control evidence record contains secret-like value for %s", fallbackRecordLabel(firstNonEmpty(record.RecordID, record.Repo, record.Source)))
 		}

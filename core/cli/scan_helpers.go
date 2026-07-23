@@ -511,7 +511,7 @@ func buildSourceFindings(repos []source.RepoManifest) []source.Finding {
 			orgName = repoOwner(repoManifest.Repo)
 			permission = "repo.contents.read"
 		}
-		findings = append(findings, source.Finding{
+		finding := source.Finding{
 			FindingType: "source_discovery",
 			Severity:    "low",
 			ToolType:    "source_repo",
@@ -520,7 +520,11 @@ func buildSourceFindings(repos []source.RepoManifest) []source.Finding {
 			Org:         orgName,
 			Permissions: []string{permission},
 			Detector:    "source",
-		})
+		}
+		if strings.TrimSpace(repoManifest.ContentStatus) != "" {
+			finding.Evidence = append(finding.Evidence, model.Evidence{Key: "source_content_status", Value: strings.TrimSpace(repoManifest.ContentStatus)})
+		}
+		findings = append(findings, finding)
 	}
 	return findings
 }

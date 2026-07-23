@@ -344,7 +344,7 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 		return source.RepoManifest{}, fmt.Errorf("create materialized repo root: %w", err)
 	}
 
-	tree, err := c.repoTree(ctx, fullName, defaultBranch)
+	tree, emptyRepo, err := c.repoTree(ctx, fullName, defaultBranch)
 	if err != nil {
 		return source.RepoManifest{}, err
 	}
@@ -380,11 +380,16 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 		}
 	}
 
+	contentStatus := source.RepoContentStatusAvailable
+	if emptyRepo {
+		contentStatus = source.RepoContentStatusEmpty
+	}
 	return source.RepoManifest{
 		Repo:              fullName,
 		Location:          "github://" + fullName,
 		ScanRoot:          filepath.ToSlash(repoRoot),
 		Source:            "github_repo_materialized",
+		ContentStatus:     contentStatus,
 		OwnershipMetadata: repoOwnershipMetadata(meta),
 	}, nil
 }
@@ -416,10 +421,10 @@ type treeItem struct {
 	SHA  string `json:"sha"`
 }
 
-func (c *Connector) repoTree(ctx context.Context, repo, ref string) ([]treeItem, error) {
+func (c *Connector) repoTree(ctx context.Context, repo, ref string) ([]treeItem, bool, error) {
 	u, err := url.Parse(c.BaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base url: %w", err)
+		return nil, false, fmt.Errorf("invalid base url: %w", err)
 	}
 	u.Path = path.Join(u.Path, "repos", repo, "git", "trees", ref)
 	q := u.Query()
@@ -428,7 +433,10 @@ func (c *Connector) repoTree(ctx context.Context, repo, ref string) ([]treeItem,
 
 	respBody, reqErr := c.doGETWithRetry(ctx, u.String())
 	if reqErr != nil {
-		return nil, fmt.Errorf("load repo tree for %s@%s: %w", repo, ref, reqErr)
+		if isEmptyRepositoryTreeError(reqErr) {
+			return nil, true, nil
+		}
+		return nil, false, fmt.Errorf("load repo tree for %s@%s: %w", repo, ref, reqErr)
 	}
 
 	var payload struct {
@@ -436,12 +444,12 @@ func (c *Connector) repoTree(ctx context.Context, repo, ref string) ([]treeItem,
 		Truncated bool       `json:"truncated"`
 	}
 	if err := json.Unmarshal(respBody, &payload); err != nil {
-		return nil, fmt.Errorf("parse repo tree response: %w", err)
+		return nil, false, fmt.Errorf("parse repo tree response: %w", err)
 	}
 	if payload.Truncated {
-		return nil, fmt.Errorf("repo tree for %s@%s is truncated; repository is too large for single recursive tree request", repo, ref)
+		return nil, false, fmt.Errorf("repo tree for %s@%s is truncated; repository is too large for single recursive tree request", repo, ref)
 	}
-	return payload.Tree, nil
+	return payload.Tree, len(payload.Tree) == 0, nil
 }
 
 func (c *Connector) repoBlob(ctx context.Context, repo, sha string) (struct {
@@ -1118,11 +1126,32 @@ func sanitizeErrorMessage(raw string) string {
 	return message
 }
 
-func formatStatusError(statusCode int, message string) error {
-	if strings.TrimSpace(message) == "" {
-		return fmt.Errorf("github API status %d", statusCode)
+type statusError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *statusError) Error() string {
+	if e == nil {
+		return ""
 	}
-	return fmt.Errorf("github API status %d: %s", statusCode, message)
+	if strings.TrimSpace(e.Message) == "" {
+		return fmt.Sprintf("github API status %d", e.StatusCode)
+	}
+	return fmt.Sprintf("github API status %d: %s", e.StatusCode, e.Message)
+}
+
+func formatStatusError(statusCode int, message string) error {
+	return &statusError{StatusCode: statusCode, Message: strings.TrimSpace(message)}
+}
+
+func isEmptyRepositoryTreeError(err error) bool {
+	var statusErr *statusError
+	if !errors.As(err, &statusErr) || statusErr.StatusCode != http.StatusConflict {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(statusErr.Message))
+	return strings.Contains(message, "repository is empty") || strings.Contains(message, "git repository is empty")
 }
 
 func normalizeRepo(repo string) (string, error) {

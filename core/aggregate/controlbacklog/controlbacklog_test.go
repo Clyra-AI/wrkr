@@ -389,8 +389,30 @@ func TestLifecycleGapCarriesNormalizedLifecycleQueue(t *testing.T) {
 	if item.LifecycleQueue.CredentialStatus != governancequeue.CredentialStatusPresent {
 		t.Fatalf("expected credential-bearing lifecycle queue item, got %+v", item.LifecycleQueue)
 	}
+	if item.RecommendedAction != ActionRemediate || item.LifecycleQueue.RecommendedAction != ActionRemediate {
+		t.Fatalf("expected inactive credentialed identity to lead with remediation at both layers, got %+v", item)
+	}
 	if backlog.Summary.LifecycleQueueItems != 1 {
 		t.Fatalf("expected lifecycle queue summary count, got %+v", backlog.Summary)
+	}
+}
+
+func TestStandingCredentialControlPathLeadsWithRemediation(t *testing.T) {
+	t.Parallel()
+
+	path := risk.ActionPath{
+		CredentialAccess:  true,
+		StandingPrivilege: true,
+		WriteCapable:      true,
+		ControlState:      risk.ControlStateBlockRecommend,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			AccessType:     agginventory.CredentialAccessTypeStanding,
+			StandingAccess: true,
+		},
+	}
+
+	if got := actionFromActionPath("control", path); got != ActionRemediate {
+		t.Fatalf("expected standing credential path to lead with remediation, got %q", got)
 	}
 }
 

@@ -345,6 +345,14 @@ func Build(input BuildInput) Inventory {
 		startLine, endLine := findingRangeLines(finding)
 		instanceID := identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
 		toolInstanceID := identity.ToolInstanceID(finding.ToolType, finding.Repo, finding.Location, symbol, startLine, endLine)
+		binding := input.AgentBindings[toolInstanceID]
+		if _, ok := input.AgentBindings[toolInstanceID]; !ok {
+			binding = input.AgentBindings[instanceID]
+		}
+		deployment := input.AgentDeployments[toolInstanceID]
+		if _, ok := input.AgentDeployments[toolInstanceID]; !ok {
+			deployment = input.AgentDeployments[instanceID]
+		}
 		agentKey := strings.Join([]string{
 			findingOrg,
 			framework,
@@ -365,14 +373,14 @@ func Build(input BuildInput) Inventory {
 			Repo:                   strings.TrimSpace(finding.Repo),
 			Location:               strings.TrimSpace(finding.Location),
 			LocationRange:          cloneLocationRange(finding.LocationRange),
-			BoundTools:             cloneStringSlice(input.AgentBindings[instanceID].BoundTools),
-			BoundDataSources:       cloneStringSlice(input.AgentBindings[instanceID].BoundDataSources),
-			BoundAuthSurfaces:      cloneStringSlice(input.AgentBindings[instanceID].BoundAuthSurfaces),
-			BindingEvidenceKeys:    cloneStringSlice(input.AgentBindings[instanceID].BindingEvidenceKeys),
-			MissingBindings:        cloneStringSlice(input.AgentBindings[instanceID].MissingBindings),
-			DeploymentStatus:       strings.TrimSpace(input.AgentDeployments[instanceID].DeploymentStatus),
-			DeploymentArtifacts:    cloneStringSlice(input.AgentDeployments[instanceID].DeploymentArtifacts),
-			DeploymentEvidenceKeys: cloneStringSlice(input.AgentDeployments[instanceID].DeploymentEvidenceKeys),
+			BoundTools:             cloneStringSlice(binding.BoundTools),
+			BoundDataSources:       cloneStringSlice(binding.BoundDataSources),
+			BoundAuthSurfaces:      cloneStringSlice(binding.BoundAuthSurfaces),
+			BindingEvidenceKeys:    cloneStringSlice(binding.BindingEvidenceKeys),
+			MissingBindings:        cloneStringSlice(binding.MissingBindings),
+			DeploymentStatus:       strings.TrimSpace(deployment.DeploymentStatus),
+			DeploymentArtifacts:    cloneStringSlice(deployment.DeploymentArtifacts),
+			DeploymentEvidenceKeys: cloneStringSlice(deployment.DeploymentEvidenceKeys),
 		}
 
 		item.tool.MutableEndpointSemantics = append(item.tool.MutableEndpointSemantics, mutableEndpointSemanticsFromFinding(finding)...)
@@ -746,8 +754,10 @@ func RefreshIdentityGovernance(inv *Inventory, identities []manifest.IdentityRec
 		approvalClass      string
 		lifecycleState     string
 		securityVisibility string
+		owner              string
 	}
 	projectedByAgent := make(map[string]projectedToolState, len(inv.Tools))
+	projectedByToolID := make(map[string]projectedToolState, len(inv.Tools))
 	for idx := range inv.Tools {
 		record, ok := byAgent[strings.TrimSpace(inv.Tools[idx].AgentID)]
 		if !ok {
@@ -785,12 +795,15 @@ func RefreshIdentityGovernance(inv *Inventory, identities []manifest.IdentityRec
 		} else {
 			inv.Tools[idx].SecurityVisibilityStatus = securityVisibilityFromIdentityRecord(record)
 		}
-		projectedByAgent[strings.TrimSpace(inv.Tools[idx].AgentID)] = projectedToolState{
+		projected := projectedToolState{
 			approvalStatus:     strings.TrimSpace(inv.Tools[idx].ApprovalStatus),
 			approvalClass:      strings.TrimSpace(inv.Tools[idx].ApprovalClass),
 			lifecycleState:     strings.TrimSpace(inv.Tools[idx].LifecycleState),
 			securityVisibility: strings.TrimSpace(inv.Tools[idx].SecurityVisibilityStatus),
+			owner:              strings.TrimSpace(record.Approval.Owner),
 		}
+		projectedByAgent[strings.TrimSpace(inv.Tools[idx].AgentID)] = projected
+		projectedByToolID[strings.TrimSpace(inv.Tools[idx].ToolID)] = projected
 	}
 	for idx := range inv.Agents {
 		toolState, ok := projectedByAgent[strings.TrimSpace(inv.Agents[idx].AgentID)]
@@ -805,11 +818,20 @@ func RefreshIdentityGovernance(inv *Inventory, identities []manifest.IdentityRec
 		inv.Agents[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(securityVisibilityFromIdentityRecord(record))
 	}
 	for idx := range inv.AgentPrivilegeMap {
-		if toolState, ok := projectedByAgent[strings.TrimSpace(inv.AgentPrivilegeMap[idx].AgentID)]; ok {
+		toolState, ok := projectedByAgent[strings.TrimSpace(inv.AgentPrivilegeMap[idx].AgentID)]
+		if !ok {
+			toolState, ok = projectedByToolID[strings.TrimSpace(inv.AgentPrivilegeMap[idx].ToolID)]
+		}
+		if ok {
 			inv.AgentPrivilegeMap[idx].ApprovalClassification = toolState.approvalClass
 			inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(toolState.securityVisibility)
 			if toolState.approvalClass == "approved" {
 				inv.AgentPrivilegeMap[idx].ApprovalGapReasons = nil
+			}
+			if toolState.owner != "" {
+				inv.AgentPrivilegeMap[idx].OperationalOwner = toolState.owner
+				inv.AgentPrivilegeMap[idx].OwnerSource = "inventory_approval"
+				inv.AgentPrivilegeMap[idx].OwnershipStatus = "explicit"
 			}
 			inv.AgentPrivilegeMap[idx].GovernanceControls = BuildGovernanceControls(GovernanceControlInput{
 				Owner:                    inv.AgentPrivilegeMap[idx].OperationalOwner,
@@ -1703,6 +1725,8 @@ func findingAgentSymbol(finding model.Finding) string {
 		"agent_name",
 		"agent.symbol",
 		"agent.name",
+		"workflow_name",
+		"operation_id",
 		"function",
 		"class",
 	} {

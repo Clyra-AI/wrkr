@@ -455,7 +455,16 @@ func incrementExecutiveEvidenceState(counts *controlbacklog.ExecutiveRollupEvide
 func executiveClosureRecommendation(group controlbacklog.ExecutiveRollupGroup) string {
 	switch strings.TrimSpace(group.Dimensions.ClosureAction) {
 	case controlbacklog.ActionRemediate:
-		return "remediate standing production deploy paths first"
+		switch strings.TrimSpace(group.Dimensions.CredentialAuthority) {
+		case "standing", "inherited":
+			return "replace or reduce standing credential authority on these paths first"
+		case "jit", "workload", "delegated":
+			return "tighten target scope and approval controls on these non-standing authority paths first"
+		case "unknown", "present", "referenced_only":
+			return "resolve credential authority, then remediate the highest-impact paths first"
+		default:
+			return "remediate the highest-impact ungoverned paths first"
+		}
 	case controlbacklog.ActionAttachEvidence:
 		return "attach or import approval, proof, or runtime evidence before making a control claim"
 	case controlbacklog.ActionApprove:

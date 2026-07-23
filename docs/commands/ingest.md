@@ -40,6 +40,13 @@ Normalized evidence classes:
 - `jit_credential`
 - `freeze_window`
 - `kill_switch`
+- `stop_request`
+- `covered_action_denial`
+- `capability_invalidation`
+- `descendant_invalidation`
+- `external_revocation_attempt`
+- `external_revocation_acknowledgement`
+- `containment_receipt`
 - `action_outcome`
 - `proof_verification`
 - `owner_assignment`
@@ -53,7 +60,7 @@ Normalized evidence classes:
 - `merge_metadata`
 - `other` for explicit legacy/unknown carry-through
 
-Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `environment`, `path`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, `issuer`, `valid_until`, `max_age`, `confidence`, `freshness_state`, `redaction_hints`, `owner`, `required_checks`, `branch`, and `evidence_refs`.
+Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `environment`, `path`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, `issuer`, `valid_until`, `max_age`, `confidence`, `freshness_state`, `redaction_hints`, `owner`, `required_checks`, `branch`, and `evidence_refs`. Scoped containment records may also carry `containment_status`, `containment_scope_refs`, `acknowledged_boundary_refs`, `unresolved_boundary_refs`, and `out_of_scope_boundary_refs`.
 
 Action Contract lifecycle records additionally use `action_contract_event`, `producer`, optional `action_contract_artifact_ref`, `evidence_state`, and `reason_codes`. Supported imported events are `gait_activation_request`, `gait_activation_receipt`, `gait_rejection`, `supersession`, `gait_execution`, `gait_effect`, and `axym_verification`. Gait is authoritative for the Gait events and Axym for verification; wrong-producer, unsupported-event, missing-contract, and nonpositive-revision records fail closed. These observations decorate export, packet, report, evidence, proof, and regress projections without changing the saved contract ID, content digest, approval scope digest, or revision.
 
@@ -77,6 +84,6 @@ Retained-state posture is additive and fail-closed: use `state_retention_status`
 - Imported records that reference a proposed Action Contract are downstream evidence only. Version 3 contracts can preserve typed Gait activation request/receipt, rejection, execution/effect, supersession, and Axym verification observations with producer, freshness, and proof/evidence refs; ingest never performs or resolves those transitions.
 - External control evidence can attach deterministic ownership, approval, branch-protection, protected-environment, required-check, security-gate, freeze-window, and kill-switch refs to govern-first paths without live provider calls.
 - Session ingest projects the same normalized session records into runtime-evidence and evidence-packet views during report/evidence generation, so static authority and observed session behavior stay joined without keeping raw provider payloads in report layers.
-- Report and Agent Action BOM rendering also project path-level `gait_coverage` status for `policy_decision`, `approval`, `jit_credential`, `freeze_window`, `kill_switch`, `action_outcome`, and `proof_verification`, using `present`, `missing`, `stale`, `conflict`, or `not_applicable` without implying Wrkr enforced the action.
+- Report and Agent Action BOM rendering also project path-level `gait_coverage` status for `policy_decision`, `approval`, `jit_credential`, `freeze_window`, `kill_switch`, `action_outcome`, and `proof_verification`, using `present`, `missing`, `stale`, `conflict`, or `not_applicable` without implying Wrkr enforced the action. High-impact paths can carry additive `gait_coverage.containment` evidence for the stop request, covered-action denial, capability and descendant invalidation, external revocation attempt and acknowledgement, containment receipt, scope, and unresolved or out-of-scope boundaries. A kill-switch declaration alone is not treated as proof that containment completed.
 - Buyer-facing runtime absence framing is derived after correlation: static-only paths render `not_collected`, out-of-scope runtime controls render `not_applicable`, matched-path gaps render `missing_required`, and unsupported runtime-backed control claims render `missing_for_control_claim`.
 - Ingest can corroborate a control claim with runtime evidence, but it does not convert static lack of runtime evidence into proof that an enterprise control is absent.

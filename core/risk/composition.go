@@ -1637,7 +1637,7 @@ func compositionGaitCoverageSignature(coverage *GaitCoverage) string {
 	if coverage == nil {
 		return ""
 	}
-	return strings.Join([]string{
+	values := []string{
 		strings.TrimSpace(coverage.PolicyDecision.Status),
 		strings.TrimSpace(coverage.Approval.Status),
 		strings.TrimSpace(coverage.JITCredential.Status),
@@ -1645,7 +1645,11 @@ func compositionGaitCoverageSignature(coverage *GaitCoverage) string {
 		strings.TrimSpace(coverage.KillSwitch.Status),
 		strings.TrimSpace(coverage.ActionOutcome.Status),
 		strings.TrimSpace(coverage.ProofVerification.Status),
-	}, "|")
+	}
+	if coverage.Containment != nil {
+		values = append(values, strings.TrimSpace(coverage.Containment.Status))
+	}
+	return strings.Join(values, "|")
 }
 
 func compositionPolicyCoverageRank(value string) int {

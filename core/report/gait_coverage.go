@@ -9,7 +9,7 @@ import (
 )
 
 func gaitCoverageForPath(path risk.ActionPath, runtime ingest.Correlation) *risk.GaitCoverage {
-	return &risk.GaitCoverage{
+	coverage := &risk.GaitCoverage{
 		PolicyDecision:    gaitCoverageDetail(path, appliesPolicyDecision(path), runtime, ingest.EvidenceClassPolicyDecision, "policy_decision"),
 		Approval:          gaitCoverageDetail(path, appliesApprovalCoverage(path), runtime, ingest.EvidenceClassApproval, "approval"),
 		JITCredential:     gaitCoverageDetail(path, appliesJITCredentialCoverage(path), runtime, ingest.EvidenceClassJITCredential, "jit_credential"),
@@ -18,6 +18,91 @@ func gaitCoverageForPath(path risk.ActionPath, runtime ingest.Correlation) *risk
 		ActionOutcome:     gaitCoverageDetail(path, appliesActionOutcomeCoverage(path), runtime, ingest.EvidenceClassActionOutcome, "action_outcome"),
 		ProofVerification: gaitCoverageDetail(path, appliesProofVerificationCoverage(path), runtime, ingest.EvidenceClassProofVerify, "proof_verification"),
 	}
+	if appliesKillSwitchCoverage(path) || runtimeHasContainmentEvidence(runtime) {
+		coverage.Containment = containmentCoverageForPath(path, runtime)
+	}
+	return coverage
+}
+
+func containmentCoverageForPath(path risk.ActionPath, runtime ingest.Correlation) *risk.ContainmentCoverage {
+	applicable := appliesKillSwitchCoverage(path) || runtimeHasContainmentEvidence(runtime)
+	coverage := &risk.ContainmentCoverage{
+		StopRequest:                       gaitCoverageDetail(path, applicable, runtime, ingest.EvidenceClassStopRequest, "stop_request"),
+		CoveredActionDenial:               gaitCoverageDetail(path, applicable, runtime, ingest.EvidenceClassCoveredActionDenial, "covered_action_denial"),
+		CapabilityInvalidation:            gaitCoverageDetail(path, applicable, runtime, ingest.EvidenceClassCapabilityInvalidation, "capability_invalidation"),
+		DescendantInvalidation:            gaitCoverageDetail(path, applicable, runtime, ingest.EvidenceClassDescendantInvalidation, "descendant_invalidation"),
+		ExternalRevocationAttempt:         gaitCoverageDetail(path, applicable, runtime, ingest.EvidenceClassExternalRevocationAttempt, "external_revocation_attempt"),
+		ExternalRevocationAcknowledgement: gaitCoverageDetail(path, applicable, runtime, ingest.EvidenceClassExternalRevocationAcknowledgement, "external_revocation_acknowledgement"),
+		ContainmentReceipt:                gaitCoverageDetail(path, applicable, runtime, ingest.EvidenceClassContainmentReceipt, "containment_receipt"),
+		ScopeRefs:                         append([]string(nil), runtime.ContainmentScopeRefs...),
+		AcknowledgedBoundaryRefs:          append([]string(nil), runtime.AcknowledgedBoundaryRefs...),
+		UnresolvedBoundaryRefs:            append([]string(nil), runtime.UnresolvedBoundaryRefs...),
+		OutOfScopeBoundaryRefs:            append([]string(nil), runtime.OutOfScopeBoundaryRefs...),
+	}
+	coverage.Status = containmentCoverageStatus(applicable, runtime, coverage)
+	return coverage
+}
+
+func containmentCoverageStatus(applicable bool, runtime ingest.Correlation, coverage *risk.ContainmentCoverage) string {
+	if !applicable {
+		return risk.ContainmentCoverageNotApplicable
+	}
+	switch strings.TrimSpace(runtime.Status) {
+	case ingest.CorrelationStatusConflict:
+		return risk.ContainmentCoverageConflict
+	case ingest.CorrelationStatusStale:
+		return risk.ContainmentCoverageStale
+	}
+	if len(runtime.UnresolvedBoundaryRefs) > 0 || strings.TrimSpace(runtime.ContainmentStatus) == ingest.ContainmentStatusUnresolved {
+		return risk.ContainmentCoverageUnresolved
+	}
+	if len(runtime.OutOfScopeBoundaryRefs) > 0 || strings.TrimSpace(runtime.ContainmentStatus) == ingest.ContainmentStatusOutOfScope {
+		return risk.ContainmentCoverageOutOfScope
+	}
+	switch strings.TrimSpace(runtime.ContainmentStatus) {
+	case ingest.ContainmentStatusContained:
+		if containmentReceiptComplete(coverage) {
+			return risk.ContainmentCoverageContained
+		}
+		return risk.ContainmentCoveragePartial
+	case ingest.ContainmentStatusPartial:
+		return risk.ContainmentCoveragePartial
+	}
+	if containmentReceiptComplete(coverage) {
+		return risk.ContainmentCoverageContained
+	}
+	if runtimeHasContainmentEvidence(runtime) {
+		return risk.ContainmentCoveragePartial
+	}
+	return risk.ContainmentCoverageNotObserved
+}
+
+func containmentReceiptComplete(coverage *risk.ContainmentCoverage) bool {
+	if coverage == nil || len(coverage.ScopeRefs) == 0 || coverage.ContainmentReceipt.Status != risk.GaitStatusPresent {
+		return false
+	}
+	return coverage.CoveredActionDenial.Status == risk.GaitStatusPresent || coverage.CapabilityInvalidation.Status == risk.GaitStatusPresent
+}
+
+func runtimeHasContainmentEvidence(runtime ingest.Correlation) bool {
+	for _, evidenceClass := range []string{
+		ingest.EvidenceClassStopRequest,
+		ingest.EvidenceClassCoveredActionDenial,
+		ingest.EvidenceClassCapabilityInvalidation,
+		ingest.EvidenceClassDescendantInvalidation,
+		ingest.EvidenceClassExternalRevocationAttempt,
+		ingest.EvidenceClassExternalRevocationAcknowledgement,
+		ingest.EvidenceClassContainmentReceipt,
+	} {
+		if containsEvidenceClass(runtime.EvidenceClasses, evidenceClass) {
+			return true
+		}
+	}
+	return strings.TrimSpace(runtime.ContainmentStatus) != "" ||
+		len(runtime.ContainmentScopeRefs) > 0 ||
+		len(runtime.AcknowledgedBoundaryRefs) > 0 ||
+		len(runtime.UnresolvedBoundaryRefs) > 0 ||
+		len(runtime.OutOfScopeBoundaryRefs) > 0
 }
 
 func gaitCoverageDetail(path risk.ActionPath, applicable bool, runtime ingest.Correlation, evidenceClass string, reasonKey string) risk.GaitCoverageDetail {

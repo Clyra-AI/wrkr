@@ -3,11 +3,11 @@ package secrets
 import (
 	"bufio"
 	"context"
-	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
@@ -18,8 +18,6 @@ type Detector struct{}
 func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
-
-var workflowSecretRE = regexp.MustCompile(`secrets\.([A-Za-z0-9_]+)`)
 
 func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
@@ -75,12 +73,12 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, wfErr
 	}
 	for _, rel := range workflowFiles {
-		keys, parseErr := parseWorkflowSecrets(scope.Root, rel)
+		evidence, parseErr := parseWorkflowSecretEvidence(scope.Root, rel)
 		if parseErr != nil {
 			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			continue
 		}
-		if len(keys) == 0 {
+		if len(evidence) == 0 {
 			continue
 		}
 		findings = append(findings, model.Finding{
@@ -91,23 +89,17 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Repo:        scope.Repo,
 			Org:         fallbackOrg(scope.Org),
 			Detector:    detectorID,
-			Evidence: []model.Evidence{
-				{Key: "workflow_secret_refs", Value: strings.Join(keys, ",")},
-				{Key: "credential_provenance_type", Value: "static_secret"},
-				{Key: "credential_subject", Value: strings.Join(keys, ",")},
-				{Key: "credential_scope", Value: "workflow"},
-				{Key: "credential_confidence", Value: "high"},
-			},
+			Evidence:    evidence,
 		})
 	}
 
 	if exists, fileErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "Jenkinsfile"); fileErr != nil {
 		findings = append(findings, parseErrorFinding(scope, "Jenkinsfile", fileErr))
 	} else if exists {
-		keys, parseErr := parseWorkflowSecrets(scope.Root, "Jenkinsfile")
+		evidence, parseErr := parseWorkflowSecretEvidence(scope.Root, "Jenkinsfile")
 		if parseErr != nil {
 			findings = append(findings, parseErrorFinding(scope, "Jenkinsfile", parseErr))
-		} else if len(keys) > 0 {
+		} else if len(evidence) > 0 {
 			findings = append(findings, model.Finding{
 				FindingType: "secret_presence",
 				Severity:    model.SeverityMedium,
@@ -116,13 +108,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 				Repo:        scope.Repo,
 				Org:         fallbackOrg(scope.Org),
 				Detector:    detectorID,
-				Evidence: []model.Evidence{
-					{Key: "workflow_secret_refs", Value: strings.Join(keys, ",")},
-					{Key: "credential_provenance_type", Value: "static_secret"},
-					{Key: "credential_subject", Value: strings.Join(keys, ",")},
-					{Key: "credential_scope", Value: "workflow"},
-					{Key: "credential_confidence", Value: "high"},
-				},
+				Evidence:    evidence,
 			})
 		}
 	}
@@ -163,20 +149,23 @@ func parseEnvKeys(root, rel string) ([]string, *model.ParseError) {
 	return keys, nil
 }
 
-func parseWorkflowSecrets(root, rel string) ([]string, *model.ParseError) {
+func parseWorkflowSecretEvidence(root, rel string) ([]model.Evidence, *model.ParseError) {
 	payload, err := detect.ReadFileWithinRoot(detectorID, root, rel)
 	if err != nil {
 		return nil, err
 	}
-	matches := workflowSecretRE.FindAllStringSubmatch(string(payload), -1)
-	keys := make([]string, 0, len(matches))
-	for _, match := range matches {
-		if len(match) > 1 {
-			keys = append(keys, match[1])
+	analysis, parseErr := workflowcap.AnalyzeInRoot(root, rel, payload)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	evidence := make([]model.Evidence, 0)
+	for _, item := range analysis.Evidence {
+		switch item.Key {
+		case "workflow_secret_refs", "workflow_credential_kind", "workflow_noncredential_secret_refs":
+			evidence = append(evidence, item)
 		}
 	}
-	keys = dedupe(keys)
-	return keys, nil
+	return evidence, nil
 }
 
 func parseErrorFinding(scope detect.Scope, location string, parseErr *model.ParseError) model.Finding {

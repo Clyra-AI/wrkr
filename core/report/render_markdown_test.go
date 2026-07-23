@@ -64,6 +64,32 @@ func TestContradictionMarkdownIsEvidenceScoped(t *testing.T) {
 	}
 }
 
+func TestMarkdownActionPathLabelsDistinguishControlConfidence(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		lane     string
+		pathType string
+		eligible bool
+		binding  string
+		want     string
+	}{
+		{name: "confirmed CI path", lane: risk.ConfidenceLaneConfirmedActionPath, pathType: risk.ActionPathTypeCICDWorkflow, eligible: true, want: "confirmed CI path"},
+		{name: "inferred relationship", lane: risk.ConfidenceLaneLikelyActionPath, pathType: risk.ActionPathTypeCICDWorkflow, eligible: true, want: "inferred relationship"},
+		{name: "agent surface only", lane: risk.ConfidenceLaneContextOnly, pathType: risk.ActionPathTypeAgentInstruction, binding: risk.ActionBindingStateUnboundContext, want: "agent surface only"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := markdownActionPathLabel(test.lane, test.pathType, test.eligible, test.binding); got != test.want {
+				t.Fatalf("markdownActionPathLabel() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestRenderMarkdownNamesProposedActionContractAsReportOnly(t *testing.T) {
 	t.Parallel()
 
@@ -113,10 +139,10 @@ func TestRenderMarkdownNamesProposedActionContractAsReportOnly(t *testing.T) {
 	if !strings.Contains(markdown, "Primary composition: cap-primary reaches production deploy") {
 		t.Fatalf("expected primary composition to lead markdown, got %q", markdown)
 	}
-	if !strings.Contains(markdown, "Composition stages: source:release -> privileged_sink:production.") {
+	if !strings.Contains(markdown, "Composition stages: source:release -> privileged sink:production.") {
 		t.Fatalf("expected bounded composition stage map, got %q", markdown)
 	}
-	if !strings.Contains(markdown, "Proposed Action Contract: pac-1234 expected_outcome=production_deploy readiness=needs_evidence report-only=true.") {
+	if !strings.Contains(markdown, "Proposed Action Contract: pac-1234; expected outcome=production deploy; readiness=needs evidence; report only=true.") {
 		t.Fatalf("expected proposed Action Contract summary, got %q", markdown)
 	}
 	if strings.Contains(markdown, "Wrkr enforces") {
@@ -488,6 +514,47 @@ func TestBuyerDiagnosticCardsKeepFocusedSiblingHighlightVisible(t *testing.T) {
 	}
 	if cards[1].RelatedCount != 2 {
 		t.Fatalf("expected sibling card to retain collapsed sibling count, got %+v", cards[1])
+	}
+}
+
+func TestBuyerDiagnosticCardsHumanizePathAndCredentialEnums(t *testing.T) {
+	t.Parallel()
+
+	item := AgentActionBOMItem{
+		PathID:                   "apc-release",
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindStaticSecret,
+			AccessType:             agginventory.CredentialAccessTypeStanding,
+			StandingAccess:         true,
+		},
+	}
+	highlight := workflowHighlightFromItem(item)
+	card := diagnosticCardFromHighlight(highlight, item, false)
+	if strings.Contains(card.Inspect, risk.ActionPathTypeCICDWorkflow) || !strings.Contains(card.Inspect, "CI/CD workflow") {
+		t.Fatalf("expected buyer-readable workflow type, got %q", card.Inspect)
+	}
+	if strings.Contains(card.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(card.Why, "static secret") {
+		t.Fatalf("expected buyer-readable credential kind, got %q", card.Why)
+	}
+
+	primaryCard := diagnosticCardFromItem(&AgentActionBOMPrimaryView{
+		PathMap: AgentActionBOMPrimaryPathMap{
+			Tool:     "workflow",
+			RepoPR:   item.Repo,
+			Workflow: item.Location,
+			Target:   item.TargetClass,
+		},
+		DelegationReadinessState: item.DelegationReadinessState,
+	}, item, false)
+	if strings.Contains(primaryCard.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(primaryCard.Why, "static secret") {
+		t.Fatalf("expected primary buyer card to humanize credential kind, got %q", primaryCard.Why)
 	}
 }
 

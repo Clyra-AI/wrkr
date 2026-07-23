@@ -22,44 +22,45 @@ func Resolve(findings []model.Finding) map[string]agginventory.AgentBindingConte
 		if !model.IsInventoryBearingFinding(finding) {
 			continue
 		}
-		instanceID := agentInstanceID(finding)
-		if strings.TrimSpace(instanceID) == "" {
-			continue
-		}
-		entry := resolved[instanceID]
-		if entry.tools == nil {
-			entry = bucket{
-				tools:        map[string]struct{}{},
-				dataSources:  map[string]struct{}{},
-				authSurfaces: map[string]struct{}{},
-				evidenceKeys: map[string]struct{}{},
-			}
-		}
-		for _, evidence := range finding.Evidence {
-			key := strings.ToLower(strings.TrimSpace(evidence.Key))
-			value := strings.TrimSpace(evidence.Value)
-			if key == "" || value == "" {
+		for _, instanceID := range agentInstanceKeys(finding) {
+			if strings.TrimSpace(instanceID) == "" {
 				continue
 			}
-			switch key {
-			case "bound_tools", "tools", "tool", "mcp_server", "server":
-				for _, item := range splitCSV(value) {
-					entry.tools[item] = struct{}{}
-					entry.evidenceKeys["tool:"+item] = struct{}{}
-				}
-			case "data_sources", "data_source", "dataset", "table", "bucket":
-				for _, item := range splitCSV(value) {
-					entry.dataSources[item] = struct{}{}
-					entry.evidenceKeys["data:"+item] = struct{}{}
-				}
-			case "auth_surfaces", "auth", "auth_surface", "credentials", "credential":
-				for _, item := range splitCSV(value) {
-					entry.authSurfaces[item] = struct{}{}
-					entry.evidenceKeys["auth:"+item] = struct{}{}
+			entry := resolved[instanceID]
+			if entry.tools == nil {
+				entry = bucket{
+					tools:        map[string]struct{}{},
+					dataSources:  map[string]struct{}{},
+					authSurfaces: map[string]struct{}{},
+					evidenceKeys: map[string]struct{}{},
 				}
 			}
+			for _, evidence := range finding.Evidence {
+				key := strings.ToLower(strings.TrimSpace(evidence.Key))
+				value := strings.TrimSpace(evidence.Value)
+				if key == "" || value == "" {
+					continue
+				}
+				switch key {
+				case "bound_tools", "tools", "tool", "mcp_server", "server":
+					for _, item := range splitCSV(value) {
+						entry.tools[item] = struct{}{}
+						entry.evidenceKeys["tool:"+item] = struct{}{}
+					}
+				case "data_sources", "data_source", "dataset", "table", "bucket":
+					for _, item := range splitCSV(value) {
+						entry.dataSources[item] = struct{}{}
+						entry.evidenceKeys["data:"+item] = struct{}{}
+					}
+				case "auth_surfaces", "auth", "auth_surface", "credentials", "credential":
+					for _, item := range splitCSV(value) {
+						entry.authSurfaces[item] = struct{}{}
+						entry.evidenceKeys["auth:"+item] = struct{}{}
+					}
+				}
+			}
+			resolved[instanceID] = entry
 		}
-		resolved[instanceID] = entry
 	}
 
 	out := map[string]agginventory.AgentBindingContext{}
@@ -87,7 +88,22 @@ func Resolve(findings []model.Finding) map[string]agginventory.AgentBindingConte
 	return out
 }
 
+func agentInstanceKeys(finding model.Finding) []string {
+	legacy := agentInstanceID(finding)
+	symbol, startLine, endLine := agentIdentityParts(finding)
+	scoped := identity.ToolInstanceID(finding.ToolType, finding.Repo, finding.Location, symbol, startLine, endLine)
+	if scoped == legacy {
+		return []string{scoped}
+	}
+	return []string{scoped, legacy}
+}
+
 func agentInstanceID(finding model.Finding) string {
+	symbol, startLine, endLine := agentIdentityParts(finding)
+	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+}
+
+func agentIdentityParts(finding model.Finding) (string, int, int) {
 	symbol := ""
 	for _, evidence := range finding.Evidence {
 		key := strings.ToLower(strings.TrimSpace(evidence.Key))
@@ -102,7 +118,7 @@ func agentInstanceID(finding model.Finding) string {
 		startLine = finding.LocationRange.StartLine
 		endLine = finding.LocationRange.EndLine
 	}
-	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+	return symbol, startLine, endLine
 }
 
 func splitCSV(value string) []string {

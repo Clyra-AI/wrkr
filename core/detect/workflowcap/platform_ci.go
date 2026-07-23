@@ -537,9 +537,7 @@ func analyzeObservation(obs workflowObservation) Result {
 	if targetClassHint := workflowTargetClassHint(result); targetClassHint != "" {
 		evidence = append(evidence, model.Evidence{Key: "target_class_hint", Value: targetClassHint})
 	}
-	for _, ref := range sortedSet(secretRefs) {
-		evidence = append(evidence, model.Evidence{Key: "workflow_secret_refs", Value: ref})
-	}
+	evidence = appendWorkflowSecretEvidence(evidence, secretRefs)
 	if len(authSurfaces) > 0 {
 		evidence = append(evidence, model.Evidence{Key: "auth_surfaces", Value: strings.Join(sortedSet(authSurfaces), ",")})
 	}

@@ -4,10 +4,10 @@
   "share_profile": "internal",
   "artifacts": [
     {
-      "artifact_id": "paca-2afbe229b04068fd",
-      "contract_id": "pac-19d425bca289c621",
-      "canonical_content_digest": "sha256:2afbe229b04068fdf8f6c383e23d2fb035da2a0ec7c032d534c2f5490dcf1385",
-      "filename": "pac-19d425bca289c621.json"
+      "artifact_id": "paca-9a7f252bea36494e",
+      "contract_id": "pac-02a97f35f4a67aa4",
+      "canonical_content_digest": "sha256:9a7f252bea36494e93d75ac98c664f32bc004f29690b25f57aca419f918acf02",
+      "filename": "pac-02a97f35f4a67aa4.json"
     }
   ]
 }

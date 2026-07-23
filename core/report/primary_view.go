@@ -20,6 +20,7 @@ type AgentActionBOMPrimaryView struct {
 	PathMap                     AgentActionBOMPrimaryPathMap      `json:"path_map"`
 	ControlResolutionState      string                            `json:"control_resolution_state,omitempty"`
 	BoundaryLabel               string                            `json:"boundary_label,omitempty"`
+	EvidenceClassification      string                            `json:"evidence_classification,omitempty"`
 	ApprovalEvidenceState       string                            `json:"approval_evidence_state,omitempty"`
 	OwnerEvidenceState          string                            `json:"owner_evidence_state,omitempty"`
 	ProofEvidenceState          string                            `json:"proof_evidence_state,omitempty"`
@@ -259,6 +260,7 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		PathMap:                     buildAgentActionBOMPrimaryPathMap(item),
 		ControlResolutionState:      strings.TrimSpace(item.ControlResolutionState),
 		BoundaryLabel:               strings.TrimSpace(item.BoundaryLabel),
+		EvidenceClassification:      primaryViewEvidenceClassification(item),
 		ApprovalEvidenceState:       strings.TrimSpace(item.ApprovalEvidenceState),
 		OwnerEvidenceState:          strings.TrimSpace(item.OwnerEvidenceState),
 		ProofEvidenceState:          strings.TrimSpace(item.ProofEvidenceState),
@@ -304,6 +306,17 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 	applyPrimaryViewComposition(view, primaryViewCompositionForItem(bom, item))
 	view.CoverageStatus, view.CoverageReasons, view.CoverageImpact = primaryViewCoverage(bom, item)
 	return view
+}
+
+func primaryViewEvidenceClassification(item AgentActionBOMItem) string {
+	switch strings.TrimSpace(item.ConfidenceLane) {
+	case risk.ConfidenceLaneConfirmedActionPath:
+		return "confirmed path"
+	case risk.ConfidenceLaneLikelyActionPath, risk.ConfidenceLaneSemanticReviewCandidate:
+		return "inferred relationship"
+	default:
+		return "unresolved context"
+	}
 }
 
 func defaultAgentActionBOMPrimaryCompositionItem(bom *AgentActionBOM) *AgentActionBOMItem {
@@ -584,6 +597,11 @@ func primaryCompositionCoverageSummary(composition risk.ComposedActionPath) stri
 		}
 		if status := strings.TrimSpace(composition.GaitCoverage.ActionOutcome.Status); status != "" {
 			parts = append(parts, "gait_action_outcome="+status)
+		}
+		if composition.GaitCoverage.Containment != nil {
+			if status := strings.TrimSpace(composition.GaitCoverage.Containment.Status); status != "" {
+				parts = append(parts, "gait_containment="+status)
+			}
 		}
 	}
 	return strings.Join(uniqueSortedStrings(parts), " ")

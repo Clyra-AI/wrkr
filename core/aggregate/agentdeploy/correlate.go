@@ -20,18 +20,19 @@ func Resolve(findings []model.Finding) map[string]agginventory.AgentDeploymentCo
 		if !model.IsInventoryBearingFinding(finding) {
 			continue
 		}
-		instanceID := agentInstanceID(finding)
-		entry := resolved[instanceID]
-		if entry.artifacts == nil {
-			entry.artifacts = map[string]struct{}{}
-			entry.evidence = map[string]struct{}{}
-		}
+		for _, instanceID := range agentInstanceKeys(finding) {
+			entry := resolved[instanceID]
+			if entry.artifacts == nil {
+				entry.artifacts = map[string]struct{}{}
+				entry.evidence = map[string]struct{}{}
+			}
 
-		for _, artifact := range inferredArtifacts(finding) {
-			entry.artifacts[artifact] = struct{}{}
-			entry.evidence["deployment:"+artifact] = struct{}{}
+			for _, artifact := range inferredArtifacts(finding) {
+				entry.artifacts[artifact] = struct{}{}
+				entry.evidence["deployment:"+artifact] = struct{}{}
+			}
+			resolved[instanceID] = entry
 		}
-		resolved[instanceID] = entry
 	}
 
 	out := map[string]agginventory.AgentDeploymentContext{}
@@ -75,11 +76,26 @@ func inferredArtifacts(finding model.Finding) []string {
 	return sortedKeys(artifacts)
 }
 
+func agentInstanceKeys(finding model.Finding) []string {
+	legacy := agentInstanceID(finding)
+	symbol, startLine, endLine := agentIdentityParts(finding)
+	scoped := identity.ToolInstanceID(finding.ToolType, finding.Repo, finding.Location, symbol, startLine, endLine)
+	if scoped == legacy {
+		return []string{scoped}
+	}
+	return []string{scoped, legacy}
+}
+
 func agentInstanceID(finding model.Finding) string {
+	symbol, startLine, endLine := agentIdentityParts(finding)
+	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+}
+
+func agentIdentityParts(finding model.Finding) (string, int, int) {
 	symbol := ""
 	for _, evidence := range finding.Evidence {
 		key := strings.ToLower(strings.TrimSpace(evidence.Key))
-		if key == "symbol" || key == "name" || key == "agent_name" {
+		if key == "symbol" || key == "name" || key == "agent_name" || key == "workflow_name" || key == "operation_id" {
 			symbol = strings.TrimSpace(evidence.Value)
 			break
 		}
@@ -90,7 +106,7 @@ func agentInstanceID(finding model.Finding) string {
 		startLine = finding.LocationRange.StartLine
 		endLine = finding.LocationRange.EndLine
 	}
-	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+	return symbol, startLine, endLine
 }
 
 func splitCSV(value string) []string {

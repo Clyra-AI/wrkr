@@ -5,15 +5,15 @@
       "tier_1_low_risk_internal": 1,
       "tier_2_app_code_owner_review": 0,
       "tier_3_sensitive_code_or_infra": 1,
-      "tier_4_prod_privileged_or_customer_impacting": 6
+      "tier_4_prod_privileged_or_customer_impacting": 5
     },
-    "confirmed_action_path_items": 3,
+    "confirmed_action_path_items": 2,
     "context_only_items": 1,
     "control_first_items": 4,
     "coverage_confidence": "complete",
     "delegation_readiness": {
       "approval_required": 0,
-      "blocked": 3,
+      "blocked": 2,
       "blocked_by_contradiction": 0,
       "proof_required": 0,
       "ready_for_control": 0,
@@ -45,7 +45,7 @@
             "confidence_lane:likely_action_path",
             "confidence_lane:semantic_review_candidate"
           ],
-          "score": 83
+          "score": 80
         },
         {
           "axis": "authority",
@@ -64,7 +64,7 @@
             "target:unknown",
             "target:verified"
           ],
-          "score": 73
+          "score": 74
         },
         {
           "axis": "control",
@@ -72,7 +72,7 @@
             "constraint_evidence:missing",
             "control_resolution:detected_control"
           ],
-          "score": 85
+          "score": 86
         },
         {
           "axis": "runtime_evidence",
@@ -81,7 +81,7 @@
             "runtime:verified",
             "runtime_absence_status:not_collected"
           ],
-          "score": 43
+          "score": 44
         },
         {
           "axis": "proof",
@@ -94,7 +94,7 @@
         }
       ],
       "label": "partial_evidence",
-      "path_count": 8,
+      "path_count": 7,
       "reasons": [
         "action_path_type:unknown_executable_path",
         "approval:unknown",
@@ -123,7 +123,7 @@
     "executive_rollup": {
       "groups": [
         {
-          "closure_recommendation": "remediate standing production deploy paths first",
+          "closure_recommendation": "replace or reduce standing credential authority on these paths first",
           "count": 2,
           "dimensions": {
             "action_class": "deploy",
@@ -153,46 +153,12 @@
             "closure=remediate repo_cluster=single_repo credential_authority=standing"
           ],
           "top_example_refs": [
-            "apc-1ee0525913ac",
-            "apc-6626703372d7"
-          ]
-        },
-        {
-          "closure_recommendation": "attach or import approval, proof, or runtime evidence before making a control claim",
-          "count": 1,
-          "dimensions": {
-            "action_class": "deploy",
-            "closure_action": "attach_evidence",
-            "contradiction_state": "consistent",
-            "credential_authority": "standing",
-            "detector_confidence": "confirmed_action_path",
-            "evidence_state": "unknown",
-            "owner_state": "inferred",
-            "production_target": "production_targeted",
-            "repo_cluster": "single_repo",
-            "risk_zone": "release",
-            "target_class": "production_impacting"
-          },
-          "evidence_state_summary": {
-            "contradictory": 0,
-            "declared": 0,
-            "inferred": 0,
-            "unknown": 1,
-            "verified": 0
-          },
-          "group_id": "xrg-413670149336",
-          "highest_priority": "review_queue",
-          "highest_severity": "critical",
-          "rationale": [
-            "1 deploy paths grouped by production_impacting and unknown evidence",
-            "closure=attach_evidence repo_cluster=single_repo credential_authority=standing"
-          ],
-          "top_example_refs": [
+            "apc-49d0b638e7b5",
             "apc-f721ab3a31a8"
           ]
         },
         {
-          "closure_recommendation": "remediate standing production deploy paths first",
+          "closure_recommendation": "resolve credential authority, then remediate the highest-impact paths first",
           "count": 2,
           "dimensions": {
             "action_class": "deploy",
@@ -295,7 +261,7 @@
           ]
         },
         {
-          "closure_recommendation": "remediate standing production deploy paths first",
+          "closure_recommendation": "resolve credential authority, then remediate the highest-impact paths first",
           "count": 1,
           "dimensions": {
             "action_class": "deploy",
@@ -329,15 +295,15 @@
           ]
         }
       ],
-      "total_groups": 6,
-      "total_paths": 8
+      "total_groups": 5,
+      "total_paths": 7
     },
     "governance_readiness": {
       "driver": "governance_gaps_present",
       "grade": "low",
-      "path_count": 8,
+      "path_count": 7,
       "rationale": [
-        "approval_gaps=8",
+        "approval_gaps=7",
         "missing_owner_paths=0",
         "policy_gaps=0",
         "missing_proof_paths=16",
@@ -345,30 +311,30 @@
       ]
     },
     "governed_usage_metrics": {
-      "active_monitored_action_paths": 7,
+      "active_monitored_action_paths": 6,
       "approval_decisions": 0,
       "audit_exports": 4,
       "connected_runtimes": 1,
       "contradictory_paths": 0,
       "evidence_packs": 0,
-      "governed_agents_workflows": 8,
-      "governed_paths": 7,
+      "governed_agents_workflows": 7,
+      "governed_paths": 6,
       "unknown_control_paths": 0,
-      "verified_control_paths": 8
+      "verified_control_paths": 7
     },
     "likely_action_path_items": 3,
-    "missing_approval_items": 8,
+    "missing_approval_items": 7,
     "missing_policy_items": 0,
     "missing_proof_items": 0,
     "operational_exposure": {
       "driver": "production_and_credentials",
       "grade": "critical",
-      "path_count": 8,
+      "path_count": 7,
       "rationale": [
-        "production_backed_paths=6",
+        "production_backed_paths=5",
         "credential_bearing_paths=1",
         "write_capable_paths=5",
-        "runtime_deployed_paths=3"
+        "runtime_deployed_paths=2"
       ]
     },
     "primary_view": {
@@ -390,18 +356,18 @@
       "coverage_status": "complete",
       "credential_evidence_state": "verified",
       "decision_trace_refs": [
-        "decision_trace:dt-c62008fe3f27"
+        "decision_trace:dt-6dbcfb4c7927"
       ],
       "delegation_readiness_state": "blocked",
       "evidence_completeness_label": "strong_evidence",
       "evidence_completeness_score": 86,
-      "path_id": "apc-6626703372d7",
+      "path_id": "apc-49d0b638e7b5",
       "path_map": {
         "action": "credential_access,deploy,execute,read,write",
-        "credential": "cloud_admin_key source_control source_control_write standing",
+        "credential": "cloud_admin_key kubernetes cloud_or_infra_access standing",
         "repo_pr": "demo-app / pr/108",
         "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation",
-        "tool": "wrkr:ci-agent-457b801fb1:local",
+        "tool": "wrkr:ci-agent-inst-7211af958b:local",
         "workflow": ".github/workflows/release.yml"
       },
       "proof_evidence_state": "verified",
@@ -478,7 +444,7 @@
       "allow": 0,
       "approval_required": 0,
       "block": 0,
-      "block_standing_credential": 3,
+      "block_standing_credential": 2,
       "jit_credential_required": 0,
       "owner_review": 1,
       "proof_required": 0,
@@ -500,9 +466,9 @@
       "target_count": 1
     },
     "semantic_review_candidate_items": 1,
-    "standing_privilege_items": 3,
-    "static_credential_items": 3,
-    "total_items": 8
+    "standing_privilege_items": 2,
+    "static_credential_items": 2,
+    "total_items": 7
   },
   "top_item": {
     "control_state": "block_recommended",
@@ -534,6 +500,58 @@
           "runtime_evidence_present:approval"
         ],
         "status": "present"
+      },
+      "containment": {
+        "capability_invalidation": {
+          "reasons": [
+            "runtime_absence_status:missing_for_control_claim",
+            "runtime_control_claim_missing:capability_invalidation"
+          ],
+          "status": "missing"
+        },
+        "containment_receipt": {
+          "reasons": [
+            "runtime_absence_status:missing_for_control_claim",
+            "runtime_control_claim_missing:containment_receipt"
+          ],
+          "status": "missing"
+        },
+        "covered_action_denial": {
+          "reasons": [
+            "runtime_absence_status:missing_for_control_claim",
+            "runtime_control_claim_missing:covered_action_denial"
+          ],
+          "status": "missing"
+        },
+        "descendant_invalidation": {
+          "reasons": [
+            "runtime_absence_status:missing_for_control_claim",
+            "runtime_control_claim_missing:descendant_invalidation"
+          ],
+          "status": "missing"
+        },
+        "external_revocation_acknowledgement": {
+          "reasons": [
+            "runtime_absence_status:missing_for_control_claim",
+            "runtime_control_claim_missing:external_revocation_acknowledgement"
+          ],
+          "status": "missing"
+        },
+        "external_revocation_attempt": {
+          "reasons": [
+            "runtime_absence_status:missing_for_control_claim",
+            "runtime_control_claim_missing:external_revocation_attempt"
+          ],
+          "status": "missing"
+        },
+        "status": "not_observed",
+        "stop_request": {
+          "reasons": [
+            "runtime_absence_status:missing_for_control_claim",
+            "runtime_control_claim_missing:stop_request"
+          ],
+          "status": "missing"
+        }
       },
       "freeze_window": {
         "evidence_refs": [
@@ -634,7 +652,7 @@
       "source": "source_metadata",
       "timestamp": "2026-05-08T12:00:00Z"
     },
-    "path_id": "apc-6626703372d7",
+    "path_id": "apc-49d0b638e7b5",
     "policy_status": "runtime_proven",
     "proof_coverage": "missing",
     "review_burden": "critical",
