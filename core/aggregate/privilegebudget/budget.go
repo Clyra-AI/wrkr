@@ -1209,23 +1209,6 @@ func mergeMutableEndpointSemantics(groups ...[]agginventory.MutableEndpointSeman
 	return agginventory.NormalizeMutableEndpointSemantics(merged)
 }
 
-func mutableEndpointWriteCapable(values []agginventory.MutableEndpointSemantic) bool {
-	for _, item := range agginventory.NormalizeMutableEndpointSemantics(values) {
-		switch strings.TrimSpace(item.Semantic) {
-		case agginventory.EndpointSemanticWrite,
-			agginventory.EndpointSemanticDelete,
-			agginventory.EndpointSemanticDeploy,
-			agginventory.EndpointSemanticRefund,
-			agginventory.EndpointSemanticPayment,
-			agginventory.EndpointSemanticUserAdmin,
-			agginventory.EndpointSemanticDataExport,
-			agginventory.EndpointSemanticProductionMutation:
-			return true
-		}
-	}
-	return false
-}
-
 func classifyCredentialProvenance(dataClass string, permissions []string, authSurfaces []string, signals findingSignals) *agginventory.CredentialProvenance {
 	credentials := classifyCredentialProvenances(dataClass, permissions, authSurfaces, signals)
 	if len(credentials) > 0 {
