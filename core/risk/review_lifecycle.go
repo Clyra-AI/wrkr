@@ -31,9 +31,9 @@ func ProjectReviewLifecycleTransitions(current []ActionPath, previous []ActionPa
 		path := ProjectActionPath(raw)
 		if previousPath, ok := matchPreviousReviewLifecyclePath(path, previousByPathID, previousByResolutionKey, previousByRepoLocation); ok {
 			path = applyReviewLifecycleTransition(path, previousPath)
+			path.ReviewAuditContext = buildReviewAuditContext(path)
+			path = ProjectActionPath(path)
 		}
-		path.ReviewAuditContext = buildReviewAuditContext(path)
-		path = ProjectActionPath(path)
 		out = append(out, path)
 	}
 
