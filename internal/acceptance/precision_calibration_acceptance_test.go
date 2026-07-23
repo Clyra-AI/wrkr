@@ -130,18 +130,6 @@ func findAcceptanceRepoPathWithValue(t *testing.T, actionPaths []any, repo strin
 	return nil
 }
 
-func firstRepoPath(t *testing.T, actionPaths []any, repo string) map[string]any {
-	t.Helper()
-	for _, raw := range actionPaths {
-		row := requireObjectItem(t, raw)
-		if row["repo"] == repo {
-			return row
-		}
-	}
-	t.Fatalf("expected action path for repo %s, got %v", repo, actionPaths)
-	return nil
-}
-
 func findAcceptancePathID(t *testing.T, actionPaths []any, pathID string) map[string]any {
 	t.Helper()
 	for _, raw := range actionPaths {
