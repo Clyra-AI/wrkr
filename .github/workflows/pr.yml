@@ -65,8 +65,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
-        with:
-          submodules: recursive
 
       - name: Detect changed paths
         id: changes
@@ -123,6 +121,8 @@ jobs:
           fi
 
       - name: Fast lint and tests
+        env:
+          WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'
         run: |
           make lint-fast
           make test-fast

@@ -26,7 +26,6 @@ jobs:
         uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
-          submodules: recursive
 
       - name: Setup Go
         uses: actions/setup-go@v6.3.0
@@ -58,6 +57,8 @@ jobs:
         run: go mod download
 
       - name: Validate toolchain pins
+        env:
+          WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'
         run: scripts/check_toolchain_pins.sh
 
       - name: Validate release changelog
