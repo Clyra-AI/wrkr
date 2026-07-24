@@ -65,6 +65,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
+        with:
+          submodules: recursive
 
       - name: Detect changed paths
         id: changes
@@ -124,7 +126,9 @@ jobs:
         run: |
           make lint-fast
           make test-fast
+          make test-coverage
           make test-contracts
+          make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean
           scripts/validate_scenarios.sh
           scripts/run_agent_benchmarks.sh --output .tmp/agent-benchmarks-pr.json
 
@@ -134,6 +138,14 @@ jobs:
         with:
           name: agent-benchmark-pr
           path: .tmp/agent-benchmarks-pr.json
+
+      - name: Upload freeze-gate runtime receipt
+        if: always()
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: freeze-gate-runtime-receipt-pr
+          path: .tmp/freeze-gate-runtime-receipt.json
+          if-no-files-found: error
 
       - name: Docs parity and smoke subset
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.docs == 'true' || steps.changes.outputs.workflow_or_policy == 'true'

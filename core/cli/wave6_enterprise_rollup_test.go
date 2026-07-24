@@ -3,11 +3,13 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/evidence"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
+	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
 func TestWave6ReportJSONIncludesExecutiveRollupAndGovernedUsageMetrics(t *testing.T) {
@@ -145,5 +147,50 @@ func TestBuildEvidenceJSONPayloadCarriesCompositionRefs(t *testing.T) {
 	}
 	if ref["composition_id"] != "cap-release-prod" {
 		t.Fatalf("expected composition_id in evidence payload, got %v", ref["composition_id"])
+	}
+}
+
+func TestBuildEvidenceJSONPayloadBoundsBOMAndPreservesPrimaryPath(t *testing.T) {
+	t.Parallel()
+
+	items := make([]reportcore.AgentActionBOMItem, 0, evidenceJSONInlineBOMItemsCap+2)
+	compositions := make([]risk.ComposedActionPath, 0, evidenceJSONInlineCompositionsCap+2)
+	for idx := 0; idx < evidenceJSONInlineBOMItemsCap+2; idx++ {
+		items = append(items, reportcore.AgentActionBOMItem{PathID: fmt.Sprintf("path-%d", idx)})
+	}
+	for idx := 0; idx < evidenceJSONInlineCompositionsCap+2; idx++ {
+		compositions = append(compositions, risk.ComposedActionPath{CompositionID: fmt.Sprintf("composition-%d", idx)})
+	}
+	primaryPath := items[len(items)-1].PathID
+	primaryComposition := compositions[len(compositions)-1].CompositionID
+	payload := buildEvidenceJSONPayload(evidence.BuildResult{
+		AgentActionBOM: &reportcore.AgentActionBOM{
+			Items:               items,
+			ComposedActionPaths: compositions,
+			Summary: reportcore.AgentActionBOMSummary{
+				PrimaryView: &reportcore.AgentActionBOMPrimaryView{
+					PathID:        primaryPath,
+					CompositionID: primaryComposition,
+				},
+			},
+		},
+	}, "/tmp/state.json")
+
+	bom, ok := payload["agent_action_bom"].(*reportcore.AgentActionBOM)
+	if !ok || bom == nil {
+		t.Fatalf("expected bounded Agent Action BOM, got %T", payload["agent_action_bom"])
+	}
+	if len(bom.Items) != evidenceJSONInlineBOMItemsCap || !containsBOMPath(bom.Items, primaryPath) {
+		t.Fatalf("expected %d-item preview containing primary path %q, got %+v", evidenceJSONInlineBOMItemsCap, primaryPath, bom.Items)
+	}
+	if len(bom.ComposedActionPaths) != evidenceJSONInlineCompositionsCap {
+		t.Fatalf("expected %d-composition preview, got %+v", evidenceJSONInlineCompositionsCap, bom.ComposedActionPaths)
+	}
+	if bom.ComposedActionPaths[len(bom.ComposedActionPaths)-1].CompositionID != primaryComposition {
+		t.Fatalf("expected primary composition %q in preview, got %+v", primaryComposition, bom.ComposedActionPaths)
+	}
+	suppressed, ok := payload["suppressed_counts"].(*reportcore.SuppressedCounts)
+	if !ok || suppressed.AgentActionBOM != 2 || suppressed.ComposedActionPaths != 2 {
+		t.Fatalf("expected BOM/composition suppression counts, got %#v", payload["suppressed_counts"])
 	}
 }

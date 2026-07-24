@@ -245,6 +245,28 @@ func TestWorkflowTriggerContracts(t *testing.T) {
 	}
 }
 
+func TestNightlyRaceLaneIsolatesLongAcceptancePackage(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	nightlyWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/nightly.yml"))
+	if !strings.Contains(nightlyWorkflow, "submodules: recursive") {
+		t.Fatal("nightly workflow must initialize the Factory submodule before running toolchain-pin contracts")
+	}
+	for _, fragment := range []string{
+		"mapfile -t race_packages < <(go list ./... | grep -v '/internal/acceptance$')",
+		`go test -race "${race_packages[@]}" -count=1 -timeout=20m`,
+		"go test -race ./internal/acceptance -count=1 -timeout=40m",
+	} {
+		if !strings.Contains(nightlyWorkflow, fragment) {
+			t.Fatalf("nightly race lane missing long-acceptance isolation contract %q", fragment)
+		}
+	}
+	if strings.Contains(nightlyWorkflow, "go test -race ./... -count=1 -timeout=20m") {
+		t.Fatal("nightly race lane must not place the enterprise acceptance package under the standard 20-minute package timeout")
+	}
+}
+
 func TestReleaseWorkflowPublishesOnlyAfterIntegrityVerification(t *testing.T) {
 	t.Parallel()
 

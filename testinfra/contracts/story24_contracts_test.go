@@ -91,7 +91,7 @@ func projectStory24NoisePackScan(t *testing.T, payload map[string]any) map[strin
 
 	return map[string]any{
 		"status":            story24RequireString(t, payload, "status"),
-		"findings_count":    float64(len(story24RequireSlice(t, payload, "findings"))),
+		"findings_count":    float64(story24RequireInt(t, story24RequireMap(t, payload, "finding_counts"), "raw_total")),
 		"top_finding_types": story24ProjectTopFindingTypes(t, payload),
 		"action_path_count": float64(len(story24OptionalSlice(payload, "action_paths"))),
 		"action_paths":      story24ProjectActionPaths(t, story24OptionalSlice(payload, "action_paths")),

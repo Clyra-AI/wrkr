@@ -11,12 +11,16 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/evidence"
 	"github.com/Clyra-AI/wrkr/core/outputsignal"
+	reportcore "github.com/Clyra-AI/wrkr/core/report"
+	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 const (
 	evidenceJSONInlineControlEvidenceCap = 25
 	evidenceJSONInlineReportArtifactsCap = 12
+	evidenceJSONInlineBOMItemsCap        = 5
+	evidenceJSONInlineCompositionsCap    = 3
 )
 
 func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -102,6 +106,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 func buildEvidenceJSONPayload(result evidence.BuildResult, resolvedStatePath string) map[string]any {
 	controlEvidence, controlEvidenceOverflow := outputsignal.CapSlice(result.ControlEvidence, evidenceJSONInlineControlEvidenceCap)
 	reportArtifacts, reportArtifactsOverflow := outputsignal.CapSlice(result.ReportArtifacts, evidenceJSONInlineReportArtifactsCap)
+	agentActionBOM, agentActionBOMOverflow, compositionOverflow := previewEvidenceAgentActionBOM(result.AgentActionBOM)
 	payload := map[string]any{
 		"status":                 "ok",
 		"deployment_mode":        result.DeploymentMode,
@@ -115,7 +120,7 @@ func buildEvidenceJSONPayload(result evidence.BuildResult, resolvedStatePath str
 		"coverage_note":          result.CoverageNote,
 		"report_artifacts":       reportArtifacts,
 		"source_privacy":         result.SourcePrivacy,
-		"agent_action_bom":       result.AgentActionBOM,
+		"agent_action_bom":       agentActionBOM,
 		"governed_usage_metrics": result.GovernedUsageMetrics,
 		"next_steps":             evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
 	}
@@ -129,16 +134,84 @@ func buildEvidenceJSONPayload(result evidence.BuildResult, resolvedStatePath str
 		payload["composition_refs"] = result.CompositionRefs
 	}
 	if suppressed := outputsignal.MergeSuppressedCounts(&outputsignal.SuppressedCounts{
-		ControlEvidence: controlEvidenceOverflow,
-		ReportArtifacts: reportArtifactsOverflow,
+		AgentActionBOM:      agentActionBOMOverflow,
+		ComposedActionPaths: compositionOverflow,
+		ControlEvidence:     controlEvidenceOverflow,
+		ReportArtifacts:     reportArtifactsOverflow,
 	}); suppressed != nil {
 		payload["suppressed_counts"] = suppressed
 		payload["artifact_paths"] = map[string]any{
-			"state":                 resolvedStatePath,
-			"control_evidence_json": filepath.Join(result.OutputDir, "control-evidence.json"),
+			"state":                        resolvedStatePath,
+			"control_evidence_json":        filepath.Join(result.OutputDir, "control-evidence.json"),
+			"agent_action_bom_json":        filepath.Join(result.OutputDir, "reports", "agent-action-bom-customer-redacted.json"),
+			"agent_action_bom_full_bundle": filepath.Join(result.OutputDir, "reports", "report-evidence-customer-redacted.json"),
 		}
 	}
 	return payload
+}
+
+func previewEvidenceAgentActionBOM(in *reportcore.AgentActionBOM) (*reportcore.AgentActionBOM, int, int) {
+	if in == nil {
+		return nil, 0, 0
+	}
+	out := *in
+	out.Items = append([]reportcore.AgentActionBOMItem(nil), scanPreview(in.Items, evidenceJSONInlineBOMItemsCap)...)
+	out.ComposedActionPaths = append([]risk.ComposedActionPath(nil), scanPreview(in.ComposedActionPaths, evidenceJSONInlineCompositionsCap)...)
+	if in.Summary.PrimaryView != nil {
+		out.Items = preservePrimaryBOMItem(out.Items, in.Items, in.Summary.PrimaryView.PathID)
+		out.ComposedActionPaths = preservePrimaryComposition(out.ComposedActionPaths, in.ComposedActionPaths, in.Summary.PrimaryView.CompositionID)
+	}
+	return &out, positiveOverflow(len(in.Items), len(out.Items)), positiveOverflow(len(in.ComposedActionPaths), len(out.ComposedActionPaths))
+}
+
+func preservePrimaryBOMItem(preview []reportcore.AgentActionBOMItem, all []reportcore.AgentActionBOMItem, pathID string) []reportcore.AgentActionBOMItem {
+	pathID = strings.TrimSpace(pathID)
+	if pathID == "" || containsBOMPath(preview, pathID) {
+		return preview
+	}
+	for _, item := range all {
+		if strings.TrimSpace(item.PathID) != pathID {
+			continue
+		}
+		if len(preview) == 0 {
+			return []reportcore.AgentActionBOMItem{item}
+		}
+		preview[len(preview)-1] = item
+		return preview
+	}
+	return preview
+}
+
+func containsBOMPath(items []reportcore.AgentActionBOMItem, pathID string) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item.PathID) == pathID {
+			return true
+		}
+	}
+	return false
+}
+
+func preservePrimaryComposition(preview []risk.ComposedActionPath, all []risk.ComposedActionPath, compositionID string) []risk.ComposedActionPath {
+	compositionID = strings.TrimSpace(compositionID)
+	if compositionID == "" {
+		return preview
+	}
+	for _, item := range preview {
+		if strings.TrimSpace(item.CompositionID) == compositionID {
+			return preview
+		}
+	}
+	for _, item := range all {
+		if strings.TrimSpace(item.CompositionID) != compositionID {
+			continue
+		}
+		if len(preview) == 0 {
+			return []risk.ComposedActionPath{item}
+		}
+		preview[len(preview)-1] = item
+		return preview
+	}
+	return preview
 }
 
 func parseFrameworkFlags(raw string) []string {

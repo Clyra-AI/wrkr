@@ -43,21 +43,23 @@
     "action_paths": [
       {
         "action_path_type": "ci_cd_workflow",
-        "approval_evidence_state": "unknown",
-        "constraint_evidence": null,
+        "approval_evidence_state": "verified",
+        "constraint_evidence": [
+          "branch_protection"
+        ],
         "contradiction_count": null,
-        "control_resolution_state": "detected_control",
+        "control_resolution_state": "external_control_reference",
         "owner_evidence_state": "inferred",
         "path_id": "apc-81d8e39e9045",
         "recommended_action": "control",
-        "runtime_evidence_state": "unknown",
+        "runtime_evidence_state": "verified",
         "target_evidence_state": "inferred"
       }
     ],
     "bom_items": [
       {
         "action_path_type": "ci_cd_workflow",
-        "approval_evidence_state": "unknown",
+        "approval_evidence_state": "verified",
         "control_state": "approval_required",
         "owner_evidence_state": "inferred",
         "path_id": "apc-81d8e39e9045",

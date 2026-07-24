@@ -1,4 +1,29 @@
 {
+  "validation_contract_version": 2,
+  "validated_content_sha256": "1e33137f1bc77164a5efa5826e6c353f9438a2b920acb6308e26a5c60d2136fa",
+  "validation_scope_paths": [
+    ".github/workflows",
+    "Makefile",
+    "README.md",
+    "core/cli",
+    "core/evidence",
+    "core/export/actioncontracts",
+    "core/report",
+    "core/risk",
+    "docs/commands/evidence.md",
+    "docs/commands/report.md",
+    "docs/commands/scan.md",
+    "docs/examples/site-assets",
+    "internal/acceptance",
+    "internal/e2e/diff",
+    "internal/scenarios",
+    "scenarios/cross-product/action-contract-interop",
+    "scenarios/wrkr",
+    "scripts/action_contract_conformance",
+    "scripts/generate_action_contract_conformance.sh",
+    "scripts/run_freeze_gate.py",
+    "testinfra/contracts"
+  ],
   "receipt_id": "story-0.1-sprint0-public-surface-freeze-gate",
   "plan_path": "product/plans/adhoc/PLAN_ADHOC_2026-07-13_143619_composed-action-path-contracts.md",
   "refreshed_by_plan": "product/plans/adhoc/PLAN_ADHOC_2026-07-18_171356_action-contract-interop.md",
@@ -15,7 +40,7 @@
     "action_contract_conformance_fixture_v1",
     "bounded_multi_stage_composed_action_contracts"
   ],
-  "validated_on": "2026-07-21",
+  "validated_on": "2026-07-23",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:4-repos",
@@ -47,31 +72,53 @@
     {
       "artifact": "last-scan.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 0,
+      "measured_bytes": 8090113,
+      "baseline_bytes": 0,
       "budget_bytes": 16777216,
-      "delta_bytes": 0,
+      "delta_bytes": 8090113,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
       "artifact": "agent-action-bom-evidence.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 0,
+      "measured_bytes": 1144221,
+      "baseline_bytes": 0,
       "budget_bytes": 2097152,
-      "delta_bytes": 0,
+      "delta_bytes": 1144221,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
       "artifact": "endpoint-dense-scan.json",
       "fixture": "internal/enterprisepressure.EndpointDense:4-repos",
-      "measured_bytes": 0,
+      "measured_bytes": 23807386,
+      "baseline_bytes": 0,
       "budget_bytes": 25165824,
-      "delta_bytes": 0,
+      "delta_bytes": 23807386,
       "measurement_source": "internal/acceptance.TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection"
+    },
+    {
+      "artifact": "scan-command-response.json",
+      "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
+      "measured_bytes": 893867,
+      "baseline_bytes": 1067262,
+      "budget_bytes": 2097152,
+      "delta_bytes": -173395,
+      "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
+    },
+    {
+      "artifact": "evidence-command-response.json",
+      "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
+      "measured_bytes": 537039,
+      "baseline_bytes": 3182360,
+      "budget_bytes": 1048576,
+      "delta_bytes": -2645321,
+      "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
       "artifact": "action-contract-packet.json",
       "fixture": "core/report.actionContractPacketTestInput",
       "measured_bytes": 6562,
+      "baseline_bytes": 0,
       "budget_bytes": 65536,
       "delta_bytes": 6562,
       "measurement_source": "core/report.TestActionContractPacketSizeReadabilityAndCloneStripBudgets"
@@ -80,6 +127,7 @@
       "artifact": "action-contract-packet.md",
       "fixture": "core/report.actionContractPacketTestInput",
       "measured_bytes": 3779,
+      "baseline_bytes": 0,
       "budget_bytes": 32768,
       "delta_bytes": 3779,
       "measurement_source": "core/report.TestActionContractPacketSizeReadabilityAndCloneStripBudgets"
@@ -88,6 +136,7 @@
       "artifact": "action-contract-interop-exact-byte-pack",
       "fixture": "scenarios/cross-product/action-contract-interop/expected",
       "measured_bytes": 810663,
+      "baseline_bytes": 0,
       "budget_bytes": 1048576,
       "delta_bytes": 810663,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceExactBytesRegenerateFromWrkr"
@@ -96,6 +145,7 @@
       "artifact": "action-contract-artifact.json",
       "fixture": "scenarios/cross-product/action-contract-interop/expected/approval-expiry",
       "measured_bytes": 51391,
+      "baseline_bytes": 0,
       "budget_bytes": 65536,
       "delta_bytes": 51391,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
@@ -104,6 +154,7 @@
       "artifact": "action-contract-packet.json",
       "fixture": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation",
       "measured_bytes": 33319,
+      "baseline_bytes": 0,
       "budget_bytes": 65536,
       "delta_bytes": 33319,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
@@ -112,6 +163,7 @@
       "artifact": "action-contract-packet.md",
       "fixture": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation",
       "measured_bytes": 13626,
+      "baseline_bytes": 0,
       "budget_bytes": 32768,
       "delta_bytes": 13626,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
@@ -120,6 +172,7 @@
       "artifact": "multi-stage-action-contract-packet.json",
       "fixture": "core/report.actionContractPacketTestInput:three-stage",
       "measured_bytes": 7310,
+      "baseline_bytes": 6562,
       "budget_bytes": 65536,
       "delta_bytes": 748,
       "measurement_source": "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability"
@@ -128,6 +181,7 @@
       "artifact": "multi-stage-action-contract-packet.md",
       "fixture": "core/report.actionContractPacketTestInput:three-stage",
       "measured_bytes": 4404,
+      "baseline_bytes": 3779,
       "budget_bytes": 32768,
       "delta_bytes": 625,
       "measurement_source": "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability"
@@ -136,6 +190,7 @@
       "artifact": "composed-action-paths-default-projection.json",
       "fixture": "core/risk.high-fanout-multi-stage:38-paths",
       "measured_bytes": 2226242,
+      "baseline_bytes": 1805850,
       "budget_bytes": 4194304,
       "delta_bytes": 420392,
       "measurement_source": "core/risk.TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget"
@@ -144,6 +199,7 @@
       "artifact": "default-report-summary.json",
       "fixture": "core/report.multiStageReportPath:20-paths",
       "measured_bytes": 3452852,
+      "baseline_bytes": 2630733,
       "budget_bytes": 4194304,
       "delta_bytes": 822119,
       "measurement_source": "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget"

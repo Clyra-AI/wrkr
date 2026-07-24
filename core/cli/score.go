@@ -36,7 +36,7 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
 	if err := preflightManagedArtifactScoreRead(resolvedStatePath); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitManagedArtifactReadError(stderr, jsonRequested || *jsonOut, err)
 	}
 	snapshot, err := state.LoadScoreView(resolvedStatePath)
 	if err != nil {

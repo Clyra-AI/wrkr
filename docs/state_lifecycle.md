@@ -8,6 +8,7 @@ Wrkr uses two path classes:
 
 - Managed contract artifacts under `.wrkr/` (state, baseline, manifest, proof chain).
 - Operator-selected output paths (for reports/evidence exports), commonly under `.tmp/` or `wrkr-evidence/`.
+- State-bound transaction recovery journals under the current user's private cache directory. These journals are deliberately outside the scanned repository and are not portable evidence artifacts.
 - Scan-owned additive artifact paths (`--report-md-path`, `--sarif-path`, `--json-path`) are preflight-validated before managed `.wrkr/` commit paths are mutated.
 - After preflight, scan-owned managed artifacts publish transactionally; late sidecar write failures roll the managed generation back instead of leaving mixed state/proof/manifest outputs on disk.
 
@@ -21,6 +22,13 @@ Wrkr uses two path classes:
 | Proof chain | `.wrkr/proof-chain.json` | `wrkr scan` / `wrkr evidence` | Verifiable signed record chain. |
 | Evidence bundle | `wrkr-evidence/` | `wrkr evidence` | User-supplied `--output` is allowed; unsafe non-managed non-empty paths fail closed. Managed reruns are authorized by state-bound marker provenance, not static marker content alone. Wrkr verifies the saved proof chain first, then stages bundle writes in a same-parent temporary directory and only publishes after manifest/sign/verify success. |
 | Human report artifacts | user-selected (`.tmp/*.md`, `.tmp/*.pdf`) | `wrkr report`, `wrkr regress run --summary-md`, `wrkr lifecycle --summary-md` | Keep separate from managed `.wrkr/` contract artifacts. |
+
+## Transaction recovery trust boundary
+
+- Before mutating a managed generation, Wrkr writes a versioned recovery journal under the operating system's user cache directory (`wrkr/transactions/<state-path-sha256>.json`), creates its parent with owner-only permissions, and binds the journal to the canonical absolute state path.
+- Recovery accepts only a regular, non-symlink journal with owner-only file permissions (where the platform exposes POSIX permission bits), a matching state-path digest, and unique canonical artifact paths captured by Wrkr while it held the state lease.
+- Repository-local legacy `.wrkr-managed-transaction.json` files are never replayed. Their presence blocks the operation with `unsafe_operation_blocked` (exit `8`) so an operator can inspect and remove the untrusted file.
+- This intentionally favors fail-closed manual recovery over interpreting transaction instructions from a newly cloned or otherwise untrusted repository.
 
 ## Identity scope
 

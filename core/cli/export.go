@@ -134,10 +134,7 @@ func runExportActionContracts(args []string, stdout io.Writer, stderr io.Writer)
 		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
 	}
 	if err := preflightManagedArtifactRead(resolvedStatePath); err != nil {
-		if isUnsafeManagedArtifactPathError(err) {
-			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
-		}
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitManagedArtifactReadError(stderr, jsonRequested || *jsonOut, err)
 	}
 	snapshot, err := state.Load(resolvedStatePath)
 	if err != nil {
@@ -278,10 +275,7 @@ func runExportDeclarations(args []string, stdout io.Writer, stderr io.Writer) in
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
 	if err := preflightManagedArtifactRead(resolvedStatePath); err != nil {
-		if isUnsafeManagedArtifactPathError(err) {
-			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
-		}
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitManagedArtifactReadError(stderr, jsonRequested || *jsonOut, err)
 	}
 	snapshot, err := state.Load(resolvedStatePath)
 	if err != nil {

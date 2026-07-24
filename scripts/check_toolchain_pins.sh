@@ -3,6 +3,7 @@ set -euo pipefail
 
 dev_guides_path="${WRKR_PIN_CHECK_DEV_GUIDES:-product/dev_guides.md}"
 targets_raw="${WRKR_PIN_CHECK_TARGETS:-.github/workflows/*.yml Makefile}"
+factory_profile_path="${WRKR_PIN_CHECK_FACTORY_PROFILE:-factory/profiles/wrkr.yaml}"
 pin_target_files=()
 
 contains_value() {
@@ -255,6 +256,26 @@ fi
 
 if ! grep -Fq '`go.mod`' AGENTS.md || ! grep -Fq '`product/dev_guides.md`' AGENTS.md; then
   echo "AGENTS.md must point Go toolchain authority at go.mod and product/dev_guides.md" >&2
+  exit 3
+fi
+
+if [[ ! -f "$factory_profile_path" ]]; then
+  echo "missing Wrkr Factory profile: $factory_profile_path" >&2
+  exit 3
+fi
+
+factory_go_versions=()
+while IFS= read -r version; do
+  if [[ -n "$version" ]]; then
+    factory_go_versions+=("$version")
+  fi
+done < <(extract_yaml_key_values "toolchain_version" "$factory_profile_path")
+if [[ ${#factory_go_versions[@]} -ne 1 ]]; then
+  echo "Wrkr Factory profile must declare exactly one runtime_pins.toolchain_version in $factory_profile_path" >&2
+  exit 3
+fi
+if [[ "${factory_go_versions[0]}" != "1.26.5" ]]; then
+  echo "Factory profile Go pin mismatch: expected 1.26.5 from go.mod, found ${factory_go_versions[0]} in $factory_profile_path" >&2
   exit 3
 fi
 
