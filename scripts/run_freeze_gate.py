@@ -9,7 +9,8 @@ import hashlib
 import json
 from pathlib import Path
 import shlex
-import subprocess
+# Freeze-gate execution only shells out to fixed local tools after explicit allowlist checks.
+import subprocess  # nosec
 import sys
 import time
 from typing import Any
@@ -31,7 +32,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def git_output(repo_root: Path, *args: str) -> bytes:
-    return subprocess.check_output(["git", "-C", str(repo_root), *args])
+    # git is invoked with fixed argv structure and a repo-root cwd derived from the CLI path argument.
+    return subprocess.check_output(["git", "-C", str(repo_root), *args])  # nosec
 
 
 def receipt_content_digest(repo_root: Path, receipt_path: Path, receipt: dict[str, Any]) -> str:
@@ -145,7 +147,8 @@ def execute_command(repo_root: Path, command: str) -> dict[str, Any]:
     if not direct_go_test and not exact_fixture_check:
         raise ValueError(f"freeze-gate command is not allowlisted for direct execution: {command}")
     started = time.monotonic()
-    completed = subprocess.run(
+    # argv is limited to direct `go test` or one fixed fixture script above; shell is never enabled.
+    completed = subprocess.run(  # nosec
         argv,
         cwd=repo_root,
         stdout=subprocess.PIPE,
