@@ -267,6 +267,36 @@ func TestNightlyRaceLaneIsolatesLongAcceptancePackage(t *testing.T) {
 	}
 }
 
+func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+
+	prWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/pr.yml"))
+	if strings.Contains(prWorkflow, "submodules: recursive") {
+		t.Fatal("pr workflow must not require recursive factory checkout when the default PR token cannot read the private submodule")
+	}
+	if !strings.Contains(prWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'") {
+		t.Fatal("pr fast lane must explicitly opt into the missing-factory-profile toolchain-pin path")
+	}
+
+	mainWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/main.yml"))
+	if strings.Contains(mainWorkflow, "submodules: recursive") {
+		t.Fatal("main workflow must not require recursive factory checkout when the default automation token cannot read the private submodule")
+	}
+	if !strings.Contains(mainWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'") {
+		t.Fatal("main core lane must explicitly opt into the missing-factory-profile toolchain-pin path")
+	}
+
+	releaseWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/release.yml"))
+	if strings.Contains(releaseWorkflow, "submodules: recursive") {
+		t.Fatal("release workflow must not require recursive factory checkout when the default automation token cannot read the private submodule")
+	}
+	if !strings.Contains(releaseWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'") {
+		t.Fatal("release toolchain-pin step must explicitly opt into the missing-factory-profile path")
+	}
+}
+
 func TestReleaseWorkflowPublishesOnlyAfterIntegrityVerification(t *testing.T) {
 	t.Parallel()
 
