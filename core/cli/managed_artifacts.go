@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -22,8 +25,9 @@ import (
 )
 
 const (
-	managedArtifactTransactionVersion = "v1"
+	managedArtifactTransactionVersion = "v2"
 	managedArtifactTransactionName    = ".wrkr-managed-transaction.json"
+	managedArtifactTransactionDir     = "transactions"
 )
 
 type managedArtifactVerificationMode uint8
@@ -53,9 +57,10 @@ type managedArtifactTransaction struct {
 }
 
 type managedArtifactTransactionJournal struct {
-	Version   string                               `json:"version"`
-	Operation string                               `json:"operation"`
-	Artifacts []managedArtifactTransactionArtifact `json:"artifacts"`
+	Version         string                               `json:"version"`
+	StatePathSHA256 string                               `json:"state_path_sha256"`
+	Operation       string                               `json:"operation"`
+	Artifacts       []managedArtifactTransactionArtifact `json:"artifacts"`
 }
 
 type managedArtifactTransactionArtifact struct {
@@ -110,13 +115,26 @@ func captureManagedArtifacts(paths ...string) ([]managedArtifactSnapshot, error)
 }
 
 func recoverManagedArtifactTransaction(statePath string) error {
-	journalPath := managedArtifactTransactionPath(statePath)
-	payload, err := os.ReadFile(journalPath) // #nosec G304 -- transaction metadata lives beside the caller-selected state path.
+	legacyPath := legacyManagedArtifactTransactionPath(statePath)
+	if _, err := os.Lstat(legacyPath); err == nil {
+		return unsafeManagedArtifactPathError{err: fmt.Errorf(
+			"legacy repo-local managed artifact transaction is untrusted and will not be replayed: %s; remove it only after reviewing the affected state directory",
+			legacyPath,
+		)}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect legacy managed artifact transaction: %w", err)
+	}
+
+	journalPath, err := managedArtifactTransactionPath(statePath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return fmt.Errorf("read managed artifact transaction: %w", err)
+		return err
+	}
+	payload, err := readTrustedManagedArtifactJournal(journalPath)
+	if err != nil {
+		return err
+	}
+	if payload == nil {
+		return nil
 	}
 
 	var journal managedArtifactTransactionJournal
@@ -126,17 +144,33 @@ func recoverManagedArtifactTransaction(statePath string) error {
 	if strings.TrimSpace(journal.Version) != managedArtifactTransactionVersion {
 		return fmt.Errorf("managed artifact transaction has unsupported version %q", journal.Version)
 	}
+	expectedStatePathSHA, err := managedArtifactStatePathSHA256(statePath)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(journal.StatePathSHA256) != expectedStatePathSHA {
+		return unsafeManagedArtifactPathError{err: fmt.Errorf("managed artifact transaction state binding mismatch")}
+	}
 	if len(journal.Artifacts) == 0 {
 		return fmt.Errorf("managed artifact transaction has no artifacts")
 	}
 
-	root := filepath.Dir(journalPath)
+	root := managedArtifactRoot(statePath)
 	snapshots := make([]managedArtifactSnapshot, 0, len(journal.Artifacts))
+	seen := make(map[string]struct{}, len(journal.Artifacts))
 	for _, artifact := range journal.Artifacts {
 		resolvedPath, resolveErr := managedArtifactPathFromJournal(root, artifact.Path)
 		if resolveErr != nil {
 			return resolveErr
 		}
+		canonicalPath, canonicalErr := canonicalArtifactPath(resolvedPath)
+		if canonicalErr != nil {
+			return unsafeManagedArtifactPathError{err: fmt.Errorf("resolve managed artifact recovery path: %w", canonicalErr)}
+		}
+		if _, ok := seen[canonicalPath]; ok {
+			return unsafeManagedArtifactPathError{err: fmt.Errorf("managed artifact transaction contains duplicate recovery path %q", artifact.Path)}
+		}
+		seen[canonicalPath] = struct{}{}
 		snapshots = append(snapshots, managedArtifactSnapshot{
 			path:    resolvedPath,
 			existed: artifact.Existed,
@@ -190,8 +224,11 @@ func beginManagedArtifactTransactionWithLease(statePath string, operation string
 	if err != nil {
 		return nil, err
 	}
-	journalPath := managedArtifactTransactionPath(statePath)
-	journal, err := newManagedArtifactTransactionJournal(filepath.Dir(journalPath), operation, normalizedFiles, snapshots)
+	journalPath, err := managedArtifactTransactionPath(statePath)
+	if err != nil {
+		return nil, err
+	}
+	journal, err := newManagedArtifactTransactionJournal(statePath, managedArtifactRoot(statePath), operation, normalizedFiles, snapshots)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +305,7 @@ func (tx *managedArtifactTransaction) releaseLease() error {
 	return lease.Release()
 }
 
-func managedArtifactTransactionPath(statePath string) string {
+func managedArtifactRoot(statePath string) string {
 	cleanStatePath := filepath.Clean(strings.TrimSpace(statePath))
 	if cleanStatePath == "" || cleanStatePath == "." {
 		cleanStatePath = state.ResolvePath("")
@@ -277,7 +314,109 @@ func managedArtifactTransactionPath(statePath string) string {
 	if strings.TrimSpace(dir) == "" {
 		dir = "."
 	}
-	return filepath.Join(dir, managedArtifactTransactionName)
+	return dir
+}
+
+func legacyManagedArtifactTransactionPath(statePath string) string {
+	return filepath.Join(managedArtifactRoot(statePath), managedArtifactTransactionName)
+}
+
+func managedArtifactTransactionPath(statePath string) (string, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve private managed artifact transaction directory: %w", err)
+	}
+	transactionDir := filepath.Join(cacheDir, "wrkr", managedArtifactTransactionDir)
+	if err := os.MkdirAll(transactionDir, 0o700); err != nil {
+		return "", fmt.Errorf("create private managed artifact transaction directory: %w", err)
+	}
+	info, err := os.Lstat(transactionDir)
+	if err != nil {
+		return "", fmt.Errorf("inspect private managed artifact transaction directory: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return "", unsafeManagedArtifactPathError{err: fmt.Errorf("private managed artifact transaction path must be a real directory: %s", transactionDir)}
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(transactionDir, 0o700); err != nil {
+			return "", fmt.Errorf("secure private managed artifact transaction directory: %w", err)
+		}
+	}
+	statePathSHA, err := managedArtifactStatePathSHA256(statePath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(transactionDir, statePathSHA+".json"), nil
+}
+
+func managedArtifactStatePathSHA256(statePath string) (string, error) {
+	cleanStatePath := filepath.Clean(strings.TrimSpace(statePath))
+	if cleanStatePath == "" || cleanStatePath == "." {
+		cleanStatePath = state.ResolvePath("")
+	}
+	absStatePath, err := filepath.Abs(cleanStatePath)
+	if err != nil {
+		return "", fmt.Errorf("resolve managed artifact state path: %w", err)
+	}
+	sum := sha256.Sum256([]byte(filepath.Clean(absStatePath)))
+	return fmt.Sprintf("%x", sum[:]), nil
+}
+
+func validateTrustedManagedArtifactJournal(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("inspect managed artifact transaction: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return unsafeManagedArtifactPathError{err: fmt.Errorf("managed artifact transaction must be a regular file, not a link or special file: %s", path)}
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
+		return unsafeManagedArtifactPathError{err: fmt.Errorf("managed artifact transaction permissions are too broad: %s", path)}
+	}
+	return nil
+}
+
+func readTrustedManagedArtifactJournal(path string) ([]byte, error) {
+	before, err := os.Lstat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("inspect managed artifact transaction: %w", err)
+	}
+	if err := validateTrustedManagedArtifactJournal(path); err != nil {
+		return nil, err
+	}
+	file, err := os.Open(path) // #nosec G304 -- path is state-derived inside Wrkr's private user cache and identity-checked below.
+	if err != nil {
+		return nil, fmt.Errorf("open managed artifact transaction: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	opened, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("inspect opened managed artifact transaction: %w", err)
+	}
+	if !opened.Mode().IsRegular() {
+		return nil, unsafeManagedArtifactPathError{err: fmt.Errorf("opened managed artifact transaction is not a regular file: %s", path)}
+	}
+	if runtime.GOOS != "windows" && opened.Mode().Perm()&0o077 != 0 {
+		return nil, unsafeManagedArtifactPathError{err: fmt.Errorf("opened managed artifact transaction permissions are too broad: %s", path)}
+	}
+	after, err := os.Lstat(path)
+	if err != nil {
+		return nil, unsafeManagedArtifactPathError{err: fmt.Errorf("reinspect managed artifact transaction: %w", err)}
+	}
+	if !os.SameFile(before, opened) || !os.SameFile(after, opened) {
+		return nil, unsafeManagedArtifactPathError{err: fmt.Errorf("managed artifact transaction changed while it was being opened: %s", path)}
+	}
+	payload, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("read managed artifact transaction: %w", err)
+	}
+	return payload, nil
 }
 
 func normalizeManagedArtifactFiles(files []managedArtifactFile) ([]managedArtifactFile, error) {
@@ -311,7 +450,11 @@ func normalizeManagedArtifactFiles(files []managedArtifactFile) ([]managedArtifa
 	return out, nil
 }
 
-func newManagedArtifactTransactionJournal(root string, operation string, files []managedArtifactFile, snapshots []managedArtifactSnapshot) (managedArtifactTransactionJournal, error) {
+func newManagedArtifactTransactionJournal(statePath string, root string, operation string, files []managedArtifactFile, snapshots []managedArtifactSnapshot) (managedArtifactTransactionJournal, error) {
+	statePathSHA, err := managedArtifactStatePathSHA256(statePath)
+	if err != nil {
+		return managedArtifactTransactionJournal{}, err
+	}
 	snapshotByPath := make(map[string]managedArtifactSnapshot, len(snapshots))
 	for _, snapshot := range snapshots {
 		snapshotByPath[filepath.Clean(snapshot.path)] = snapshot
@@ -336,9 +479,10 @@ func newManagedArtifactTransactionJournal(root string, operation string, files [
 		})
 	}
 	return managedArtifactTransactionJournal{
-		Version:   managedArtifactTransactionVersion,
-		Operation: strings.TrimSpace(operation),
-		Artifacts: artifacts,
+		Version:         managedArtifactTransactionVersion,
+		StatePathSHA256: statePathSHA,
+		Operation:       strings.TrimSpace(operation),
+		Artifacts:       artifacts,
 	}, nil
 }
 
@@ -592,6 +736,13 @@ func rejectUnsafeExistingManagedFile(path string, label string) error {
 func isUnsafeManagedArtifactPathError(err error) bool {
 	var target unsafeManagedArtifactPathError
 	return errors.As(err, &target)
+}
+
+func emitManagedArtifactReadError(stderr io.Writer, jsonOut bool, err error) int {
+	if isUnsafeManagedArtifactPathError(err) {
+		return emitError(stderr, jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+	}
+	return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 }
 
 func newScanArtifactPathEntry(label, path string) (scanArtifactPathEntry, error) {

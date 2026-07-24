@@ -53,7 +53,7 @@ func TestBuildScanJSONSummaryBoundsLargeSections(t *testing.T) {
 	if !ok || suppressed == nil {
 		t.Fatalf("expected suppressed_counts, got %T", payload["suppressed_counts"])
 	}
-	if suppressed.Findings != 3 ||
+	if suppressed.Findings != scanSummaryInlineFindingsCap+3 ||
 		suppressed.RankedFindings != 2 ||
 		suppressed.ActionPaths != 2 ||
 		suppressed.ControlBacklog != 2 ||

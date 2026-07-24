@@ -64,6 +64,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
+        with:
+          submodules: recursive
 
       - name: Setup Go
         uses: actions/setup-go@v6.3.0
@@ -86,6 +88,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
+        with:
+          submodules: recursive
 
       - name: Setup Go
         uses: actions/setup-go@v6.3.0
@@ -102,7 +106,9 @@ jobs:
         run: |
           make test-integration
           make test-e2e
+          make test-coverage
           make test-contracts
+          make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean
           scripts/validate_contracts.sh
           scripts/validate_scenarios.sh
           go test ./internal/scenarios -count=1 -tags=scenario
@@ -114,6 +120,14 @@ jobs:
         with:
           name: agent-benchmark-main
           path: .tmp/agent-benchmarks-main.json
+
+      - name: Upload freeze-gate runtime receipt
+        if: always()
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: freeze-gate-runtime-receipt-main
+          path: .tmp/freeze-gate-runtime-receipt.json
+          if-no-files-found: error
 
   docs-smoke:
     name: docs-smoke

@@ -52,7 +52,7 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		defer func() { _ = lease.Release() }()
 		if err := recoverManagedArtifactTransaction(keyLookupPath); err != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+			return emitManagedArtifactReadError(stderr, jsonRequested || *jsonOut, err)
 		}
 	}
 	var (

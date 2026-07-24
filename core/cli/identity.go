@@ -59,7 +59,7 @@ func runIdentityList(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
 	if err := preflightManagedArtifactRead(resolvedStatePath); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitManagedArtifactReadError(stderr, jsonRequested || *jsonOut, err)
 	}
 	loaded, err := manifest.Load(manifest.ResolvePath(resolvedStatePath))
 	if err != nil {
@@ -106,7 +106,7 @@ func runIdentityShow(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	statePath := state.ResolvePath(*statePathFlag)
 	if err := preflightManagedArtifactRead(statePath); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitManagedArtifactReadError(stderr, jsonRequested || *jsonOut, err)
 	}
 	loaded, err := manifest.Load(manifest.ResolvePath(statePath))
 	if err != nil {

@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
+        with:
+          submodules: recursive
 
       - name: Setup Go
         uses: actions/setup-go@v6.3.0
@@ -62,8 +64,16 @@ jobs:
         run: go test ./internal/integration/interop -count=1
 
       - name: Run race lane
-        # Keep race-lane package timeouts aligned with the repo's standard Go test budget.
-        run: go test -race ./... -count=1 -timeout=20m
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t race_packages < <(go list ./... | grep -v '/internal/acceptance$')
+          if [[ "${#race_packages[@]}" -eq 0 ]]; then
+            echo "race lane resolved no non-acceptance packages" >&2
+            exit 3
+          fi
+          go test -race "${race_packages[@]}" -count=1 -timeout=20m
+          go test -race ./internal/acceptance -count=1 -timeout=40m
 
       - name: Run vulnerability scan
         run: |

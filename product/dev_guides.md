@@ -566,7 +566,7 @@ These minimums are for v1 launch. Scenario count grows with product surface — 
 
 **Coverage collection**: Go uses `-coverprofile=coverage.out`; Python uses `pytest --cov=<package> --cov-report=term-missing`.
 
-**Validation scripts**: `scripts/check_go_coverage.py <coverprofile> <min_percent>`, `scripts/check_go_package_coverage.py <output> <min_percent> [allowlist_csv]`.
+**Validation scripts**: `scripts/check_go_coverage.py <coverprofile> <min_percent>`, `scripts/check_go_package_coverage.py <output> <min_percent> <exceptions_json>`. `make test-coverage` collects both receipts and fails closed on a missing, expired, or regressed exception. The governed exception register is `.github/coverage-exceptions.json`; every temporary floor carries owners, rationale, expiry, follow-up, and compensating validation.
 
 ### Golden File Pattern
 

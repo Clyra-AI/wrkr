@@ -20,8 +20,8 @@ func TestScenarioFirstOfferNoisePackAssessmentSharpening(t *testing.T) {
 
 	repoRoot := mustFindRepoRoot(t)
 	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "first-offer-noise-pack", "repos")
-	standard := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", filepath.Join(t.TempDir(), "standard-state.json"), "--profile", "standard", "--json"})
-	assessment := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", filepath.Join(t.TempDir(), "assessment-state.json"), "--profile", "assessment", "--json"})
+	standard := runScenarioCommandJSONRaw(t, []string{"scan", "--path", scanPath, "--state", filepath.Join(t.TempDir(), "standard-state.json"), "--profile", "standard", "--json"})
+	assessment := runScenarioCommandJSONRaw(t, []string{"scan", "--path", scanPath, "--state", filepath.Join(t.TempDir(), "assessment-state.json"), "--profile", "assessment", "--json"})
 
 	standardGolden := mustLoadFirstOfferExpected(t, repoRoot, "scenarios/wrkr/first-offer-noise-pack/expected/standard-scan.json")
 	assessmentGolden := mustLoadFirstOfferExpected(t, repoRoot, "scenarios/wrkr/first-offer-noise-pack/expected/assessment-scan.json")
@@ -111,7 +111,7 @@ func projectFirstOfferNoisePackScan(t *testing.T, payload map[string]any) map[st
 
 	return map[string]any{
 		"status":            requireStringValue(t, payload, "status"),
-		"findings_count":    float64(len(requireSliceValue(t, payload, "findings"))),
+		"findings_count":    float64(requireIntValue(t, requireMapValue(t, payload, "finding_counts"), "raw_total")),
 		"top_finding_types": projectTopFindingTypes(t, payload),
 		"action_path_count": float64(len(optionalSliceValue(payload, "action_paths"))),
 		"action_paths":      projectActionPaths(t, optionalSliceValue(payload, "action_paths")),

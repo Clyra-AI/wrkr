@@ -37,6 +37,7 @@ release package scope.
 make fmt
 make lint-fast
 make test-fast
+make test-coverage
 make test-contracts
 make test-scenarios
 make prepush
@@ -58,7 +59,7 @@ These commands do not replace `make test-fast`, `make prepush`, contract lanes, 
 | Lane | Purpose | Local command anchor |
 |---|---|---|
 | Fast | quick contract + lint safety | `make lint-fast && make test-fast` |
-| Core CI | deterministic package and contract coverage | `make prepush` |
+| Core CI | deterministic package, numeric coverage, and contract coverage | `make prepush && make test-coverage` |
 | Acceptance | operator-path scenario flows | `make test-scenarios` |
 | Cross-platform | Linux/macOS/Windows behavior parity | avoid OS-specific assumptions in paths/fixtures |
 | Risk | hardening/perf/chaos lanes for scoped changes | `make test-risk-lane` |

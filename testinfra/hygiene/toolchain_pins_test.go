@@ -92,6 +92,27 @@ func TestCheckToolchainPinsFailsWhenAgentsPinsExplicitGoVersion(t *testing.T) {
 	}
 }
 
+func TestCheckToolchainPinsFailsWhenFactoryProfileDrifts(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
+		gosecVersion:        "v2.23.0",
+		golangciLintVersion: "v2.0.1",
+		cosignVersion:       "v2.5.3",
+		syftVersion:         "v1.32.0",
+		grypeVersion:        "v0.99.1",
+		factoryGoVersion:    "1.26.4",
+	})
+	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
+	if err == nil {
+		t.Fatal("expected checker to fail when the Wrkr Factory profile Go pin drifts")
+	}
+	expected := "Factory profile Go pin mismatch: expected 1.26.5 from go.mod, found 1.26.4 in factory/profiles/wrkr.yaml"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic Factory profile drift message %q, got %q", expected, stderr)
+	}
+}
+
 func TestReleaseWorkflowUsesDocumentedReleaseIntegrityPins(t *testing.T) {
 	t.Parallel()
 
@@ -125,6 +146,7 @@ type fixturePins struct {
 	syftVersion         string
 	grypeVersion        string
 	agentsContent       string
+	factoryGoVersion    string
 }
 
 func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
@@ -160,6 +182,16 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 		}, "\n")
 	}
 	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), agentsContent)
+	factoryGoVersion := versions.factoryGoVersion
+	if factoryGoVersion == "" {
+		factoryGoVersion = "1.26.5"
+	}
+	mustWriteFile(t, filepath.Join(root, "factory/profiles/wrkr.yaml"), strings.Join([]string{
+		"runtime_pins:",
+		"  language: go",
+		"  toolchain_version: \"" + factoryGoVersion + "\"",
+		"",
+	}, "\n"))
 
 	workflow := strings.Join([]string{
 		"name: fixture",

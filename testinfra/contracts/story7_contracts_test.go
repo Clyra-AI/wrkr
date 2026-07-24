@@ -114,9 +114,10 @@ func TestStory7SkillConflictAndExposureContracts(t *testing.T) {
 
 	payload := runScanJSON(t, scanPath, statePath)
 
-	findings, ok := payload["findings"].([]any)
+	state := mustReadJSON(t, statePath)
+	findings, ok := state["findings"].([]any)
 	if !ok {
-		t.Fatalf("expected findings array, got %T", payload["findings"])
+		t.Fatalf("expected canonical state findings array, got %T", state["findings"])
 	}
 	conflicts := 0
 	for _, item := range findings {

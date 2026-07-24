@@ -19,18 +19,18 @@ import (
 )
 
 const (
-	scanSummaryInlineFindingsCap        = 200
+	scanSummaryInlineFindingsCap        = 100
 	scanSummaryInlineRankedFindingsCap  = 10
-	scanSummaryInlineActionPathsCap     = 5
+	scanSummaryInlineActionPathsCap     = 3
 	scanSummaryInlineAttackPathsCap     = 5
-	scanSummaryInlineBacklogItemsCap    = 5
+	scanSummaryInlineBacklogItemsCap    = 3
 	scanSummaryInlineInventoryAgentsCap = 10
 	scanSummaryInlineInventoryToolsCap  = 10
 	scanSummaryInlinePrivilegeRowsCap   = 10
 	scanSummaryInlineGraphNodesCap      = 50
 	scanSummaryInlineGraphEdgesCap      = 100
 	scanSummaryInlineWorkflowChainsCap  = 5
-	scanSummaryInlineCompositionsCap    = 5
+	scanSummaryInlineCompositionsCap    = 3
 )
 
 type scanJSONSummaryInput struct {
@@ -179,8 +179,12 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 }
 
 func buildScanSuppressedCounts(input scanJSONSummaryInput) *reportcore.SuppressedCounts {
+	suppressedFindings := 0
+	if len(input.Findings) > scanSummaryInlineFindingsCap {
+		suppressedFindings = len(input.Findings)
+	}
 	suppressed := &reportcore.SuppressedCounts{
-		Findings:            positiveOverflow(len(input.Findings), scanSummaryInlineFindingsCap),
+		Findings:            suppressedFindings,
 		RankedFindings:      positiveOverflow(len(input.RiskReport.Ranked), scanSummaryInlineRankedFindingsCap),
 		AttackPaths:         positiveOverflow(len(input.RiskReport.AttackPaths), scanSummaryInlineAttackPathsCap),
 		ActionPaths:         positiveOverflow(len(input.RiskReport.ActionPaths), scanSummaryInlineActionPathsCap),

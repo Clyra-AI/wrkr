@@ -20,10 +20,11 @@ func TestScenarioEpic10DiscoveryMethodAC22(t *testing.T) {
 	tmp := t.TempDir()
 	statePath := filepath.Join(tmp, "state.json")
 
-	payload := runEpic10ScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
-	findings, ok := payload["findings"].([]any)
+	_ = runEpic10ScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
+	statePayload := loadEpic10ScenarioJSON(t, statePath)
+	findings, ok := statePayload["findings"].([]any)
 	if !ok || len(findings) == 0 {
-		t.Fatalf("expected findings array, got %T", payload["findings"])
+		t.Fatalf("expected canonical state findings array, got %T", statePayload["findings"])
 	}
 	for _, item := range findings {
 		finding, ok := item.(map[string]any)
@@ -34,9 +35,9 @@ func TestScenarioEpic10DiscoveryMethodAC22(t *testing.T) {
 			t.Fatalf("expected finding discovery_method=static, got %v", finding)
 		}
 	}
-	inventory, ok := payload["inventory"].(map[string]any)
+	inventory, ok := statePayload["inventory"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected inventory payload, got %T", payload["inventory"])
+		t.Fatalf("expected canonical state inventory payload, got %T", statePayload["inventory"])
 	}
 	tools, ok := inventory["tools"].([]any)
 	if !ok {
@@ -66,6 +67,19 @@ func TestScenarioEpic10DiscoveryMethodAC22(t *testing.T) {
 			t.Fatalf("expected no diff entries for legacy baseline compatibility key=%s got=%v", key, entries)
 		}
 	}
+}
+
+func loadEpic10ScenarioJSON(t *testing.T, path string) map[string]any {
+	t.Helper()
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read scenario JSON %s: %v", path, err)
+	}
+	out := map[string]any{}
+	if err := json.Unmarshal(payload, &out); err != nil {
+		t.Fatalf("parse scenario JSON %s: %v", path, err)
+	}
+	return out
 }
 
 func TestScenarioEpic10MCPGatewayPostureAC23(t *testing.T) {

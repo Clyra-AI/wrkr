@@ -127,9 +127,10 @@ func TestScanFindingsCanonicalFields(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse payload: %v", err)
 	}
-	findings, ok := payload["findings"].([]any)
+	statePayload := mustReadJSON(t, statePath)
+	findings, ok := statePayload["findings"].([]any)
 	if !ok || len(findings) == 0 {
-		t.Fatalf("expected findings payload, got %T", payload["findings"])
+		t.Fatalf("expected canonical state findings payload, got %T", statePayload["findings"])
 	}
 	finding, ok := findings[0].(map[string]any)
 	if !ok {
