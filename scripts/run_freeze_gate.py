@@ -87,12 +87,21 @@ def validate_metadata(repo_root: Path, receipt_path: Path, receipt: dict[str, An
     for index, row in enumerate(rows):
         if not isinstance(row, dict):
             raise ValueError(f"artifact_size_deltas[{index}] must be an object")
-        measured = row.get("measured_bytes")
-        baseline = row.get("baseline_bytes")
-        budget = row.get("budget_bytes")
-        delta = row.get("delta_bytes")
-        if not all(isinstance(value, int) for value in (measured, baseline, budget, delta)):
+        raw_measured = row.get("measured_bytes")
+        raw_baseline = row.get("baseline_bytes")
+        raw_budget = row.get("budget_bytes")
+        raw_delta = row.get("delta_bytes")
+        if (
+            not isinstance(raw_measured, int)
+            or not isinstance(raw_baseline, int)
+            or not isinstance(raw_budget, int)
+            or not isinstance(raw_delta, int)
+        ):
             raise ValueError(f"artifact_size_deltas[{index}] requires integer byte fields")
+        measured = raw_measured
+        baseline = raw_baseline
+        budget = raw_budget
+        delta = raw_delta
         if measured <= 0 or baseline < 0 or budget <= 0:
             raise ValueError(f"artifact_size_deltas[{index}] contains non-positive measurements")
         if measured > budget:
