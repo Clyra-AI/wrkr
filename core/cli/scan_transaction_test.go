@@ -538,6 +538,35 @@ func TestManagedArtifactTransactionPathFallsBackWhenUserCacheIsUnavailable(t *te
 	}
 }
 
+func TestRecoverManagedArtifactTransactionSkipsMissingReadOnlyCacheDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("read-only cache-dir fixture is exercised on Unix-like platforms")
+	}
+
+	tmp := t.TempDir()
+	readonlyRoot := filepath.Join(tmp, "readonly-root")
+	if err := os.MkdirAll(readonlyRoot, 0o700); err != nil {
+		t.Fatalf("mkdir readonly root: %v", err)
+	}
+	if err := os.Chmod(readonlyRoot, 0o500); err != nil {
+		t.Skipf("chmod unsupported in current environment: %v", err)
+	}
+	defer func() { _ = os.Chmod(readonlyRoot, 0o700) }()
+
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(readonlyRoot, "cache"))
+
+	statePath := filepath.Join(tmp, "state", "state.json")
+	if err := recoverManagedArtifactTransaction(statePath); err != nil {
+		t.Fatalf("expected missing read-only cache dir to behave like no journal, got %v", err)
+	}
+
+	transactionDir := filepath.Join(readonlyRoot, "cache", "wrkr", managedArtifactTransactionDir)
+	if _, err := os.Stat(transactionDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected recovery to avoid creating transaction dir in read-only cache root, stat err=%v", err)
+	}
+}
+
 func TestRecoverManagedArtifactTransactionUsesCanonicalRootForFileAliases(t *testing.T) {
 	t.Parallel()
 
