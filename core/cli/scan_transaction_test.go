@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -513,6 +514,131 @@ func TestManagedArtifactTransactionPathCanonicalizesWindowsPathCase(t *testing.T
 	}
 	if lowerJournalPath != upperJournalPath {
 		t.Fatalf("expected Windows path casing to resolve to one journal path, got %q and %q", lowerJournalPath, upperJournalPath)
+	}
+}
+
+func TestManagedArtifactTransactionPathFallsBackWhenUserCacheIsUnavailable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("user-cache fallback contract is exercised on Unix-like platforms")
+	}
+
+	tmp := t.TempDir()
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+	t.Setenv("TMPDIR", tmp)
+
+	statePath := filepath.Join(tmp, "state", "state.json")
+	journalPath, err := managedArtifactTransactionPath(statePath)
+	if err != nil {
+		t.Fatalf("resolve fallback journal path: %v", err)
+	}
+	expectedPrefix := filepath.Join(tmp, "wrkr", managedArtifactTransactionDir)
+	if !strings.HasPrefix(journalPath, expectedPrefix) {
+		t.Fatalf("expected fallback journal path under %q, got %q", expectedPrefix, journalPath)
+	}
+}
+
+func TestRecoverManagedArtifactTransactionUsesCanonicalRootForFileAliases(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	stateDir := filepath.Join(tmp, "state-root", ".wrkr")
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatalf("mkdir state dir: %v", err)
+	}
+	statePath := filepath.Join(stateDir, "state.json")
+	manifestPath := manifest.ResolvePath(statePath)
+	lifecyclePath := lifecycle.ChainPath(statePath)
+	proofPath := proofemit.ChainPath(statePath)
+	attestationPath := proofemit.ChainAttestationPath(proofPath)
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+
+	for _, item := range []struct {
+		path    string
+		content string
+	}{
+		{path: statePath, content: "{\"version\":\"v1\"}\n"},
+		{path: manifestPath, content: "{\"manifest\":1}\n"},
+		{path: lifecyclePath, content: "{\"lifecycle\":1}\n"},
+		{path: proofPath, content: "{\"proof\":1}\n"},
+		{path: attestationPath, content: "{\"attestation\":1}\n"},
+		{path: signingKeyPath, content: "{\"key\":1}\n"},
+	} {
+		if err := os.MkdirAll(filepath.Dir(item.path), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", item.path, err)
+		}
+		if err := os.WriteFile(item.path, []byte(item.content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", item.path, err)
+		}
+	}
+
+	stateBefore := readOptionalTestFile(t, statePath)
+	manifestBefore := readOptionalTestFile(t, manifestPath)
+	lifecycleBefore := readOptionalTestFile(t, lifecyclePath)
+	proofBefore := readOptionalTestFile(t, proofPath)
+	attestationBefore := readOptionalTestFile(t, attestationPath)
+	signingKeyBefore := readOptionalTestFile(t, signingKeyPath)
+
+	transaction, err := beginManagedArtifactTransaction(statePath, "scan", []managedArtifactFile{
+		{label: "state", path: statePath},
+		{label: "manifest", path: manifestPath},
+		{label: "lifecycle chain", path: lifecyclePath},
+		{label: "proof chain", path: proofPath},
+		{label: "proof attestation", path: attestationPath},
+		{label: "proof signing key", path: signingKeyPath},
+	})
+	if err != nil {
+		t.Fatalf("begin transaction: %v", err)
+	}
+	transaction.completed = true
+	if err := os.WriteFile(statePath, []byte("{\"version\":\"tampered\"}\n"), 0o600); err != nil {
+		t.Fatalf("write interrupted state: %v", err)
+	}
+	if err := transaction.releaseLease(); err != nil {
+		t.Fatalf("release interrupted transaction lease: %v", err)
+	}
+
+	aliasStatePath := filepath.Join(tmp, "state-alias.json")
+	if err := os.Symlink(statePath, aliasStatePath); err != nil {
+		t.Skipf("symlink unsupported in current environment: %v", err)
+	}
+
+	canonicalRoot, err := canonicalManagedArtifactRoot(statePath)
+	if err != nil {
+		t.Fatalf("canonical managed root: %v", err)
+	}
+	aliasRoot := managedArtifactRoot(aliasStatePath)
+	wrongTargets := make([]string, 0, 5)
+	for _, artifactPath := range []string{manifestPath, lifecyclePath, proofPath, attestationPath, signingKeyPath} {
+		relativePath, err := managedArtifactPathForJournal(canonicalRoot, artifactPath)
+		if err != nil {
+			t.Fatalf("relative journal path for %s: %v", artifactPath, err)
+		}
+		wrongPath, err := managedArtifactPathFromJournal(aliasRoot, relativePath)
+		if err != nil {
+			t.Fatalf("alias recovery path for %s: %v", artifactPath, err)
+		}
+		if filepath.Clean(wrongPath) != filepath.Clean(artifactPath) {
+			wrongTargets = append(wrongTargets, wrongPath)
+		}
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"score", "--state", aliasStatePath, "--json"}, &out, &errOut); code != exitSuccess {
+		t.Fatalf("score after alias recovery failed: %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+
+	assertOptionalTestFileEquals(t, statePath, stateBefore)
+	assertOptionalTestFileEquals(t, manifestPath, manifestBefore)
+	assertOptionalTestFileEquals(t, lifecyclePath, lifecycleBefore)
+	assertOptionalTestFileEquals(t, proofPath, proofBefore)
+	assertOptionalTestFileEquals(t, attestationPath, attestationBefore)
+	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
+	for _, wrongPath := range wrongTargets {
+		if _, err := os.Stat(wrongPath); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected no alias-root artifact at %s, stat err=%v", wrongPath, err)
+		}
 	}
 }
 

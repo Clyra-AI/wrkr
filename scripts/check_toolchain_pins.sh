@@ -5,6 +5,7 @@ dev_guides_path="${WRKR_PIN_CHECK_DEV_GUIDES:-product/dev_guides.md}"
 targets_raw="${WRKR_PIN_CHECK_TARGETS:-.github/workflows/*.yml Makefile}"
 factory_profile_path="${WRKR_PIN_CHECK_FACTORY_PROFILE:-factory/profiles/wrkr.yaml}"
 factory_profile_snapshot_path="${WRKR_PIN_CHECK_FACTORY_PROFILE_SNAPSHOT:-testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml}"
+factory_gitlink_sha_override="${WRKR_PIN_CHECK_FACTORY_GITLINK_SHA:-}"
 pin_target_files=()
 
 contains_value() {
@@ -212,21 +213,33 @@ check_enforced_yaml_key() {
   fi
 }
 
-read_single_toolchain_version() {
-  local path="$1"
-  local label="$2"
+read_single_yaml_value() {
+  local key="$1"
+  local path="$2"
+  local label="$3"
   local -a versions=()
   local version
   while IFS= read -r version; do
     if [[ -n "$version" ]]; then
       versions+=("$version")
     fi
-  done < <(extract_yaml_key_values "toolchain_version" "$path")
+  done < <(extract_yaml_key_values "$key" "$path")
   if [[ ${#versions[@]} -ne 1 ]]; then
-    echo "$label must declare exactly one runtime_pins.toolchain_version in $path" >&2
+    echo "$label must declare exactly one $key in $path" >&2
     exit 3
   fi
   printf '%s\n' "${versions[0]}"
+}
+
+resolve_factory_gitlink_sha() {
+  if [[ -n "$factory_gitlink_sha_override" ]]; then
+    printf '%s\n' "$factory_gitlink_sha_override"
+    return 0
+  fi
+  git rev-parse HEAD:factory 2>/dev/null || {
+    echo "missing Factory gitlink in HEAD:factory" >&2
+    exit 3
+  }
 }
 
 if [[ ! -f .tool-versions ]]; then
@@ -282,16 +295,22 @@ if [[ ! -f "$factory_profile_snapshot_path" ]]; then
   exit 3
 fi
 
-snapshot_go_version="$(read_single_toolchain_version "$factory_profile_snapshot_path" "Wrkr Factory profile snapshot")"
+snapshot_go_version="$(read_single_yaml_value "toolchain_version" "$factory_profile_snapshot_path" "Wrkr Factory profile snapshot")"
 if [[ "$snapshot_go_version" != "1.26.5" ]]; then
   echo "Factory profile snapshot Go pin mismatch: expected 1.26.5 from go.mod, found $snapshot_go_version in $factory_profile_snapshot_path" >&2
+  exit 3
+fi
+snapshot_git_commit="$(read_single_yaml_value "git_commit" "$factory_profile_snapshot_path" "Wrkr Factory profile snapshot")"
+factory_gitlink_sha="$(resolve_factory_gitlink_sha)"
+if [[ "$snapshot_git_commit" != "$factory_gitlink_sha" ]]; then
+  echo "Factory profile snapshot gitlink mismatch: expected $factory_gitlink_sha from HEAD:factory, found $snapshot_git_commit in $factory_profile_snapshot_path" >&2
   exit 3
 fi
 
 if [[ ! -f "$factory_profile_path" ]]; then
   echo "using Wrkr Factory profile snapshot because $factory_profile_path is unavailable" >&2
 else
-  factory_go_version="$(read_single_toolchain_version "$factory_profile_path" "Wrkr Factory profile")"
+  factory_go_version="$(read_single_yaml_value "toolchain_version" "$factory_profile_path" "Wrkr Factory profile")"
   if [[ "$factory_go_version" != "1.26.5" ]]; then
     echo "Factory profile Go pin mismatch: expected 1.26.5 from go.mod, found $factory_go_version in $factory_profile_path" >&2
     exit 3

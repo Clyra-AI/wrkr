@@ -158,6 +158,27 @@ func TestCheckToolchainPinsFailsWhenFactoryProfileSnapshotDrifts(t *testing.T) {
 	}
 }
 
+func TestCheckToolchainPinsFailsWhenFactoryGitlinkAndSnapshotDrift(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
+		gosecVersion:             "v2.23.0",
+		golangciLintVersion:      "v2.0.1",
+		cosignVersion:            "v2.5.3",
+		syftVersion:              "v1.32.0",
+		grypeVersion:             "v0.99.1",
+		factorySnapshotGitCommit: "1111111111111111111111111111111111111111",
+	})
+	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
+	if err == nil {
+		t.Fatal("expected checker to fail when the Wrkr Factory profile snapshot gitlink drifts")
+	}
+	expected := "Factory profile snapshot gitlink mismatch: expected 8a5737d835c10e7b3bbd5f35e37023c4205d0e60 from HEAD:factory, found 1111111111111111111111111111111111111111 in testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic Factory profile snapshot gitlink drift message %q, got %q", expected, stderr)
+	}
+}
+
 func TestReleaseWorkflowUsesDocumentedReleaseIntegrityPins(t *testing.T) {
 	t.Parallel()
 
@@ -193,6 +214,8 @@ type fixturePins struct {
 	agentsContent            string
 	factoryGoVersion         string
 	factorySnapshotGoVersion string
+	factoryGitlinkSHA        string
+	factorySnapshotGitCommit string
 }
 
 func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
@@ -242,7 +265,17 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 	if factorySnapshotGoVersion == "" {
 		factorySnapshotGoVersion = factoryGoVersion
 	}
+	factoryGitlinkSHA := versions.factoryGitlinkSHA
+	if factoryGitlinkSHA == "" {
+		factoryGitlinkSHA = "8a5737d835c10e7b3bbd5f35e37023c4205d0e60"
+	}
+	factorySnapshotGitCommit := versions.factorySnapshotGitCommit
+	if factorySnapshotGitCommit == "" {
+		factorySnapshotGitCommit = factoryGitlinkSHA
+	}
 	mustWriteFile(t, filepath.Join(root, "testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml"), strings.Join([]string{
+		"factory_profile_ref:",
+		"  git_commit: \"" + factorySnapshotGitCommit + "\"",
 		"runtime_pins:",
 		"  language: go",
 		"  toolchain_version: \"" + factorySnapshotGoVersion + "\"",
@@ -287,6 +320,27 @@ func runToolchainPinCheck(t *testing.T, repoRoot string) (string, string, error)
 	cmd := exec.Command("bash", scriptPath)
 	cmd.Dir = repoRoot
 	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "WRKR_PIN_CHECK_FACTORY_GITLINK_SHA=8a5737d835c10e7b3bbd5f35e37023c4205d0e60")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	return stdout.String(), stderr.String(), err
+}
+
+func runToolchainPinCheckWithEnv(t *testing.T, repoRoot string, extraEnv map[string]string) (string, string, error) {
+	t.Helper()
+
+	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts/check_toolchain_pins.sh")
+	cmd := exec.Command("bash", scriptPath)
+	cmd.Dir = repoRoot
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "WRKR_PIN_CHECK_FACTORY_GITLINK_SHA=8a5737d835c10e7b3bbd5f35e37023c4205d0e60")
+	for key, value := range extraEnv {
+		cmd.Env = append(cmd.Env, key+"="+value)
+	}
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

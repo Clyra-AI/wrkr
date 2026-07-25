@@ -57,10 +57,11 @@ type managedArtifactTransaction struct {
 }
 
 type managedArtifactTransactionJournal struct {
-	Version         string                               `json:"version"`
-	StatePathSHA256 string                               `json:"state_path_sha256"`
-	Operation       string                               `json:"operation"`
-	Artifacts       []managedArtifactTransactionArtifact `json:"artifacts"`
+	Version           string                               `json:"version"`
+	ManagedRootSHA256 string                               `json:"managed_root_sha256,omitempty"`
+	StatePathSHA256   string                               `json:"state_path_sha256"`
+	Operation         string                               `json:"operation"`
+	Artifacts         []managedArtifactTransactionArtifact `json:"artifacts"`
 }
 
 type managedArtifactTransactionArtifact struct {
@@ -155,7 +156,14 @@ func recoverManagedArtifactTransaction(statePath string) error {
 		return fmt.Errorf("managed artifact transaction has no artifacts")
 	}
 
-	root := managedArtifactRoot(statePath)
+	root, err := canonicalManagedArtifactRoot(statePath)
+	if err != nil {
+		return err
+	}
+	expectedRootSHA := managedArtifactRootSHA256(root)
+	if strings.TrimSpace(journal.ManagedRootSHA256) != "" && strings.TrimSpace(journal.ManagedRootSHA256) != expectedRootSHA {
+		return unsafeManagedArtifactPathError{err: fmt.Errorf("managed artifact transaction recovery root binding mismatch")}
+	}
 	snapshots := make([]managedArtifactSnapshot, 0, len(journal.Artifacts))
 	seen := make(map[string]struct{}, len(journal.Artifacts))
 	for _, artifact := range journal.Artifacts {
@@ -228,7 +236,11 @@ func beginManagedArtifactTransactionWithLease(statePath string, operation string
 	if err != nil {
 		return nil, err
 	}
-	journal, err := newManagedArtifactTransactionJournal(statePath, managedArtifactRoot(statePath), operation, normalizedFiles, snapshots)
+	journalRoot, err := canonicalManagedArtifactRoot(statePath)
+	if err != nil {
+		return nil, err
+	}
+	journal, err := newManagedArtifactTransactionJournal(statePath, journalRoot, operation, normalizedFiles, snapshots)
 	if err != nil {
 		return nil, err
 	}
@@ -321,10 +333,25 @@ func legacyManagedArtifactTransactionPath(statePath string) string {
 	return filepath.Join(managedArtifactRoot(statePath), managedArtifactTransactionName)
 }
 
-func managedArtifactTransactionPath(statePath string) (string, error) {
+func managedArtifactTransactionBaseDir() (string, error) {
 	cacheDir, err := os.UserCacheDir()
+	if err == nil && strings.TrimSpace(cacheDir) != "" {
+		return cacheDir, nil
+	}
+	tempDir := strings.TrimSpace(os.TempDir())
+	if tempDir != "" {
+		return tempDir, nil
+	}
 	if err != nil {
 		return "", fmt.Errorf("resolve private managed artifact transaction directory: %w", err)
+	}
+	return "", fmt.Errorf("resolve private managed artifact transaction directory: no user cache or temp directory available")
+}
+
+func managedArtifactTransactionPath(statePath string) (string, error) {
+	cacheDir, err := managedArtifactTransactionBaseDir()
+	if err != nil {
+		return "", err
 	}
 	transactionDir := filepath.Join(cacheDir, "wrkr", managedArtifactTransactionDir)
 	if err := os.MkdirAll(transactionDir, 0o700); err != nil {
@@ -365,6 +392,24 @@ func managedArtifactStatePathSHA256(statePath string) (string, error) {
 	}
 	sum := sha256.Sum256([]byte(canonicalStatePath))
 	return fmt.Sprintf("%x", sum[:]), nil
+}
+
+func managedArtifactRootSHA256(root string) string {
+	sum := sha256.Sum256([]byte(root))
+	return fmt.Sprintf("%x", sum[:])
+}
+
+func canonicalManagedArtifactRoot(statePath string) (string, error) {
+	canonicalStatePath, err := canonicalManagedArtifactStatePath(statePath)
+	if err != nil {
+		return "", err
+	}
+	root := managedArtifactRoot(canonicalStatePath)
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve managed artifact root: %w", err)
+	}
+	return resolveArtifactPath(absRoot)
 }
 
 func canonicalManagedArtifactStatePath(path string) (string, error) {
@@ -520,10 +565,11 @@ func newManagedArtifactTransactionJournal(statePath string, root string, operati
 		})
 	}
 	return managedArtifactTransactionJournal{
-		Version:         managedArtifactTransactionVersion,
-		StatePathSHA256: statePathSHA,
-		Operation:       strings.TrimSpace(operation),
-		Artifacts:       artifacts,
+		Version:           managedArtifactTransactionVersion,
+		ManagedRootSHA256: managedArtifactRootSHA256(root),
+		StatePathSHA256:   statePathSHA,
+		Operation:         strings.TrimSpace(operation),
+		Artifacts:         artifacts,
 	}, nil
 }
 
