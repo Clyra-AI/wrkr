@@ -10,6 +10,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
+FLOAT_EPSILON = 1e-9
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -70,7 +72,7 @@ def main() -> int:
 
     scope_exceptions = governed.get("aggregate_scopes", {})
     exception = scope_exceptions.get(args.scope) if isinstance(scope_exceptions, dict) else None
-    if percent + 1e-9 >= args.minimum_percent:
+    if percent + FLOAT_EPSILON >= args.minimum_percent:
         if exception is not None:
             print(
                 f"aggregate coverage gate: fail scope={args.scope} "
@@ -104,7 +106,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 3
-    if percent + 0.05 < float(floor):
+    if percent+FLOAT_EPSILON < float(floor):
         print(
             f"aggregate coverage gate: fail scope={args.scope} "
             f"coverage={percent:.2f}% governed_floor={float(floor):.2f}%",
