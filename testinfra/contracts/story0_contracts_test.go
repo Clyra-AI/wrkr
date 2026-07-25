@@ -279,8 +279,8 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	if !strings.Contains(prWorkflow, "HOMEBREW_TAP_GITHUB_TOKEN") || !strings.Contains(prWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("pr fast lane must initialize the Factory submodule when the existing homebrew token secret is available")
 	}
-	if !strings.Contains(prWorkflow, `WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"`) {
-		t.Fatal("pr fast lane must require the authoritative Factory profile when running protected toolchain-pin enforcement")
+	if !strings.Contains(prWorkflow, "export WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1") {
+		t.Fatal("pr fast lane must require the authoritative Factory profile only after the token-backed Factory submodule checkout succeeds")
 	}
 	if strings.Contains(prWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("pr fast lane must not skip Factory toolchain-pin enforcement when the snapshot contract is available")
