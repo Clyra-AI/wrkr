@@ -334,14 +334,15 @@ func managedArtifactTransactionPath(statePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("inspect private managed artifact transaction directory: %w", err)
 	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-		return "", unsafeManagedArtifactPathError{err: fmt.Errorf("private managed artifact transaction path must be a real directory: %s", transactionDir)}
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(transactionDir, 0o700); err != nil {
-			return "", fmt.Errorf("secure private managed artifact transaction directory: %w", err)
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return "", unsafeManagedArtifactPathError{err: fmt.Errorf("private managed artifact transaction path must be a real directory: %s", transactionDir)}
 		}
-	}
+		if runtime.GOOS != "windows" {
+			// Owner-only directories need the execute bit on POSIX so Wrkr can traverse the private transaction root.
+			if err := os.Chmod(transactionDir, 0o700); err != nil { // #nosec G302
+				return "", fmt.Errorf("secure private managed artifact transaction directory: %w", err)
+			}
+		}
 	statePathSHA, err := managedArtifactStatePathSHA256(statePath)
 	if err != nil {
 		return "", err
