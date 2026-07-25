@@ -73,11 +73,7 @@ jobs:
 
       - name: Run core lane
         shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf https://github.com/
-          git submodule update --init --depth=1 factory
           make lint-fast
           make test-fast
           make build

@@ -121,16 +121,7 @@ jobs:
           fi
 
       - name: Fast lint and tests
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
-            export WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE=1
-          else
-            git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf https://github.com/
-            git submodule update --init --depth=1 factory
-          fi
           make lint-fast
           make test-fast
           make test-coverage
