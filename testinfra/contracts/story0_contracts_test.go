@@ -279,6 +279,9 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	if !strings.Contains(prWorkflow, "HOMEBREW_TAP_GITHUB_TOKEN") || !strings.Contains(prWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("pr fast lane must initialize the Factory submodule when the existing homebrew token secret is available")
 	}
+	if !strings.Contains(prWorkflow, `WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"`) {
+		t.Fatal("pr fast lane must require the authoritative Factory profile when running protected toolchain-pin enforcement")
+	}
 	if strings.Contains(prWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("pr fast lane must not skip Factory toolchain-pin enforcement when the snapshot contract is available")
 	}
@@ -290,6 +293,9 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	if !strings.Contains(mainWorkflow, "HOMEBREW_TAP_GITHUB_TOKEN") || !strings.Contains(mainWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("main core lane must initialize the Factory submodule when the existing homebrew token secret is available")
 	}
+	if !strings.Contains(mainWorkflow, `WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"`) {
+		t.Fatal("main core lane must require the authoritative Factory profile when running protected toolchain-pin enforcement")
+	}
 	if strings.Contains(mainWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("main core lane must not skip Factory toolchain-pin enforcement when the snapshot contract is available")
 	}
@@ -300,6 +306,9 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	}
 	if !strings.Contains(releaseWorkflow, "HOMEBREW_TAP_GITHUB_TOKEN") || !strings.Contains(releaseWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("release workflow must initialize the Factory submodule when the existing homebrew token secret is available")
+	}
+	if !strings.Contains(releaseWorkflow, `WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"`) {
+		t.Fatal("release workflow must require the authoritative Factory profile when running protected toolchain-pin enforcement")
 	}
 	if strings.Contains(releaseWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("release workflow must not skip Factory toolchain-pin enforcement when the snapshot contract is available")
