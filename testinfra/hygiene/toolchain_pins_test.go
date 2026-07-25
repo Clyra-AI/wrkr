@@ -96,12 +96,13 @@ func TestCheckToolchainPinsFailsWhenFactoryProfileDrifts(t *testing.T) {
 	t.Parallel()
 
 	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
-		gosecVersion:        "v2.23.0",
-		golangciLintVersion: "v2.0.1",
-		cosignVersion:       "v2.5.3",
-		syftVersion:         "v1.32.0",
-		grypeVersion:        "v0.99.1",
-		factoryGoVersion:    "1.26.4",
+		gosecVersion:             "v2.23.0",
+		golangciLintVersion:      "v2.0.1",
+		cosignVersion:            "v2.5.3",
+		syftVersion:              "v1.32.0",
+		grypeVersion:             "v0.99.1",
+		factoryGoVersion:         "1.26.4",
+		factorySnapshotGoVersion: "1.26.5",
 	})
 	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
 	if err == nil {
@@ -113,7 +114,7 @@ func TestCheckToolchainPinsFailsWhenFactoryProfileDrifts(t *testing.T) {
 	}
 }
 
-func TestCheckToolchainPinsAllowsMissingFactoryProfileWhenExplicitlyOptedIn(t *testing.T) {
+func TestCheckToolchainPinsUsesFactoryProfileSnapshotWhenProfileIsMissing(t *testing.T) {
 	t.Parallel()
 
 	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
@@ -126,15 +127,34 @@ func TestCheckToolchainPinsAllowsMissingFactoryProfileWhenExplicitlyOptedIn(t *t
 	if err := os.Remove(filepath.Join(fixtureRoot, "factory/profiles/wrkr.yaml")); err != nil {
 		t.Fatalf("remove fixture factory profile: %v", err)
 	}
-	_, stderr, err := runToolchainPinCheckWithEnv(t, fixtureRoot, map[string]string{
-		"WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE": "1",
-	})
+	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
 	if err != nil {
-		t.Fatalf("expected checker to pass when missing factory profile is explicitly allowed, got err=%v stderr=%q", err, stderr)
+		t.Fatalf("expected checker to pass when the factory profile snapshot is available, got err=%v stderr=%q", err, stderr)
 	}
-	expected := "skipping Wrkr Factory profile pin check because factory/profiles/wrkr.yaml is unavailable"
+	expected := "using Wrkr Factory profile snapshot because factory/profiles/wrkr.yaml is unavailable"
 	if !strings.Contains(stderr, expected) {
-		t.Fatalf("expected deterministic skip message %q, got %q", expected, stderr)
+		t.Fatalf("expected deterministic snapshot message %q, got %q", expected, stderr)
+	}
+}
+
+func TestCheckToolchainPinsFailsWhenFactoryProfileSnapshotDrifts(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
+		gosecVersion:             "v2.23.0",
+		golangciLintVersion:      "v2.0.1",
+		cosignVersion:            "v2.5.3",
+		syftVersion:              "v1.32.0",
+		grypeVersion:             "v0.99.1",
+		factorySnapshotGoVersion: "1.26.4",
+	})
+	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
+	if err == nil {
+		t.Fatal("expected checker to fail when the Wrkr Factory profile snapshot drifts")
+	}
+	expected := "Factory profile snapshot Go pin mismatch: expected 1.26.5 from go.mod, found 1.26.4 in testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic Factory profile snapshot drift message %q, got %q", expected, stderr)
 	}
 }
 
@@ -165,13 +185,14 @@ func TestReleaseWorkflowUsesDocumentedReleaseIntegrityPins(t *testing.T) {
 }
 
 type fixturePins struct {
-	gosecVersion        string
-	golangciLintVersion string
-	cosignVersion       string
-	syftVersion         string
-	grypeVersion        string
-	agentsContent       string
-	factoryGoVersion    string
+	gosecVersion             string
+	golangciLintVersion      string
+	cosignVersion            string
+	syftVersion              string
+	grypeVersion             string
+	agentsContent            string
+	factoryGoVersion         string
+	factorySnapshotGoVersion string
 }
 
 func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
@@ -217,6 +238,16 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 		"  toolchain_version: \"" + factoryGoVersion + "\"",
 		"",
 	}, "\n"))
+	factorySnapshotGoVersion := versions.factorySnapshotGoVersion
+	if factorySnapshotGoVersion == "" {
+		factorySnapshotGoVersion = factoryGoVersion
+	}
+	mustWriteFile(t, filepath.Join(root, "testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml"), strings.Join([]string{
+		"runtime_pins:",
+		"  language: go",
+		"  toolchain_version: \"" + factorySnapshotGoVersion + "\"",
+		"",
+	}, "\n"))
 
 	workflow := strings.Join([]string{
 		"name: fixture",
@@ -256,25 +287,6 @@ func runToolchainPinCheck(t *testing.T, repoRoot string) (string, string, error)
 	cmd := exec.Command("bash", scriptPath)
 	cmd.Dir = repoRoot
 	cmd.Env = os.Environ()
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	return stdout.String(), stderr.String(), err
-}
-
-func runToolchainPinCheckWithEnv(t *testing.T, repoRoot string, extraEnv map[string]string) (string, string, error) {
-	t.Helper()
-
-	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts/check_toolchain_pins.sh")
-	cmd := exec.Command("bash", scriptPath)
-	cmd.Dir = repoRoot
-	cmd.Env = os.Environ()
-	for key, value := range extraEnv {
-		cmd.Env = append(cmd.Env, key+"="+value)
-	}
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

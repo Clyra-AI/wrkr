@@ -1,0 +1,3 @@
+runtime_pins:
+  language: go
+  toolchain_version: "1.26.5"

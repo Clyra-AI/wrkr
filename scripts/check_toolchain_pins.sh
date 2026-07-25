@@ -4,7 +4,7 @@ set -euo pipefail
 dev_guides_path="${WRKR_PIN_CHECK_DEV_GUIDES:-product/dev_guides.md}"
 targets_raw="${WRKR_PIN_CHECK_TARGETS:-.github/workflows/*.yml Makefile}"
 factory_profile_path="${WRKR_PIN_CHECK_FACTORY_PROFILE:-factory/profiles/wrkr.yaml}"
-allow_missing_factory_profile="${WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE:-0}"
+factory_profile_snapshot_path="${WRKR_PIN_CHECK_FACTORY_PROFILE_SNAPSHOT:-testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml}"
 pin_target_files=()
 
 contains_value() {
@@ -212,6 +212,23 @@ check_enforced_yaml_key() {
   fi
 }
 
+read_single_toolchain_version() {
+  local path="$1"
+  local label="$2"
+  local -a versions=()
+  local version
+  while IFS= read -r version; do
+    if [[ -n "$version" ]]; then
+      versions+=("$version")
+    fi
+  done < <(extract_yaml_key_values "toolchain_version" "$path")
+  if [[ ${#versions[@]} -ne 1 ]]; then
+    echo "$label must declare exactly one runtime_pins.toolchain_version in $path" >&2
+    exit 3
+  fi
+  printf '%s\n' "${versions[0]}"
+}
+
 if [[ ! -f .tool-versions ]]; then
   echo "missing .tool-versions" >&2
   exit 3
@@ -260,26 +277,27 @@ if ! grep -Fq '`go.mod`' AGENTS.md || ! grep -Fq '`product/dev_guides.md`' AGENT
   exit 3
 fi
 
+if [[ ! -f "$factory_profile_snapshot_path" ]]; then
+  echo "missing Wrkr Factory profile snapshot: $factory_profile_snapshot_path" >&2
+  exit 3
+fi
+
+snapshot_go_version="$(read_single_toolchain_version "$factory_profile_snapshot_path" "Wrkr Factory profile snapshot")"
+if [[ "$snapshot_go_version" != "1.26.5" ]]; then
+  echo "Factory profile snapshot Go pin mismatch: expected 1.26.5 from go.mod, found $snapshot_go_version in $factory_profile_snapshot_path" >&2
+  exit 3
+fi
+
 if [[ ! -f "$factory_profile_path" ]]; then
-  if [[ "$allow_missing_factory_profile" == "1" ]]; then
-    echo "skipping Wrkr Factory profile pin check because $factory_profile_path is unavailable" >&2
-  else
-    echo "missing Wrkr Factory profile: $factory_profile_path" >&2
-    exit 3
-  fi
+  echo "using Wrkr Factory profile snapshot because $factory_profile_path is unavailable" >&2
 else
-  factory_go_versions=()
-  while IFS= read -r version; do
-    if [[ -n "$version" ]]; then
-      factory_go_versions+=("$version")
-    fi
-  done < <(extract_yaml_key_values "toolchain_version" "$factory_profile_path")
-  if [[ ${#factory_go_versions[@]} -ne 1 ]]; then
-    echo "Wrkr Factory profile must declare exactly one runtime_pins.toolchain_version in $factory_profile_path" >&2
+  factory_go_version="$(read_single_toolchain_version "$factory_profile_path" "Wrkr Factory profile")"
+  if [[ "$factory_go_version" != "1.26.5" ]]; then
+    echo "Factory profile Go pin mismatch: expected 1.26.5 from go.mod, found $factory_go_version in $factory_profile_path" >&2
     exit 3
   fi
-  if [[ "${factory_go_versions[0]}" != "1.26.5" ]]; then
-    echo "Factory profile Go pin mismatch: expected 1.26.5 from go.mod, found ${factory_go_versions[0]} in $factory_profile_path" >&2
+  if [[ "$snapshot_go_version" != "$factory_go_version" ]]; then
+    echo "Factory profile snapshot is stale: expected $factory_go_version from $factory_profile_path, found $snapshot_go_version in $factory_profile_snapshot_path" >&2
     exit 3
   fi
 fi
