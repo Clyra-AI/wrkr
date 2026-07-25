@@ -126,7 +126,7 @@ func recoverManagedArtifactTransaction(statePath string) error {
 		return fmt.Errorf("inspect legacy managed artifact transaction: %w", err)
 	}
 
-	journalPath, err := managedArtifactTransactionPath(statePath)
+	journalPath, err := managedArtifactTransactionPathForRecovery(statePath)
 	if err != nil {
 		return err
 	}
@@ -348,23 +348,40 @@ func managedArtifactTransactionBaseDir() (string, error) {
 	return "", fmt.Errorf("resolve private managed artifact transaction directory: no user cache or temp directory available")
 }
 
+func managedArtifactTransactionPathForRecovery(statePath string) (string, error) {
+	return managedArtifactTransactionPathWithMode(statePath, false)
+}
+
 func managedArtifactTransactionPath(statePath string) (string, error) {
+	return managedArtifactTransactionPathWithMode(statePath, true)
+}
+
+func managedArtifactTransactionPathWithMode(statePath string, create bool) (string, error) {
 	cacheDir, err := managedArtifactTransactionBaseDir()
 	if err != nil {
 		return "", err
 	}
 	transactionDir := filepath.Join(cacheDir, "wrkr", managedArtifactTransactionDir)
-	if err := os.MkdirAll(transactionDir, 0o700); err != nil {
-		return "", fmt.Errorf("create private managed artifact transaction directory: %w", err)
+	if create {
+		if err := os.MkdirAll(transactionDir, 0o700); err != nil {
+			return "", fmt.Errorf("create private managed artifact transaction directory: %w", err)
+		}
 	}
 	info, err := os.Lstat(transactionDir)
 	if err != nil {
+		if !create && errors.Is(err, os.ErrNotExist) {
+			statePathSHA, shaErr := managedArtifactStatePathSHA256(statePath)
+			if shaErr != nil {
+				return "", shaErr
+			}
+			return filepath.Join(transactionDir, statePathSHA+".json"), nil
+		}
 		return "", fmt.Errorf("inspect private managed artifact transaction directory: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 		return "", unsafeManagedArtifactPathError{err: fmt.Errorf("private managed artifact transaction path must be a real directory: %s", transactionDir)}
 	}
-	if runtime.GOOS != "windows" {
+	if create && runtime.GOOS != "windows" {
 		// Owner-only directories need the execute bit on POSIX so Wrkr can traverse the private transaction root.
 		if err := os.Chmod(transactionDir, 0o700); err != nil { // #nosec G302
 			return "", fmt.Errorf("secure private managed artifact transaction directory: %w", err)
