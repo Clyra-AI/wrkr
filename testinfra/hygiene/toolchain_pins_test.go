@@ -348,7 +348,13 @@ func runToolchainPinCheckWithEnv(t *testing.T, repoRoot string, extraEnv ...stri
 	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts/check_toolchain_pins.sh")
 	cmd := exec.Command("bash", scriptPath)
 	cmd.Dir = repoRoot
-	cmd.Env = os.Environ()
+	cmd.Env = make([]string, 0, len(os.Environ()))
+	for _, entry := range os.Environ() {
+		if strings.HasPrefix(entry, "WRKR_PIN_CHECK_") {
+			continue
+		}
+		cmd.Env = append(cmd.Env, entry)
+	}
 	cmd.Env = append(cmd.Env, "WRKR_PIN_CHECK_FACTORY_GITLINK_SHA=8a5737d835c10e7b3bbd5f35e37023c4205d0e60")
 	cmd.Env = append(cmd.Env, extraEnv...)
 
