@@ -1,0 +1,19 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-05-31T16:40:00Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "provider_export",
+      "source": "github_branch_protection_export",
+      "repo": "branch-protected",
+      "path": ".github/workflows/release.yml",
+      "observed_at": "2026-05-31T16:10:00Z",
+      "evidence_class": "branch_protection",
+      "status": "matched",
+      "evidence_refs": [
+        "evidence://public/provider-export.json#branch-protected"
+      ]
+    }
+  ]
+}
