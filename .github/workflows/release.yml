@@ -57,7 +57,14 @@ jobs:
         run: go mod download
 
       - name: Validate toolchain pins
-        run: scripts/check_toolchain_pins.sh
+        env:
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          if [[ -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then
+            git config --global url."https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/".insteadOf https://github.com/
+            git submodule update --init --depth=1 factory
+          fi
+          scripts/check_toolchain_pins.sh
 
       - name: Validate release changelog
         if: startsWith(github.ref, 'refs/tags/v')

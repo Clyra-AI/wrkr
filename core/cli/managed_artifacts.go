@@ -578,11 +578,19 @@ func managedArtifactPathForJournal(root string, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve managed artifact transaction root: %w", err)
 	}
+	canonicalRoot, err := resolveArtifactPath(absRoot)
+	if err != nil {
+		return "", fmt.Errorf("canonicalize managed artifact transaction root: %w", err)
+	}
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", fmt.Errorf("resolve managed artifact path: %w", err)
 	}
-	rel, err := filepath.Rel(absRoot, absPath)
+	canonicalPath, err := resolveArtifactPath(absPath)
+	if err != nil {
+		return "", fmt.Errorf("canonicalize managed artifact path: %w", err)
+	}
+	rel, err := filepath.Rel(canonicalRoot, canonicalPath)
 	if err != nil {
 		return "", fmt.Errorf("relativize managed artifact path: %w", err)
 	}
