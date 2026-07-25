@@ -57,7 +57,10 @@ jobs:
         run: go mod download
 
       - name: Validate toolchain pins
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
+          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf https://github.com/
           git submodule update --init --depth=1 factory
           scripts/check_toolchain_pins.sh
 
