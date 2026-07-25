@@ -20,8 +20,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
-        with:
-          submodules: recursive
 
       - name: Setup Go
         uses: actions/setup-go@v6.3.0
@@ -40,7 +38,14 @@ jobs:
           languages: go
 
       - name: Run prepush full
-        run: make prepush-full
+        env:
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          if [[ -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then
+            git config --global url."https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/".insteadOf https://github.com/
+            git submodule update --init --depth=1 factory
+          fi
+          make prepush-full
 
       - name: Run v1 acceptance full cadence
         run: scripts/run_v1_acceptance.sh --mode=nightly
