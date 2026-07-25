@@ -70,9 +70,9 @@ import sys
 root = pathlib.Path(sys.argv[1])
 
 required = {
-    "scan.json": ["status", "findings", "ranked_findings", "inventory", "profile", "posture_score"],
+    "scan.json": ["status", "finding_counts", "ranked_findings", "inventory", "profile", "posture_score"],
     "scan-standard.json": ["status", "profile", "posture_score"],
-    "scan-target.json": ["status", "findings", "ranked_findings", "inventory", "profile", "posture_score", "target"],
+    "scan-target.json": ["status", "finding_counts", "ranked_findings", "inventory", "profile", "posture_score", "target"],
     "evidence-default.json": ["status", "output_dir", "framework_coverage"],
     "evidence-managed.json": ["status", "output_dir", "manifest_path", "chain_path"],
     "score.json": ["score", "grade", "weighted_breakdown", "trend_delta"],

@@ -5,8 +5,12 @@ PKG_LIST := scripts/first_party_go_packages.sh
 GOFILES := $(shell git ls-files '*.go')
 DOCS_SITE_NPM_CACHE ?= $(CURDIR)/.tmp/npm-cache
 GO_TEST_TIMEOUT ?= 20m
+COVERAGE_DIR ?= .tmp/coverage
+COVERAGE_CORE_MIN ?= 85
+COVERAGE_PACKAGE_MIN ?= 75
+FREEZE_GATE_REQUIRE_CLEAN ?=
 
-.PHONY: fmt lint lint-fast test test-fast test-integration test-e2e test-contracts test-scenarios \
+.PHONY: fmt lint lint-fast test test-fast test-coverage test-freeze-gate test-integration test-e2e test-contracts test-scenarios \
 	test-hardening test-chaos test-perf test-agent-benchmarks test-risk-lane build hooks prepush prepush-full codeql lint-ci \
 	test-docs-consistency test-docs-storyline test-focused-docs test-focused-scan test-adapter-parity test-v1-acceptance test-uat-local test-release-smoke \
 	docs-site-install docs-site-lint docs-site-build docs-site-check docs-site-audit-prod
@@ -30,6 +34,23 @@ test-fast:
 	@$(GO) test $$($(PKG_LIST)) -count=1 -timeout=$(GO_TEST_TIMEOUT)
 
 test: test-fast
+
+test-coverage:
+	@mkdir -p "$(COVERAGE_DIR)"
+	@set -o pipefail; $(GO) test $$($(PKG_LIST)) -covermode=atomic -coverprofile="$(COVERAGE_DIR)/all.out" -count=1 -timeout=$(GO_TEST_TIMEOUT) | tee "$(COVERAGE_DIR)/packages.txt"
+	@python3 scripts/check_go_coverage.py "$(COVERAGE_DIR)/all.out" "$(COVERAGE_CORE_MIN)" \
+		--include-prefix github.com/Clyra-AI/wrkr/core/ \
+		--include-prefix github.com/Clyra-AI/wrkr/cmd/ \
+		--exceptions .github/coverage-exceptions.json \
+		--scope go_core_and_command_packages
+	@python3 scripts/check_go_package_coverage.py "$(COVERAGE_DIR)/packages.txt" "$(COVERAGE_PACKAGE_MIN)" .github/coverage-exceptions.json
+
+test-freeze-gate:
+	@python3 scripts/run_freeze_gate.py \
+		--repo-root . \
+		--receipt testinfra/contracts/fixtures/freeze-gate/story-0.1-receipt.json \
+		--output .tmp/freeze-gate-runtime-receipt.json \
+		$(FREEZE_GATE_REQUIRE_CLEAN)
 
 test-integration:
 	@$(GO) test $$($(PKG_LIST)) -run Integration -count=1
@@ -116,7 +137,7 @@ test-uat-local:
 test-release-smoke:
 	@scripts/test_uat_local.sh --skip-global-gates
 
-prepush-full: prepush lint test test-integration test-e2e test-scenarios codeql
+prepush-full: prepush lint test test-coverage test-freeze-gate test-integration test-e2e test-scenarios codeql
 
 codeql:
 	@scripts/run_codeql.sh

@@ -73,6 +73,8 @@ jobs:
 
       - name: Run core lane
         shell: bash
+        env:
+          WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'
         run: |
           make lint-fast
           make test-fast
@@ -102,7 +104,9 @@ jobs:
         run: |
           make test-integration
           make test-e2e
+          make test-coverage
           make test-contracts
+          make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean
           scripts/validate_contracts.sh
           scripts/validate_scenarios.sh
           go test ./internal/scenarios -count=1 -tags=scenario
@@ -114,6 +118,14 @@ jobs:
         with:
           name: agent-benchmark-main
           path: .tmp/agent-benchmarks-main.json
+
+      - name: Upload freeze-gate runtime receipt
+        if: always()
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: freeze-gate-runtime-receipt-main
+          path: .tmp/freeze-gate-runtime-receipt.json
+          if-no-files-found: error
 
   docs-smoke:
     name: docs-smoke

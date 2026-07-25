@@ -30,9 +30,17 @@ func TestScenarioScanMixedOrgCoverage(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse scan payload: %v", err)
 	}
-	findings, ok := payload["findings"].([]any)
+	statePayload := map[string]any{}
+	stateBytes, readErr := os.ReadFile(statePath)
+	if readErr != nil {
+		t.Fatalf("read canonical scan state: %v", readErr)
+	}
+	if err := json.Unmarshal(stateBytes, &statePayload); err != nil {
+		t.Fatalf("parse canonical scan state: %v", err)
+	}
+	findings, ok := statePayload["findings"].([]any)
 	if !ok {
-		t.Fatalf("expected findings array, got %T", payload["findings"])
+		t.Fatalf("expected canonical state findings array, got %T", statePayload["findings"])
 	}
 
 	seenTools := map[string]bool{}

@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [semver:patch] Added executable Go coverage gates for the 85% aggregate core/cmd target and 75% per-package target, with owner-assigned, expiring non-regression floors and fail-closed tests for missing, stale, expired, and regressed exceptions.
+- [semver:patch] Added a source-bound Sprint 0 freeze runner that executes allowlisted validation commands, records command output hashes and the current commit, and publishes a runtime receipt from PR, main, and release lanes.
 - [semver:minor] Added a deterministic `composed_action_path` artifact that identifies bounded multi-stage authority paths from existing action paths and workflow chains without claiming observed execution.
 - [semver:minor] Added report-only proposed Action Contract v2 output linked to composed action paths for downstream Gait/control workflows.
 - [semver:minor] Added explicit composition, proposed contract, workflow-chain, and resolution-key references to decision traces and evidence exports for stable Gait and Axym correlation.
@@ -26,6 +28,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- [semver:patch] Split the nightly race lane so ordinary packages retain the 20-minute deterministic budget while the enterprise-sized acceptance package runs separately with a 40-minute ceiling, preventing the endpoint-dense fixture from exhausting the package timeout under race instrumentation.
+- [semver:patch] Bounded first-value command responses while preserving canonical state and evidence artifacts: on `internal/enterprisepressure.VariantBaseline:96-repos`, scan JSON fell from 1,067,262 to 893,867 bytes (-173,395; -16.2%) and evidence JSON fell from 3,182,360 to 537,039 bytes (-2,645,321; -83.1%). The canonical state and customer-redacted BOM measured 8,090,113 and 1,144,221 bytes within their 16 MiB and 2 MiB budgets. Coverage and redaction receipts are `TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted`, `TestBuildEvidenceJSONPayloadBoundsBOMAndPreservesPrimaryPath`, and the 96-repo enterprise-pressure fixture.
+- [semver:patch] Advanced the Factory profile pointer to the revision aligned on Go `1.26.5` and made the root pin checker enforce `factory/profiles/wrkr.yaml` in protected automation.
 - Documented the Sprint 0 public-surface freeze gate that composition work must satisfy before exposing new scan/report/schema fields.
 - [semver:minor] Projected existing evidence state, freshness, policy coverage, and Gait coverage onto composed action-path stages so reports distinguish static reachability from runtime-proven control.
 - [semver:minor] Updated Agent Action BOM reporting to lead with the highest-risk composed authority path, current evidence posture, control gap, and proposed Action Contract.
@@ -45,6 +50,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Kept scenario consumers on canonical saved-state findings when bounded scan command responses omit raw arrays, and refreshed the precision-calibration branch-protection receipt to match its verified imported control evidence.
 - [semver:patch] Aligned external-control sidecar validation with documented evidence classes and target-only correlation, and kept grouped top-risk identity, action, rationale, and remediation metadata on the highest-scoring path.
 - [semver:patch] Raised weaker equivalent-outcome routes to the deterministic peer control floor so approval-evasion alternatives cannot retain a less restrictive proposed Action Contract.
 - [semver:patch] Hardened redacted Action Contract artifact export so saved contract selectors are applied before redaction, report presentation caps do not suppress exported contracts, and output collisions are preflighted before any artifact file is written.
@@ -62,7 +68,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- [semver:patch] Moved managed-artifact recovery journals out of caller-controlled repositories into the private user cache, bound them to the canonical state path, rejected symlinked or over-permissive journals, identity-checked the opened file, and made legacy repository-local journals fail closed with `unsafe_operation_blocked` (exit `8`) instead of replaying attacker-supplied overwrite/delete instructions.
 
 ## Changelog maintenance process
 

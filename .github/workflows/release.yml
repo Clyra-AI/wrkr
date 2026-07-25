@@ -56,6 +56,11 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Validate toolchain pins
+        env:
+          WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'
+        run: scripts/check_toolchain_pins.sh
+
       - name: Validate release changelog
         if: startsWith(github.ref, 'refs/tags/v')
         run: python3 scripts/validate_release_changelog.py --release-version "${GITHUB_REF_NAME}" --json
@@ -88,7 +93,9 @@ jobs:
 
       - name: Run contract and scenario gates
         run: |
+          make test-coverage
           make test-contracts
+          make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean
           scripts/validate_contracts.sh
           scripts/validate_scenarios.sh
           go test ./internal/scenarios -count=1 -tags=scenario
@@ -99,6 +106,14 @@ jobs:
           scripts/test_perf_budgets.sh
           scripts/run_agent_benchmarks.sh --output .tmp/release/agent-benchmarks-release.json
           go test ./internal/integration/interop -count=1
+
+      - name: Upload freeze-gate runtime receipt
+        if: always()
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: freeze-gate-runtime-receipt-release
+          path: .tmp/freeze-gate-runtime-receipt.json
+          if-no-files-found: error
 
       - name: Upload agent benchmark report
         if: always()

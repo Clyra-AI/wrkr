@@ -151,7 +151,7 @@ func TestScanInterruptedAfterStateSaveRecoversManagedArtifacts(t *testing.T) {
 	assertOptionalTestFileEquals(t, proofPath, proofBefore)
 	assertOptionalTestFileEquals(t, attestationPath, attestationBefore)
 	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
-	if _, err := os.Stat(managedArtifactTransactionPath(statePath)); !os.IsNotExist(err) {
+	if _, err := os.Stat(managedArtifactTransactionPathForTest(t, statePath)); !os.IsNotExist(err) {
 		t.Fatalf("expected recovered transaction journal to be removed, stat err=%v", err)
 	}
 }
@@ -291,7 +291,7 @@ func TestScanRejectsTamperedProofChainBeforeTransactionCommit(t *testing.T) {
 	assertOptionalTestFileEquals(t, proofPath, proofBefore)
 	assertOptionalTestFileEquals(t, attestationPath, attestationBefore)
 	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
-	if _, err := os.Stat(managedArtifactTransactionPath(statePath)); !os.IsNotExist(err) {
+	if _, err := os.Stat(managedArtifactTransactionPathForTest(t, statePath)); !os.IsNotExist(err) {
 		t.Fatalf("expected recovered transaction journal to be removed, stat err=%v", err)
 	}
 }
@@ -313,13 +313,162 @@ func TestManagedArtifactTransactionMetadataIsPortable(t *testing.T) {
 		_ = transaction.Rollback(nil)
 	}()
 
-	payload := readOptionalTestFile(t, managedArtifactTransactionPath(statePath))
+	journalPath := managedArtifactTransactionPathForTest(t, statePath)
+	if filepath.Clean(filepath.Dir(journalPath)) == filepath.Clean(filepath.Dir(statePath)) {
+		t.Fatalf("transaction journal must live outside the caller-controlled state directory: %s", journalPath)
+	}
+	payload := readOptionalTestFile(t, journalPath)
 	if bytes.Contains(payload, []byte(tmp)) {
 		t.Fatalf("transaction metadata must not contain checkout/temp absolute paths: %s", payload)
 	}
 	if !bytes.Contains(payload, []byte("../reports/scan.md")) {
 		t.Fatalf("expected sidecar path to be stored relative to managed root, got %s", payload)
 	}
+	if !bytes.Contains(payload, []byte(`"state_path_sha256"`)) {
+		t.Fatalf("expected transaction metadata to bind the caller state path, got %s", payload)
+	}
+}
+
+func TestRepoLocalLegacyManagedArtifactJournalFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	if err := os.MkdirAll(filepath.Dir(statePath), 0o750); err != nil {
+		t.Fatalf("mkdir state dir: %v", err)
+	}
+	if err := os.WriteFile(statePath, []byte(`{"version":"v1"}`+"\n"), 0o600); err != nil {
+		t.Fatalf("write state: %v", err)
+	}
+	victimPath := filepath.Join(tmp, "victim.txt")
+	original := []byte("safe\n")
+	if err := os.WriteFile(victimPath, original, 0o600); err != nil {
+		t.Fatalf("write victim: %v", err)
+	}
+	journal := managedArtifactTransactionJournal{
+		Version:         "v1",
+		StatePathSHA256: "attacker-controlled",
+		Operation:       "scan",
+		Artifacts: []managedArtifactTransactionArtifact{{
+			Label:   "outside target",
+			Path:    "../victim.txt",
+			Existed: true,
+			Payload: []byte("overwritten\n"),
+			Perm:    0o600,
+		}},
+	}
+	payload, err := json.MarshalIndent(journal, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal malicious journal: %v", err)
+	}
+	payload = append(payload, '\n')
+	if err := os.WriteFile(legacyManagedArtifactTransactionPath(statePath), payload, 0o600); err != nil {
+		t.Fatalf("write malicious journal: %v", err)
+	}
+
+	err = preflightManagedArtifactRead(statePath)
+	if err == nil || !isUnsafeManagedArtifactPathError(err) {
+		t.Fatalf("expected repo-local transaction journal to fail closed, got %v", err)
+	}
+	got, readErr := os.ReadFile(victimPath)
+	if readErr != nil {
+		t.Fatalf("read victim after rejected recovery: %v", readErr)
+	}
+	if !bytes.Equal(got, original) {
+		t.Fatalf("repo-local journal changed outside target: got %q want %q", got, original)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"score", "--state", statePath, "--json"}, &out, &errOut); code != exitUnsafeBlocked {
+		t.Fatalf("expected unsafe-operation exit for repo-local journal, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "unsafe_operation_blocked", exitUnsafeBlocked)
+}
+
+func TestPrivateManagedArtifactJournalStateBindingFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	if err := os.MkdirAll(filepath.Dir(statePath), 0o750); err != nil {
+		t.Fatalf("mkdir state dir: %v", err)
+	}
+	journalPath := managedArtifactTransactionPathForTest(t, statePath)
+	t.Cleanup(func() { _ = os.Remove(journalPath) })
+	payload, err := json.Marshal(managedArtifactTransactionJournal{
+		Version:         managedArtifactTransactionVersion,
+		StatePathSHA256: strings.Repeat("0", 64),
+		Operation:       "scan",
+		Artifacts: []managedArtifactTransactionArtifact{{
+			Label: "state",
+			Path:  "state.json",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal mismatched journal: %v", err)
+	}
+	if err := os.WriteFile(journalPath, payload, 0o600); err != nil {
+		t.Fatalf("write mismatched journal: %v", err)
+	}
+
+	err = recoverManagedArtifactTransaction(statePath)
+	if err == nil || !isUnsafeManagedArtifactPathError(err) || !strings.Contains(err.Error(), "state binding mismatch") {
+		t.Fatalf("expected state binding mismatch to fail closed, got %v", err)
+	}
+}
+
+func TestPrivateManagedArtifactJournalSymlinkFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	journalPath := managedArtifactTransactionPathForTest(t, statePath)
+	t.Cleanup(func() { _ = os.Remove(journalPath) })
+	targetPath := filepath.Join(tmp, "attacker-journal.json")
+	if err := os.WriteFile(targetPath, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("write attacker journal: %v", err)
+	}
+	if err := os.Symlink(targetPath, journalPath); err != nil {
+		t.Fatalf("symlink attacker journal: %v", err)
+	}
+
+	err := recoverManagedArtifactTransaction(statePath)
+	if err == nil || !isUnsafeManagedArtifactPathError(err) || !strings.Contains(err.Error(), "regular file") {
+		t.Fatalf("expected symlinked private journal to fail closed, got %v", err)
+	}
+}
+
+func TestPrivateManagedArtifactJournalBroadPermissionsFailClosed(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX owner-only permission contract does not apply on Windows")
+	}
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	journalPath := managedArtifactTransactionPathForTest(t, statePath)
+	t.Cleanup(func() { _ = os.Remove(journalPath) })
+	if err := os.WriteFile(journalPath, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("write broad-permission journal: %v", err)
+	}
+	if err := os.Chmod(journalPath, 0o644); err != nil {
+		t.Fatalf("broaden journal permissions: %v", err)
+	}
+
+	err := recoverManagedArtifactTransaction(statePath)
+	if err == nil || !isUnsafeManagedArtifactPathError(err) || !strings.Contains(err.Error(), "permissions are too broad") {
+		t.Fatalf("expected broad private journal permissions to fail closed, got %v", err)
+	}
+}
+
+func managedArtifactTransactionPathForTest(t *testing.T, statePath string) string {
+	t.Helper()
+	path, err := managedArtifactTransactionPath(statePath)
+	if err != nil {
+		t.Fatalf("resolve transaction path: %v", err)
+	}
+	return path
 }
 
 func TestScanLateSARIFWriteFailureRollsBackManagedArtifacts(t *testing.T) {

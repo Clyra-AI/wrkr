@@ -111,8 +111,30 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 		t.Fatalf("expected evidence BOM share profile to be customer-redacted, got %v", evidenceBOM["share_profile"])
 	}
 	bundleRedactedBOM := loadAcceptanceJSONFile(t, filepath.Join(outputDir, "reports", "agent-action-bom-customer-redacted.json"))
-	if !reflect.DeepEqual(bundleRedactedBOM, evidenceBOM) {
-		t.Fatalf("expected evidence JSON BOM to match customer-redacted bundle artifact\nartifact=%v\nevidence=%v", bundleRedactedBOM, evidenceBOM)
+	bundleItems := requireArrayFromObject(t, bundleRedactedBOM, "items")
+	evidenceItems := requireArrayFromObject(t, evidenceBOM, "items")
+	if len(bundleItems) <= len(evidenceItems) {
+		t.Fatalf("expected evidence command response to preview the fuller canonical BOM: artifact_items=%d preview_items=%d", len(bundleItems), len(evidenceItems))
+	}
+	for _, previewItem := range evidenceItems {
+		found := false
+		for _, artifactItem := range bundleItems {
+			if reflect.DeepEqual(previewItem, artifactItem) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected every evidence BOM preview item to come from the canonical artifact: %v", previewItem)
+		}
+	}
+	suppressedCounts := requireObject(t, evidencePayload, "suppressed_counts")
+	if suppressedCounts["agent_action_bom"] != float64(len(bundleItems)-len(evidenceItems)) {
+		t.Fatalf("expected exact BOM suppression receipt, artifact_items=%d preview_items=%d suppressed=%v", len(bundleItems), len(evidenceItems), suppressedCounts)
+	}
+	artifactPaths := requireObject(t, evidencePayload, "artifact_paths")
+	if artifactPaths["agent_action_bom_json"] != filepath.Join(outputDir, "reports", "agent-action-bom-customer-redacted.json") {
+		t.Fatalf("expected preview to point to canonical customer-redacted BOM, got %v", artifactPaths)
 	}
 	evidenceTopItem := requireObjectItem(t, requireArrayFromObject(t, evidenceBOM, "items")[0])
 	if afterTopItem["proof_coverage"] != evidenceTopItem["proof_coverage"] {

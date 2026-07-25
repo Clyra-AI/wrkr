@@ -1,12 +1,14 @@
 package acceptance
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Clyra-AI/wrkr/core/cli"
 	"github.com/Clyra-AI/wrkr/internal/enterprisepressure"
 )
 
@@ -14,6 +16,8 @@ const (
 	sprint0AcceptanceRepoCount       = 96
 	sprint0AcceptanceStateByteBudget = 16 << 20
 	sprint0AcceptanceEvidenceBudget  = 2 << 20
+	sprint0ScanResponseByteBudget    = 2 << 20
+	sprint0EvidenceResponseBudget    = 1 << 20
 	sprint0AcceptanceMarkdownLineCap = 1500
 	sprint0AcceptanceLeadLineCap     = 45
 	sprint0AcceptanceLeadSectionCap  = 5
@@ -31,7 +35,11 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 	}
 
 	statePath := filepath.Join(tmp, "last-scan.json")
-	scanPayload := runJSONOK(t, "scan", "--path", scanRoot, "--state", statePath, "--quiet", "--json")
+	scanPayload, scanResponseBytes := runMeasuredJSONOK(t, "scan", "--path", scanRoot, "--state", statePath, "--quiet", "--json")
+	if scanResponseBytes > sprint0ScanResponseByteBudget {
+		t.Fatalf("expected scan command-response JSON under %d bytes, got %d", sprint0ScanResponseByteBudget, scanResponseBytes)
+	}
+	t.Logf("freeze_gate_measurement artifact=scan-command-response.json measured_bytes=%d", scanResponseBytes)
 	requirePositiveAcceptanceSuppressedCount(t, scanPayload, "findings")
 	requirePositiveAcceptanceSuppressedCount(t, scanPayload, "inventory_agents")
 	requireAcceptancePolicyOutcomeGrouping(t, scanPayload)
@@ -43,6 +51,7 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 	if len(stateBytes) > sprint0AcceptanceStateByteBudget {
 		t.Fatalf("expected last-scan.json under %d bytes, got %d", sprint0AcceptanceStateByteBudget, len(stateBytes))
 	}
+	t.Logf("freeze_gate_measurement artifact=last-scan.json measured_bytes=%d", len(stateBytes))
 
 	mdPath := filepath.Join(tmp, "agent-action-bom.md")
 	evidencePath := filepath.Join(tmp, "agent-action-bom-evidence.json")
@@ -75,6 +84,7 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 	if len(evidenceBytes) > sprint0AcceptanceEvidenceBudget {
 		t.Fatalf("expected agent-action-bom-evidence.json under %d bytes, got %d", sprint0AcceptanceEvidenceBudget, len(evidenceBytes))
 	}
+	t.Logf("freeze_gate_measurement artifact=agent-action-bom-evidence.json measured_bytes=%d", len(evidenceBytes))
 
 	markdownBytes, err := os.ReadFile(mdPath)
 	if err != nil {
@@ -120,6 +130,20 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 		}
 	}
 	requireAcceptanceOwnerFieldsRedacted(t, reportPayload)
+
+	evidencePayload, evidenceResponseBytes := runMeasuredJSONOK(
+		t,
+		"evidence",
+		"--frameworks", "soc2",
+		"--state", statePath,
+		"--output", filepath.Join(tmp, "evidence-bundle"),
+		"--json",
+	)
+	if evidenceResponseBytes > sprint0EvidenceResponseBudget {
+		t.Fatalf("expected evidence command-response JSON under %d bytes, got %d", sprint0EvidenceResponseBudget, evidenceResponseBytes)
+	}
+	t.Logf("freeze_gate_measurement artifact=evidence-command-response.json measured_bytes=%d", evidenceResponseBytes)
+	requirePositiveAcceptanceSuppressedCount(t, evidencePayload, "agent_action_bom")
 }
 
 func TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection(t *testing.T) {
@@ -183,6 +207,7 @@ func TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection(t *testing.T)
 	if len(stateBytes) > sprint0EndpointDenseStateBudget {
 		t.Fatalf("expected endpoint-dense state under %d bytes, got %d", sprint0EndpointDenseStateBudget, len(stateBytes))
 	}
+	t.Logf("freeze_gate_measurement artifact=endpoint-dense-scan.json measured_bytes=%d", len(stateBytes))
 }
 
 func requirePositiveAcceptanceSuppressedCount(t *testing.T, payload map[string]any, key string) {
@@ -291,4 +316,22 @@ func requireOptionalArrayLength(value any) int {
 		return 0
 	}
 	return len(items)
+}
+
+func runMeasuredJSONOK(t *testing.T, args ...string) (map[string]any, int) {
+	t.Helper()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run(args, &out, &errOut); code != 0 {
+		t.Fatalf("command %v returned code %d (stdout=%q stderr=%q)", args, code, out.String(), errOut.String())
+	}
+	if errOut.Len() != 0 && !allowJSONProgressStderr(args, errOut.String()) {
+		t.Fatalf("expected empty stderr for %v, got %q", args, errOut.String())
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse JSON payload for %v: %v (%q)", args, err, out.String())
+	}
+	return payload, out.Len()
 }

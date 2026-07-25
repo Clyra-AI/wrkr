@@ -8,7 +8,7 @@
       "description": "Architecture boundary page data derived from source, detection, aggregation, and proof summaries.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:e5521f6b094b0f08431b4fa3dc203d8f3f92d2013cff7ed8fe2734dab000c74a"
+      "sha256": "sha256:93d83f1293693310f562422f894b315a1c827813e5575c12c04d5f3058222c90"
     },
     {
       "path": "interactive-lab-data.json",
