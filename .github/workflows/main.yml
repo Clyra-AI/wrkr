@@ -75,11 +75,11 @@ jobs:
         shell: bash
         env:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
-          WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"
         run: |
-          if [[ -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then
+          if [[ "${RUNNER_OS}" != "Windows" && -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then
             git config --global url."https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/".insteadOf https://github.com/
             git submodule update --init --depth=1 factory
+            export WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1
           fi
           make lint-fast
           make test-fast

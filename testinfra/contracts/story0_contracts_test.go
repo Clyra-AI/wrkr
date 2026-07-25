@@ -296,8 +296,14 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	if !strings.Contains(mainWorkflow, "HOMEBREW_TAP_GITHUB_TOKEN") || !strings.Contains(mainWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("main core lane must initialize the Factory submodule when the existing homebrew token secret is available")
 	}
-	if !strings.Contains(mainWorkflow, `WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"`) {
-		t.Fatal("main core lane must require the authoritative Factory profile when running protected toolchain-pin enforcement")
+	if !strings.Contains(mainWorkflow, `if [[ "${RUNNER_OS}" != "Windows" && -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then`) {
+		t.Fatal("main core lane must skip Windows-unsafe Factory checkout and require the authoritative Factory profile only after non-Windows submodule initialization succeeds")
+	}
+	if !strings.Contains(mainWorkflow, "export WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1") {
+		t.Fatal("main core lane must require the authoritative Factory profile only after the non-Windows token-backed Factory submodule checkout succeeds")
+	}
+	if strings.Contains(mainWorkflow, `WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"`) {
+		t.Fatal("main core lane must not require the authoritative Factory profile before the Windows-unsafe Factory checkout guard runs")
 	}
 	if strings.Contains(mainWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("main core lane must not skip Factory toolchain-pin enforcement when the snapshot contract is available")
