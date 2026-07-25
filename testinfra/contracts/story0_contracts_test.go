@@ -279,6 +279,9 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	if !strings.Contains(prWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("pr fast lane must initialize the Factory submodule before enforcing trusted toolchain pins")
 	}
+	if !strings.Contains(prWorkflow, `git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf https://github.com/`) {
+		t.Fatal("pr fast lane must inject GitHub token auth before the trusted Factory submodule checkout")
+	}
 	if !strings.Contains(prWorkflow, "github.event.pull_request.head.repo.fork") || !strings.Contains(prWorkflow, "export WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE=1") {
 		t.Fatal("pr fast lane must reserve the missing-factory-profile escape hatch for fork pull requests only")
 	}
@@ -290,6 +293,9 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	if !strings.Contains(mainWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("main core lane must initialize the Factory submodule before enforcing toolchain pins")
 	}
+	if !strings.Contains(mainWorkflow, `git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf https://github.com/`) {
+		t.Fatal("main core lane must inject GitHub token auth before the trusted Factory submodule checkout")
+	}
 	if strings.Contains(mainWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("main core lane must not skip the Factory profile toolchain-pin contract")
 	}
@@ -300,6 +306,9 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	}
 	if !strings.Contains(releaseWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("release workflow must initialize the Factory submodule before enforcing toolchain pins")
+	}
+	if !strings.Contains(releaseWorkflow, `git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf https://github.com/`) {
+		t.Fatal("release workflow must inject GitHub token auth before the trusted Factory submodule checkout")
 	}
 	if strings.Contains(releaseWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("release workflow must not skip the Factory profile toolchain-pin contract")
