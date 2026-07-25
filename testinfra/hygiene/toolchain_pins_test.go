@@ -330,26 +330,6 @@ func runToolchainPinCheck(t *testing.T, repoRoot string) (string, string, error)
 	return stdout.String(), stderr.String(), err
 }
 
-func runToolchainPinCheckWithEnv(t *testing.T, repoRoot string, extraEnv map[string]string) (string, string, error) {
-	t.Helper()
-
-	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts/check_toolchain_pins.sh")
-	cmd := exec.Command("bash", scriptPath)
-	cmd.Dir = repoRoot
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "WRKR_PIN_CHECK_FACTORY_GITLINK_SHA=8a5737d835c10e7b3bbd5f35e37023c4205d0e60")
-	for key, value := range extraEnv {
-		cmd.Env = append(cmd.Env, key+"="+value)
-	}
-
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	return stdout.String(), stderr.String(), err
-}
-
 func mustReadExpectedPin(t *testing.T, content string, tool string) string {
 	t.Helper()
 
