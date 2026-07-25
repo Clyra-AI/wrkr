@@ -14,7 +14,9 @@ func TestScenarioWave41PrecisionCalibration(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)
-	scanRoot := filepath.Join(repoRoot, "scenarios", "wrkr", "precision-calibration", "repos")
+	sourceScanRoot := filepath.Join(repoRoot, "scenarios", "wrkr", "precision-calibration", "repos")
+	scanRoot := filepath.Join(t.TempDir(), "precision-calibration", "repos")
+	copyScenarioTree(t, sourceScanRoot, scanRoot)
 	expectedPath := filepath.Join(repoRoot, "scenarios", "wrkr", "precision-calibration", "expected", "calibration-summary.json")
 	statePath := filepath.Join(t.TempDir(), "precision-calibration-state.json")
 
@@ -309,4 +311,32 @@ func cloneArray(value any) []any {
 func stringValue(value any) string {
 	text, _ := value.(string)
 	return text
+}
+
+func copyScenarioTree(t *testing.T, srcRoot, dstRoot string) {
+	t.Helper()
+
+	if err := filepath.WalkDir(srcRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(srcRoot, path)
+		if err != nil {
+			return err
+		}
+		dstPath := filepath.Join(dstRoot, rel)
+		if d.IsDir() {
+			return os.MkdirAll(dstPath, 0o755)
+		}
+		payload, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(dstPath, payload, 0o600)
+	}); err != nil {
+		t.Fatalf("copy scenario tree %s -> %s: %v", srcRoot, dstRoot, err)
+	}
 }
