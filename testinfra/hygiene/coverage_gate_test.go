@@ -69,6 +69,44 @@ func TestPerPackageCoverageGateFailsMissingAndRegressedBaselines(t *testing.T) {
 	}
 }
 
+func TestAggregateCoverageGateRejectsHundredthPrecisionRegression(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	exceptions := writeCoverageExceptions(t, root, "2099-12-31", 73.2, map[string]float64{})
+	regressedProfile := writeCoverageFixture(t, root, "precision-regressed.out", 731, 269)
+	_, stderr, err := runCoveragePython(
+		t,
+		"scripts/check_go_coverage.py",
+		regressedProfile,
+		"85",
+		"--include-prefix", "github.com/Clyra-AI/wrkr/core/",
+		"--exceptions", exceptions,
+	)
+	if err == nil || !strings.Contains(stderr, "governed_floor=73.20%") {
+		t.Fatalf("expected hundredth-precision regression to fail, err=%v stderr=%q", err, stderr)
+	}
+}
+
+func TestPerPackageCoverageGateRejectsTenthPrecisionRegression(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outputPath := filepath.Join(root, "packages.txt")
+	mustWriteFile(t, outputPath, "ok  \tgithub.com/Clyra-AI/wrkr/core/example\t1.0s\tcoverage: 73.1% of statements\n")
+	governed := writeCoverageExceptions(
+		t,
+		filepath.Join(root, "governed-precision"),
+		"2099-12-31",
+		50,
+		map[string]float64{"github.com/Clyra-AI/wrkr/core/example": 73.2},
+	)
+	_, stderr, err := runCoveragePython(t, "scripts/check_go_package_coverage.py", outputPath, "75", governed)
+	if err == nil || !strings.Contains(stderr, "governed_floor=73.2%") {
+		t.Fatalf("expected tenth-precision regression to fail, err=%v stderr=%q", err, stderr)
+	}
+}
+
 func TestCoverageGateRejectsExpiredExceptions(t *testing.T) {
 	t.Parallel()
 

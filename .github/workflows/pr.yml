@@ -121,9 +121,13 @@ jobs:
           fi
 
       - name: Fast lint and tests
-        env:
-          WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'
+        shell: bash
         run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.fork }}" == "true" ]]; then
+            export WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE=1
+          else
+            git submodule update --init --depth=1 factory
+          fi
           make lint-fast
           make test-fast
           make test-coverage

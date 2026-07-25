@@ -462,6 +462,60 @@ func TestPrivateManagedArtifactJournalBroadPermissionsFailClosed(t *testing.T) {
 	}
 }
 
+func TestManagedArtifactTransactionPathCanonicalizesSymlinkedAncestors(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	realRoot := filepath.Join(tmp, "real-root")
+	linkRoot := filepath.Join(tmp, "link-root")
+	if err := os.MkdirAll(filepath.Join(realRoot, ".wrkr"), 0o755); err != nil {
+		t.Fatalf("mkdir real state root: %v", err)
+	}
+	if err := os.Symlink(realRoot, linkRoot); err != nil {
+		t.Skipf("symlink unsupported in current environment: %v", err)
+	}
+
+	realPath := filepath.Join(realRoot, ".wrkr", "state.json")
+	linkPath := filepath.Join(linkRoot, ".wrkr", "state.json")
+
+	realJournalPath, err := managedArtifactTransactionPath(realPath)
+	if err != nil {
+		t.Fatalf("resolve canonical journal path: %v", err)
+	}
+	linkJournalPath, err := managedArtifactTransactionPath(linkPath)
+	if err != nil {
+		t.Fatalf("resolve symlinked journal path: %v", err)
+	}
+	if realJournalPath != linkJournalPath {
+		t.Fatalf("expected symlinked and canonical state paths to share a journal path, got %q and %q", realJournalPath, linkJournalPath)
+	}
+}
+
+func TestManagedArtifactTransactionPathCanonicalizesWindowsPathCase(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-only path identity contract")
+	}
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
+		t.Fatalf("mkdir Windows state root: %v", err)
+	}
+
+	lowerJournalPath, err := managedArtifactTransactionPath(strings.ToLower(statePath))
+	if err != nil {
+		t.Fatalf("resolve lower-case journal path: %v", err)
+	}
+	upperJournalPath, err := managedArtifactTransactionPath(strings.ToUpper(statePath))
+	if err != nil {
+		t.Fatalf("resolve upper-case journal path: %v", err)
+	}
+	if lowerJournalPath != upperJournalPath {
+		t.Fatalf("expected Windows path casing to resolve to one journal path, got %q and %q", lowerJournalPath, upperJournalPath)
+	}
+}
+
 func managedArtifactTransactionPathForTest(t *testing.T, statePath string) string {
 	t.Helper()
 	path, err := managedArtifactTransactionPath(statePath)

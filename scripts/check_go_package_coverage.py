@@ -11,6 +11,8 @@ import re
 import sys
 from typing import Any
 
+FLOAT_EPSILON = 1e-9
+
 
 PACKAGE_RE = re.compile(r"(github\.com/Clyra-AI/wrkr/\S+)")
 COVERAGE_RE = re.compile(r"coverage:\s*([0-9]+(?:\.[0-9]+)?)%\s+of\s+statements")
@@ -73,7 +75,7 @@ def main() -> int:
     for package in sorted(packages):
         percent = packages[package]
         floor = baselines.get(package)
-        if percent + 1e-9 >= args.minimum_percent:
+        if percent + FLOAT_EPSILON >= args.minimum_percent:
             if floor is not None:
                 failures.append(
                     f"{package}: governed baseline is stale because coverage={percent:.1f}% meets target"
@@ -88,7 +90,7 @@ def main() -> int:
             failures.append(f"{package}: invalid governed_floor={float(floor):.1f}%")
             continue
         governed_count += 1
-        if percent + 0.11 < float(floor):
+        if percent+FLOAT_EPSILON < float(floor):
             failures.append(
                 f"{package}: coverage={percent:.1f}% governed_floor={float(floor):.1f}%"
             )

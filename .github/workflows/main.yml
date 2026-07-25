@@ -73,9 +73,8 @@ jobs:
 
       - name: Run core lane
         shell: bash
-        env:
-          WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE: '1'
         run: |
+          git submodule update --init --depth=1 factory
           make lint-fast
           make test-fast
           make build

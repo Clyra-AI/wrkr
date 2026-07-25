@@ -334,15 +334,15 @@ func managedArtifactTransactionPath(statePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("inspect private managed artifact transaction directory: %w", err)
 	}
-		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-			return "", unsafeManagedArtifactPathError{err: fmt.Errorf("private managed artifact transaction path must be a real directory: %s", transactionDir)}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return "", unsafeManagedArtifactPathError{err: fmt.Errorf("private managed artifact transaction path must be a real directory: %s", transactionDir)}
+	}
+	if runtime.GOOS != "windows" {
+		// Owner-only directories need the execute bit on POSIX so Wrkr can traverse the private transaction root.
+		if err := os.Chmod(transactionDir, 0o700); err != nil { // #nosec G302
+			return "", fmt.Errorf("secure private managed artifact transaction directory: %w", err)
 		}
-		if runtime.GOOS != "windows" {
-			// Owner-only directories need the execute bit on POSIX so Wrkr can traverse the private transaction root.
-			if err := os.Chmod(transactionDir, 0o700); err != nil { // #nosec G302
-				return "", fmt.Errorf("secure private managed artifact transaction directory: %w", err)
-			}
-		}
+	}
 	statePathSHA, err := managedArtifactStatePathSHA256(statePath)
 	if err != nil {
 		return "", err
@@ -359,8 +359,48 @@ func managedArtifactStatePathSHA256(statePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve managed artifact state path: %w", err)
 	}
-	sum := sha256.Sum256([]byte(filepath.Clean(absStatePath)))
+	canonicalStatePath, err := canonicalManagedArtifactStatePath(absStatePath)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256([]byte(canonicalStatePath))
 	return fmt.Sprintf("%x", sum[:]), nil
+}
+
+func canonicalManagedArtifactStatePath(path string) (string, error) {
+	existingPath := filepath.Clean(path)
+	var suffix []string
+	for {
+		_, err := os.Lstat(existingPath)
+		if err == nil {
+			resolvedPath, err := filepath.EvalSymlinks(existingPath)
+			if err != nil {
+				return "", fmt.Errorf("canonicalize managed artifact state path: %w", err)
+			}
+			canonicalPath := resolvedPath
+			for index := len(suffix) - 1; index >= 0; index-- {
+				canonicalPath = filepath.Join(canonicalPath, suffix[index])
+			}
+			canonicalPath = filepath.Clean(canonicalPath)
+			if runtime.GOOS == "windows" {
+				canonicalPath = strings.ToLower(canonicalPath)
+			}
+			return canonicalPath, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("inspect managed artifact state path: %w", err)
+		}
+		parent := filepath.Dir(existingPath)
+		if parent == existingPath {
+			canonicalPath := filepath.Clean(path)
+			if runtime.GOOS == "windows" {
+				canonicalPath = strings.ToLower(canonicalPath)
+			}
+			return canonicalPath, nil
+		}
+		suffix = append(suffix, filepath.Base(existingPath))
+		existingPath = parent
+	}
 }
 
 func validateTrustedManagedArtifactJournal(path string) error {
