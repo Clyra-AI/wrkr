@@ -6,6 +6,7 @@ targets_raw="${WRKR_PIN_CHECK_TARGETS:-.github/workflows/*.yml Makefile}"
 factory_profile_path="${WRKR_PIN_CHECK_FACTORY_PROFILE:-factory/profiles/wrkr.yaml}"
 factory_profile_snapshot_path="${WRKR_PIN_CHECK_FACTORY_PROFILE_SNAPSHOT:-testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml}"
 factory_gitlink_sha_override="${WRKR_PIN_CHECK_FACTORY_GITLINK_SHA:-}"
+factory_profile_required="${WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE:-0}"
 pin_target_files=()
 
 contains_value() {
@@ -17,6 +18,15 @@ contains_value() {
       return 0
     fi
   done
+  return 1
+}
+
+require_factory_profile() {
+  case "$factory_profile_required" in
+    1|[Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Oo][Nn])
+      return 0
+      ;;
+  esac
   return 1
 }
 
@@ -308,6 +318,10 @@ if [[ "$snapshot_git_commit" != "$factory_gitlink_sha" ]]; then
 fi
 
 if [[ ! -f "$factory_profile_path" ]]; then
+  if require_factory_profile; then
+    echo "missing required Wrkr Factory profile: $factory_profile_path" >&2
+    exit 3
+  fi
   echo "using Wrkr Factory profile snapshot because $factory_profile_path is unavailable" >&2
 else
   factory_go_version="$(read_single_yaml_value "toolchain_version" "$factory_profile_path" "Wrkr Factory profile")"

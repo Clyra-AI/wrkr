@@ -137,6 +137,29 @@ func TestCheckToolchainPinsUsesFactoryProfileSnapshotWhenProfileIsMissing(t *tes
 	}
 }
 
+func TestCheckToolchainPinsFailsWhenRequiredFactoryProfileIsMissing(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
+		gosecVersion:        "v2.23.0",
+		golangciLintVersion: "v2.0.1",
+		cosignVersion:       "v2.5.3",
+		syftVersion:         "v1.32.0",
+		grypeVersion:        "v0.99.1",
+	})
+	if err := os.Remove(filepath.Join(fixtureRoot, "factory/profiles/wrkr.yaml")); err != nil {
+		t.Fatalf("remove fixture factory profile: %v", err)
+	}
+	_, stderr, err := runToolchainPinCheckWithEnv(t, fixtureRoot, "WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1")
+	if err == nil {
+		t.Fatal("expected checker to fail when the authoritative Factory profile is required")
+	}
+	expected := "missing required Wrkr Factory profile: factory/profiles/wrkr.yaml"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic required-profile message %q, got %q", expected, stderr)
+	}
+}
+
 func TestCheckToolchainPinsFailsWhenFactoryProfileSnapshotDrifts(t *testing.T) {
 	t.Parallel()
 
@@ -316,11 +339,18 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 func runToolchainPinCheck(t *testing.T, repoRoot string) (string, string, error) {
 	t.Helper()
 
+	return runToolchainPinCheckWithEnv(t, repoRoot)
+}
+
+func runToolchainPinCheckWithEnv(t *testing.T, repoRoot string, extraEnv ...string) (string, string, error) {
+	t.Helper()
+
 	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts/check_toolchain_pins.sh")
 	cmd := exec.Command("bash", scriptPath)
 	cmd.Dir = repoRoot
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "WRKR_PIN_CHECK_FACTORY_GITLINK_SHA=8a5737d835c10e7b3bbd5f35e37023c4205d0e60")
+	cmd.Env = append(cmd.Env, extraEnv...)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
