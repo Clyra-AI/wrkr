@@ -250,8 +250,11 @@ func TestNightlyRaceLaneIsolatesLongAcceptancePackage(t *testing.T) {
 
 	repoRoot := mustFindRepoRoot(t)
 	nightlyWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/nightly.yml"))
-	if !strings.Contains(nightlyWorkflow, "submodules: recursive") {
-		t.Fatal("nightly workflow must initialize the Factory submodule before running toolchain-pin contracts")
+	if strings.Contains(nightlyWorkflow, "submodules: recursive") {
+		t.Fatal("nightly workflow must not require recursive factory checkout when the default automation token cannot read the private submodule")
+	}
+	if !strings.Contains(nightlyWorkflow, "HOMEBREW_TAP_GITHUB_TOKEN") || !strings.Contains(nightlyWorkflow, "git submodule update --init --depth=1 factory") {
+		t.Fatal("nightly workflow must initialize the Factory submodule when the existing homebrew token secret is available")
 	}
 	for _, fragment := range []string{
 		"mapfile -t race_packages < <(go list ./... | grep -v '/internal/acceptance$')",
