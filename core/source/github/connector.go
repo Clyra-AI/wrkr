@@ -587,6 +587,10 @@ func (c *Connector) materializeRepoArchive(ctx context.Context, repo, ref, repoR
 		if relErr != nil {
 			return false, fmt.Errorf("repository archive for %s: %w", repo, relErr)
 		}
+		localRel := filepath.FromSlash(rel)
+		if !filepath.IsLocal(localRel) {
+			return false, fmt.Errorf("repository archive for %s contains a non-local entry %q", repo, header.Name)
+		}
 		materialize := shouldMaterializeBlobWithSource(rel, true)
 		expandedBytes, materializedBytes, err = addArchiveEntryBytes(expandedBytes, materializedBytes, header.Size, materialize)
 		if err != nil {
@@ -598,7 +602,7 @@ func (c *Connector) materializeRepoArchive(ctx context.Context, repo, ref, repoR
 		if header.Size > maxArchiveFileBytes {
 			return false, fmt.Errorf("repository archive file %s exceeds the %d-byte limit", rel, maxArchiveFileBytes)
 		}
-		dest, joinErr := safeJoin(repoRoot, rel)
+		dest, joinErr := safeJoin(repoRoot, localRel)
 		if joinErr != nil {
 			return false, joinErr
 		}
