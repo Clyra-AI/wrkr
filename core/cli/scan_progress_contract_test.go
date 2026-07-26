@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -448,7 +450,7 @@ func TestScanProgressHeartbeatStopsAfterCancellation(t *testing.T) {
 	close(releaseRepo)
 }
 
-func TestScanProgressFooterIncludesResumeHintForInterruptedOrgScan(t *testing.T) {
+func TestScanProgressFooterIncludesResumeHintForRetainedInterruptedOrgScan(t *testing.T) {
 	t.Parallel()
 
 	releaseRepo := make(chan struct{})
@@ -485,6 +487,7 @@ func TestScanProgressFooterIncludesResumeHintForInterruptedOrgScan(t *testing.T)
 			"--org", "acme",
 			"--github-api", server.URL,
 			"--state", statePath,
+			"--source-retention", "retain_for_resume",
 			"--progress", "plain",
 		}, &out, errOut)
 	}()
@@ -503,6 +506,28 @@ func TestScanProgressFooterIncludesResumeHintForInterruptedOrgScan(t *testing.T)
 	}
 
 	close(releaseRepo)
+}
+
+func TestScanProgressFooterSuppressesResumeHintAfterEphemeralCleanup(t *testing.T) {
+	t.Parallel()
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	privacy := sourceprivacy.InitialContract(sourceprivacy.RetentionEphemeral, true, false, sourceprivacy.DeploymentModeLocalOnly)
+	tracker := newScanStatusTracker(
+		statePath,
+		source.Target{Mode: "org", Value: "acme"},
+		[]source.Target{{Mode: "org", Value: "acme"}},
+		time.Now().UTC(),
+		nil,
+		privacy,
+	)
+	if err := tracker.Start(); err != nil {
+		t.Fatalf("start tracker: %v", err)
+	}
+	tracker.SetSourcePrivacy(sourceprivacy.MarkRemoved(privacy))
+	tracker.Fail(context.Canceled, nil)
+	if footer := tracker.Footer(); strings.Contains(footer, "resume_hint=") {
+		t.Fatalf("ephemeral cleanup must not advertise an unusable resume path: %s", footer)
+	}
 }
 
 func TestScanProgressShowsDetectorPhaseDetail(t *testing.T) {

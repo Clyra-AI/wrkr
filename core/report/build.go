@@ -344,6 +344,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		summary.AgentActionBOM = sanitizeAgentActionBOMWithConfig(summary.AgentActionBOM, shareProfile, redactionConfig)
 	}
 	summary.ExecutiveRollup = resolveExecutiveRollup(summary)
+	applyExecutiveRollupDisplayBudget(summary.ExecutiveRollup, top)
 	summary.GovernedUsageMetrics = resolveGovernedUsageMetrics(summary)
 	summary.RepeatUsageSignals = BuildRepeatUsageSignals(in.StatePath)
 	if summary.ControlBacklog != nil {
@@ -682,17 +683,27 @@ func hasSecurityVisibilityReference(summary agginventory.SecurityVisibilitySumma
 func normalizePrivilegeBudget(in agginventory.PrivilegeBudget) agginventory.PrivilegeBudget {
 	status := strings.TrimSpace(in.ProductionWrite.Status)
 	switch status {
-	case agginventory.ProductionTargetsStatusConfigured, agginventory.ProductionTargetsStatusNotConfigured, agginventory.ProductionTargetsStatusInvalid:
+	case agginventory.ProductionTargetsStatusCustomerConfigured,
+		agginventory.ProductionTargetsStatusBuiltinInferred,
+		agginventory.ProductionTargetsStatusNotConfigured,
+		agginventory.ProductionTargetsStatusInvalid:
 		// Keep explicit status.
+	case agginventory.ProductionTargetsStatusConfigured:
+		// Legacy snapshots did not preserve whether "configured" came from the
+		// built-in heuristic pack. Fail closed and require a fresh scan before
+		// publishing a production-write count.
+		status = agginventory.ProductionTargetsStatusBuiltinInferred
+		in.ProductionWrite.Source = agginventory.ProductionTargetSourceBuiltinHeuristic
 	default:
 		if in.ProductionWrite.Configured {
-			status = agginventory.ProductionTargetsStatusConfigured
+			status = agginventory.ProductionTargetsStatusBuiltinInferred
+			in.ProductionWrite.Source = agginventory.ProductionTargetSourceBuiltinHeuristic
 		} else {
 			status = agginventory.ProductionTargetsStatusNotConfigured
 		}
 	}
 	in.ProductionWrite.Status = status
-	in.ProductionWrite.Configured = status == agginventory.ProductionTargetsStatusConfigured
+	in.ProductionWrite.Configured = status == agginventory.ProductionTargetsStatusCustomerConfigured
 	if !in.ProductionWrite.Configured {
 		in.ProductionWrite.Count = nil
 	}
@@ -1116,32 +1127,34 @@ func buildActionPathRiskItems(paths []risk.ActionPath, top int) []RiskItem {
 			rationale = append(rationale, fmt.Sprintf("mutable_endpoint_semantic=%s", strings.TrimSpace(semantic.Semantic)))
 		}
 		item := RiskItem{
-			CanonicalKey:           strings.TrimSpace(path.PathID),
-			Score:                  round2(math.Max(path.AttackPathScore, path.RiskScore)),
-			FindingType:            "action_path",
-			Severity:               actionPathSeverity(path),
-			ToolType:               strings.TrimSpace(path.ToolType),
-			Org:                    strings.TrimSpace(path.Org),
-			Repo:                   strings.TrimSpace(path.Repo),
-			Location:               strings.TrimSpace(path.Location),
-			PathID:                 strings.TrimSpace(path.PathID),
-			GroupedPathCount:       1,
-			GroupedPathIDs:         []string{strings.TrimSpace(path.PathID)},
-			InventoryRisk:          inventoryRiskForPath(path),
-			AttackPathScore:        round2(path.AttackPathScore),
-			ControlPriority:        controlPriorityForPath(path),
-			RiskTier:               riskTierForPath(path),
-			ControlState:           strings.TrimSpace(path.ControlState),
-			RiskZone:               strings.TrimSpace(path.RiskZone),
-			ReviewBurden:           strings.TrimSpace(path.ReviewBurden),
-			ConfidenceLane:         strings.TrimSpace(path.ConfidenceLane),
-			CredentialAccess:       path.CredentialAccess,
-			ProductionTargetStatus: strings.TrimSpace(path.ProductionTargetStatus),
-			RecommendedAction:      strings.TrimSpace(path.RecommendedAction),
-			WriteCapable:           path.WriteCapable,
-			ProductionWrite:        path.ProductionWrite,
-			Rationale:              rationale,
-			Remediation:            actionPathRemediation(path),
+			CanonicalKey:             strings.TrimSpace(path.PathID),
+			Score:                    round2(math.Max(path.AttackPathScore, path.RiskScore)),
+			FindingType:              "action_path",
+			Severity:                 actionPathSeverity(path),
+			ToolType:                 strings.TrimSpace(path.ToolType),
+			Org:                      strings.TrimSpace(path.Org),
+			Repo:                     strings.TrimSpace(path.Repo),
+			Location:                 strings.TrimSpace(path.Location),
+			PathID:                   strings.TrimSpace(path.PathID),
+			GroupedPathCount:         1,
+			GroupedPathIDs:           []string{strings.TrimSpace(path.PathID)},
+			InventoryRisk:            inventoryRiskForPath(path),
+			AttackPathScore:          round2(path.AttackPathScore),
+			ControlPriority:          controlPriorityForPath(path),
+			RiskTier:                 riskTierForPath(path),
+			ControlState:             strings.TrimSpace(path.ControlState),
+			RiskZone:                 strings.TrimSpace(path.RiskZone),
+			ReviewBurden:             strings.TrimSpace(path.ReviewBurden),
+			ConfidenceLane:           strings.TrimSpace(path.ConfidenceLane),
+			CredentialAccess:         path.CredentialAccess,
+			ProductionTargetStatus:   strings.TrimSpace(path.ProductionTargetStatus),
+			ProductionTargetSource:   strings.TrimSpace(path.ProductionTargetSource),
+			ProductionImpactInferred: path.ProductionImpactInferred,
+			RecommendedAction:        strings.TrimSpace(path.RecommendedAction),
+			WriteCapable:             path.WriteCapable,
+			ProductionWrite:          path.ProductionWrite,
+			Rationale:                rationale,
+			Remediation:              actionPathRemediation(path),
 		}
 		groupKey := actionPathRiskGroupKey(path)
 		if idx, ok := groupIndex[groupKey]; ok {
@@ -1150,6 +1163,7 @@ func buildActionPathRiskItems(paths []risk.ActionPath, top int) []RiskItem {
 			credentialAccess := existing.CredentialAccess || item.CredentialAccess
 			writeCapable := existing.WriteCapable || item.WriteCapable
 			productionWrite := existing.ProductionWrite || item.ProductionWrite
+			productionImpactInferred := existing.ProductionImpactInferred || item.ProductionImpactInferred
 			if item.Score > existing.Score {
 				*existing = item
 			}
@@ -1158,6 +1172,7 @@ func buildActionPathRiskItems(paths []risk.ActionPath, top int) []RiskItem {
 			existing.CredentialAccess = credentialAccess
 			existing.WriteCapable = writeCapable
 			existing.ProductionWrite = productionWrite
+			existing.ProductionImpactInferred = productionImpactInferred
 			continue
 		}
 		groupIndex[groupKey] = len(out)
@@ -1574,14 +1589,15 @@ func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPa
 	}
 	identityToReviewFirst, identityToRevokeFirst := risk.BuildIdentityActionTargets(paths)
 	summary := &AssessmentSummary{
-		GovernablePathCount:       len(paths),
-		WriteCapablePathCount:     0,
-		ProductionBackedPathCount: 0,
-		OwnerlessExposure:         risk.BuildOwnerlessExposure(paths),
-		IdentityExposureSummary:   risk.BuildIdentityExposureSummary(paths, inventory),
-		IdentityToReviewFirst:     identityToReviewFirst,
-		IdentityToRevokeFirst:     identityToRevokeFirst,
-		ProofChainPath:            proof.ChainPath,
+		GovernablePathCount:         len(paths),
+		WriteCapablePathCount:       0,
+		ProductionBackedPathCount:   0,
+		ProductionInferredPathCount: 0,
+		OwnerlessExposure:           risk.BuildOwnerlessExposure(paths),
+		IdentityExposureSummary:     risk.BuildIdentityExposureSummary(paths, inventory),
+		IdentityToReviewFirst:       identityToReviewFirst,
+		IdentityToRevokeFirst:       identityToRevokeFirst,
+		ProofChainPath:              proof.ChainPath,
 	}
 	for _, path := range paths {
 		if path.WriteCapable {
@@ -1589,6 +1605,8 @@ func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPa
 		}
 		if path.ProductionWrite {
 			summary.ProductionBackedPathCount++
+		} else if path.ProductionImpactInferred {
+			summary.ProductionInferredPathCount++
 		}
 		if summary.TopExecutionIdentityBacked == nil && strings.TrimSpace(path.ExecutionIdentityStatus) == "known" {
 			candidate := path
@@ -2888,6 +2906,11 @@ func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {
 		return nil
 	}
 	copyReport := *in
+	if in.HostedCoverage != nil {
+		hosted := *in.HostedCoverage
+		hosted.Reasons = append([]string(nil), in.HostedCoverage.Reasons...)
+		copyReport.HostedCoverage = &hosted
+	}
 	if in.CompactSummary != nil {
 		compact := *in.CompactSummary
 		copyReport.CompactSummary = &compact

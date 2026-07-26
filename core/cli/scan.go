@@ -97,6 +97,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict|assessment]")
 	githubBaseURL := fs.String("github-api", "", "github api base url")
 	githubToken := fs.String("github-token", "", "github token override")
+	allowPublicOnly := fs.Bool("allow-public-only", false, "acknowledge reduced public-only coverage for unauthenticated assessment org scans")
 	reportMD := fs.Bool("report-md", false, "emit deterministic markdown summary artifact after scan")
 	reportMDPath := fs.String("report-md-path", "wrkr-scan-summary.md", "scan summary markdown output path")
 	reportTemplate := fs.String("report-template", string(reportcore.TemplateOperator), "scan summary template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
@@ -174,6 +175,17 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	*githubBaseURL = resolveScanGitHubAPIBase(*githubBaseURL, cfg)
 	*githubToken = resolveScanGitHubToken(*githubToken, cfg)
+	assessmentOrgScan := strings.EqualFold(strings.TrimSpace(*profileName), "assessment") && anyTargetIsOrg(targets)
+	publicOnlyCoverage := assessmentOrgScan && strings.TrimSpace(*githubToken) == ""
+	if publicOnlyCoverage && !*allowPublicOnly {
+		return emitError(
+			stderr,
+			jsonRequested || *jsonOut,
+			"dependency_missing",
+			"assessment org scans require authenticated GitHub coverage; run export WRKR_GITHUB_TOKEN=\"$(gh auth token)\" or explicitly acknowledge reduced public-only coverage with --allow-public-only",
+			exitDependencyMissing,
+		)
+	}
 	if *enrich && strings.TrimSpace(*githubBaseURL) == "" {
 		return emitError(
 			stderr,
@@ -527,7 +539,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	defaultProductionTargets := productiontargets.DefaultConfig()
 	productionTargets := &defaultProductionTargets
 	productionTargetWarnings := []string{}
-	productionWriteStatus := agginventory.ProductionTargetsStatusConfigured
+	productionWriteStatus := agginventory.ProductionTargetsStatusBuiltinInferred
+	productionTargetSource := agginventory.ProductionTargetSourceBuiltinHeuristic
 	if productionTargetsFile != "" {
 		productionTargets = nil
 		cfg, cfgErr := productiontargets.Load(productionTargetsFile)
@@ -536,23 +549,32 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 				return emitScanError("invalid_input", cfgErr.Error(), exitInvalidInput)
 			}
 			productionWriteStatus = agginventory.ProductionTargetsStatusInvalid
+			productionTargetSource = agginventory.ProductionTargetSourceInvalid
 			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets not applied: %v", cfgErr))
 		} else if cfg.HasTargets() {
 			productionTargets = &cfg
-			productionWriteStatus = agginventory.ProductionTargetsStatusConfigured
+			productionWriteStatus = agginventory.ProductionTargetsStatusCustomerConfigured
+			productionTargetSource = agginventory.ProductionTargetSourceCustomerPolicy
 		} else {
 			productionWriteStatus = agginventory.ProductionTargetsStatusNotConfigured
+			productionTargetSource = agginventory.ProductionTargetSourceNone
 			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets file %s has no configured targets; production_write budget is not configured", productionTargetsFile))
 		}
 	}
 	inventoryOut.PrivilegeBudget, inventoryOut.AgentPrivilegeMap = privilegebudget.Build(inventoryOut.Tools, inventoryOut.Agents, analysisFindings, productionTargets)
 	inventoryOut.PrivilegeBudget.ProductionWrite.Status = productionWriteStatus
-	inventoryOut.PrivilegeBudget.ProductionWrite.Configured = productionWriteStatus == agginventory.ProductionTargetsStatusConfigured
+	inventoryOut.PrivilegeBudget.ProductionWrite.Source = productionTargetSource
+	inventoryOut.PrivilegeBudget.ProductionWrite.Configured = productionWriteStatus == agginventory.ProductionTargetsStatusCustomerConfigured
 	if !inventoryOut.PrivilegeBudget.ProductionWrite.Configured {
 		inventoryOut.PrivilegeBudget.ProductionWrite.Count = nil
 	}
 	for idx := range inventoryOut.AgentPrivilegeMap {
 		inventoryOut.AgentPrivilegeMap[idx].ProductionTargetStatus = productionWriteStatus
+		inventoryOut.AgentPrivilegeMap[idx].ProductionTargetSource = productionTargetSource
+		inventoryOut.AgentPrivilegeMap[idx].ProductionImpactInferred = productionWriteStatus == agginventory.ProductionTargetsStatusBuiltinInferred && len(inventoryOut.AgentPrivilegeMap[idx].MatchedProductionTargets) > 0
+		if !inventoryOut.PrivilegeBudget.ProductionWrite.Configured {
+			inventoryOut.AgentPrivilegeMap[idx].ProductionWrite = false
+		}
 	}
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 	agginventory.ApplyCanonicalStores(&inventoryOut)
@@ -580,6 +602,25 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Findings:       analysisFindings,
 		DetectorErrors: detectorErrors,
 	})
+	scanQuality.HostedCoverage = scanquality.BuildHostedCoverage(scanquality.HostedCoverageInput{
+		HostedTarget:       anyTargetNeedsGitHub(targets),
+		OrgTarget:          anyTargetIsOrg(targets),
+		Authenticated:      strings.TrimSpace(*githubToken) != "",
+		PublicOnlyOptIn:    *allowPublicOnly,
+		RequestedRepos:     len(manifestOut.Repos) + len(manifestOut.Failures),
+		CompletedRepos:     len(manifestOut.Repos),
+		FailedRepos:        len(manifestOut.Failures),
+		AcquisitionMode:    acquisitionMode(manifestOut.Acquisition),
+		Requests:           acquisitionRequests(manifestOut.Acquisition),
+		EstimatedRequests:  acquisitionEstimatedRequests(manifestOut.Acquisition),
+		RateLimitLimit:     acquisitionRateLimitLimit(manifestOut.Acquisition),
+		RateLimitRemaining: acquisitionRateLimitRemaining(manifestOut.Acquisition),
+		RateLimitReset:     acquisitionRateLimitReset(manifestOut.Acquisition),
+	})
+	if scanQuality.HostedCoverage != nil && scanQuality.HostedCoverage.Completeness == scanquality.HostedCoverageReduced {
+		compact := scanquality.BuildCompactCoverageSummary(&scanQuality)
+		scanQuality.CompactSummary = &compact
+	}
 	artifactFindings := summarizeArtifactFindings(findings, scanMode)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, &scanQuality)
 	progress.PhaseSubstep("analysis", "control_graph", 3, 6)

@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -333,9 +334,74 @@ func TestRenderMarkdownPlacesExecutiveRollupBeforeControlBacklog(t *testing.T) {
 	if rollupAt > backlogAt {
 		t.Fatalf("expected executive rollup ahead of backlog detail, got:\n%s", markdown)
 	}
-	wantEvidence := "Evidence: confirmed path: action path detected, owner verified; inferred relationship: repository grouping cross repo shared identity; unresolved context: evidence state unknown; contradictions consistent."
+	wantEvidence := "Evidence: confirmed path: action path detected, owner verified, customer-configured production target; inferred relationship: repository grouping cross repo shared identity; unresolved context: evidence state unknown; contradictions consistent."
 	if !strings.Contains(markdown, wantEvidence) {
 		t.Fatalf("expected executive card to separate confirmed, inferred, and unresolved facts, got:\n%s", markdown)
+	}
+}
+
+func TestExecutiveRollupEvidenceLabelsProductionAttribution(t *testing.T) {
+	t.Parallel()
+
+	confirmed, _, _ := executiveRollupEvidenceLabels(controlbacklog.ExecutiveRollupGroup{
+		Dimensions: controlbacklog.ExecutiveRollupDimensions{
+			ProductionTarget: "production_targeted",
+		},
+	})
+	if !strings.Contains(confirmed, "customer-configured production target") {
+		t.Fatalf("expected customer-configured production targeting to be confirmed, got %q", confirmed)
+	}
+
+	builtinConfirmed, inferred, _ := executiveRollupEvidenceLabels(controlbacklog.ExecutiveRollupGroup{
+		Dimensions: controlbacklog.ExecutiveRollupDimensions{
+			ProductionTarget: "production_impact_inferred",
+		},
+	})
+	if strings.Contains(builtinConfirmed, "production") {
+		t.Fatalf("expected built-in production inference not to be confirmed, got %q", builtinConfirmed)
+	}
+	if !strings.Contains(inferred, "production impact from built-in heuristics") {
+		t.Fatalf("expected built-in production inference to be labeled as inferred, got %q", inferred)
+	}
+}
+
+func TestRenderMarkdownCapsExecutiveRollupAtDecisionMemoBudget(t *testing.T) {
+	t.Parallel()
+	groups := make([]controlbacklog.ExecutiveRollupGroup, 12)
+	for idx := range groups {
+		groups[idx] = controlbacklog.ExecutiveRollupGroup{
+			GroupID:         fmt.Sprintf("group-%02d", idx),
+			Count:           1,
+			HighestSeverity: risk.RiskTierHigh,
+			HighestPriority: risk.ControlPriorityReviewQueue,
+			Dimensions: controlbacklog.ExecutiveRollupDimensions{
+				ActionClass:        fmt.Sprintf("action_%02d", idx),
+				TargetClass:        "unknown",
+				EvidenceState:      risk.EvidenceStateUnknown,
+				DetectorConfidence: risk.ConfidenceLaneLikelyActionPath,
+				ClosureAction:      controlbacklog.ActionAttachEvidence,
+			},
+		}
+	}
+	rollup := &controlbacklog.ExecutiveRollup{TotalGroups: len(groups), TotalPaths: len(groups), Groups: groups}
+	applyExecutiveRollupDisplayBudget(rollup, 5)
+	markdown := RenderMarkdown(Summary{Template: string(TemplateCISO), ExecutiveRollup: rollup})
+	if rollup.DisplayedGroups != 5 || rollup.SuppressedGroups != 7 {
+		t.Fatalf("unexpected rollup budget metadata: %+v", rollup)
+	}
+	if got := strings.Count(markdown, "  Evidence:"); got != 5 {
+		t.Fatalf("expected exactly five rendered exposure cards, got %d\n%s", got, markdown)
+	}
+	if !strings.Contains(markdown, "7 additional exposure groups") || strings.Contains(markdown, "action 05") {
+		t.Fatalf("expected suppressed groups to stay out of primary markdown with a receipt, got:\n%s", markdown)
+	}
+	if lines := strings.Count(markdown, "\n"); lines > 80 || len(markdown) > 12_000 {
+		t.Fatalf("executive primary surface exceeded density budget: lines=%d bytes=%d", lines, len(markdown))
+	}
+
+	applyExecutiveRollupDisplayBudget(rollup, 99)
+	if rollup.DisplayedGroups != 10 || rollup.SuppressedGroups != 2 {
+		t.Fatalf("expected hard maximum of ten groups, got %+v", rollup)
 	}
 }
 

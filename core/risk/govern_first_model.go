@@ -50,6 +50,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		path.MergeExecute ||
 		path.DeployWrite ||
 		path.ProductionWrite ||
+		path.ProductionImpactInferred ||
 		pathHasHighStakesPreset(path) ||
 		pathHasAnyMutableEndpoint(path) ||
 		path.AttackPathScore >= 7.0 ||
@@ -59,7 +60,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		len(path.PolicyMissingReasons) > 0
 
 	switch {
-	case path.ProductionWrite || len(path.MatchedProductionTargets) > 0 || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed"):
+	case path.ProductionWrite || path.ProductionImpactInferred || len(path.MatchedProductionTargets) > 0 || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed"):
 		model.inventoryRisk = InventoryRiskProductionBacked
 		model.inventoryRiskRank = 0
 	case path.WriteCapable || path.PullRequestWrite || path.MergeExecute || path.DeployWrite:
@@ -121,6 +122,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 
 	switch {
 	case path.ProductionWrite ||
+		path.ProductionImpactInferred ||
 		pathHasHighImpactMutableEndpoint(path) ||
 		(path.WriteCapable && (path.DeployWrite || path.MergeExecute)) ||
 		(path.CredentialAccess && (path.DeployWrite || path.ProductionWrite)) ||
@@ -136,6 +138,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		!path.MergeExecute &&
 		!path.DeployWrite &&
 		!path.ProductionWrite &&
+		!path.ProductionImpactInferred &&
 		!path.ApprovalGap &&
 		path.AttackPathScore < 6.0:
 		model.controlPriority = ControlPriorityInventoryHygiene
@@ -153,6 +156,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 	case ControlPriorityControlFirst:
 		switch {
 		case path.ProductionWrite ||
+			path.ProductionImpactInferred ||
 			pathHasHighImpactMutableEndpoint(path) ||
 			(path.AttackPathScore >= 9.0 && (path.CredentialAccess || path.WriteCapable)):
 			model.riskTier = RiskTierCritical

@@ -119,8 +119,10 @@ func SummarizeActionPaths(paths []ActionPath, opts ActionPathSummaryOptions) Act
 		if path.StandingPrivilege {
 			summary.StandingPrivilegePaths++
 		}
-		if path.ProductionWrite || len(path.MatchedProductionTargets) > 0 {
+		if path.ProductionWrite {
 			summary.ProductionTargetBackedPaths++
+		} else if path.ProductionImpactInferred {
+			summary.ProductionImpactInferredPaths++
 		}
 		if strings.TrimSpace(path.ControlPriority) != ControlPriorityInventoryHygiene {
 			summary.GovernFirstPaths++
@@ -195,6 +197,7 @@ func evaluateEmptyState(summary ActionPathSummary, opts ActionPathSummaryOptions
 		{summary.CredentialAccessPaths, "credential_access_paths_present"},
 		{summary.StandingPrivilegePaths, "standing_privilege_paths_present"},
 		{summary.ProductionTargetBackedPaths, "production_target_backed_paths_present"},
+		{summary.ProductionImpactInferredPaths, "production_impact_inferred_paths_present"},
 		{summary.ApprovalEvidenceUnknownPaths, "approval_evidence_unknown_paths_present"},
 		{summary.ControlEvidenceUnknownPaths, "control_evidence_unknown_paths_present"},
 		{summary.ProofEvidenceUnknownPaths, "proof_evidence_unknown_paths_present"},

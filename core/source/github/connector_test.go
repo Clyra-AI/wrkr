@@ -1,6 +1,9 @@
 package github
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -19,6 +22,12 @@ import (
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 )
+
+type testHTTPClientFunc func(*http.Request) (*http.Response, error)
+
+func (fn testHTTPClientFunc) Do(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
 
 func TestConnectorRejectsInsecureEndpointBeforeSendingToken(t *testing.T) {
 	t.Parallel()
@@ -482,13 +491,14 @@ func TestMaterializeRepoAllowsGenericSourceWhenExplicitlyEnabled(t *testing.T) {
 		switch r.URL.Path {
 		case "/repos/acme/backend":
 			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
-		case "/repos/acme/backend/git/trees/main":
-			_, _ = fmt.Fprint(w, `{"tree":[{"path":"src/main.py","type":"blob","sha":"sha-source-py"},{"path":"build/generated.py","type":"blob","sha":"sha-build-source"}]}`)
-		case "/repos/acme/backend/git/blobs/sha-source-py":
-			payload := base64.StdEncoding.EncodeToString([]byte("from crewai import Agent\n"))
-			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
-		case "/repos/acme/backend/git/blobs/sha-build-source":
-			t.Fatalf("explicit source materialization should still skip generated source blob %s", r.URL.Path)
+		case "/repos/acme/backend/tarball/main":
+			w.Header().Set("Content-Type", "application/gzip")
+			_, _ = w.Write(testTarGz(t, map[string]string{
+				"acme-backend-sha/src/main.py":                    "from crewai import Agent\n",
+				"acme-backend-sha/build/generated.py":             "generated\n",
+				"acme-backend-sha/node_modules/pkg/server.js":     "dependency\n",
+				"acme-backend-sha/vendor/example.com/pkg/tool.go": "dependency\n",
+			}))
 		default:
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -509,6 +519,123 @@ func TestMaterializeRepoAllowsGenericSourceWhenExplicitlyEnabled(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "build", "generated.py")); !os.IsNotExist(err) {
 		t.Fatalf("expected generated source path to remain skipped, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "node_modules", "pkg", "server.js")); !os.IsNotExist(err) {
+		t.Fatalf("expected node_modules source path to remain skipped, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "vendor", "example.com", "pkg", "tool.go")); !os.IsNotExist(err) {
+		t.Fatalf("expected vendored source path to remain skipped, stat err=%v", err)
+	}
+}
+
+func testTarGz(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	gz := gzip.NewWriter(&out)
+	tarWriter := tar.NewWriter(gz)
+	paths := make([]string, 0, len(files))
+	for name := range files {
+		paths = append(paths, name)
+	}
+	sort.Strings(paths)
+	for _, name := range paths {
+		body := []byte(files[name])
+		if err := tarWriter.WriteHeader(&tar.Header{Name: name, Mode: 0o600, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatalf("write tar header: %v", err)
+		}
+		if _, err := tarWriter.Write(body); err != nil {
+			t.Fatalf("write tar body: %v", err)
+		}
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatalf("close tar: %v", err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatalf("close gzip: %v", err)
+	}
+	return out.Bytes()
+}
+
+func TestMaterializeRepoArchiveRejectsTraversal(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
+		case "/repos/acme/backend/tarball/main":
+			_, _ = w.Write(testTarGz(t, map[string]string{"root/../escape.py": "unsafe\n"}))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
+	connector.SetAllowSourceMaterialization(true)
+	if _, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp); err == nil || !strings.Contains(err.Error(), "unsafe archive entry") {
+		t.Fatalf("expected archive traversal rejection, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "escape.py")); !os.IsNotExist(err) {
+		t.Fatalf("archive traversal wrote outside repo root: %v", err)
+	}
+}
+
+func TestEnsureRequestBudgetFailsBeforeMaterialization(t *testing.T) {
+	t.Parallel()
+	connector := NewConnector("https://api.github.com", "", nil)
+	connector.requestStats.RateLimitLimit = 5000
+	connector.requestStats.RateLimitRemaining = 100
+	if err := connector.EnsureRequestBudget(10); err == nil || !strings.Contains(err.Error(), "scan pre-cloned repositories with --path") {
+		t.Fatalf("expected actionable preflight budget failure, got %v", err)
+	}
+	telemetry := connector.AcquisitionTelemetry()
+	if telemetry.EstimatedRequests != 525 || len(telemetry.Warnings) == 0 {
+		t.Fatalf("expected deterministic request estimate and warning, got %+v", telemetry)
+	}
+}
+
+func TestArchiveClientUsesBoundedDownloadTimeout(t *testing.T) {
+	t.Parallel()
+	connector := NewConnector("https://api.github.com", "", nil)
+	client, ok := connector.archiveHTTPClient().(*http.Client)
+	if !ok {
+		t.Fatalf("expected concrete archive HTTP client, got %T", connector.archiveHTTPClient())
+	}
+	if client.Timeout != archiveRequestTimeout {
+		t.Fatalf("expected archive timeout %s, got %s", archiveRequestTimeout, client.Timeout)
+	}
+}
+
+func TestArchiveSizeBudgetSeparatesExpandedAndMaterializedContent(t *testing.T) {
+	t.Parallel()
+
+	expanded, materialized, err := addArchiveEntryBytes(0, 0, maxArchiveExtractBytes+1, false)
+	if err != nil {
+		t.Fatalf("excluded archive content must not consume the materialized-file budget: %v", err)
+	}
+	if expanded != maxArchiveExtractBytes+1 || materialized != 0 {
+		t.Fatalf("unexpected excluded-content accounting: expanded=%d materialized=%d", expanded, materialized)
+	}
+	if _, _, err := addArchiveEntryBytes(0, 0, maxArchiveExtractBytes+1, true); err == nil || !strings.Contains(err.Error(), "materialized file limit") {
+		t.Fatalf("selected content must enforce the materialized-file budget, got %v", err)
+	}
+	if _, _, err := addArchiveEntryBytes(maxArchiveExpandedBytes, 0, 1, false); err == nil || !strings.Contains(err.Error(), "expanded archive limit") {
+		t.Fatalf("all content must enforce the expanded archive budget, got %v", err)
+	}
+}
+
+func TestRequestTimeoutDoesNotMasqueradeAsScanDeadline(t *testing.T) {
+	t.Parallel()
+	connector := NewConnector("https://api.github.com", "", testHTTPClientFunc(func(*http.Request) (*http.Response, error) {
+		return nil, context.DeadlineExceeded
+	}))
+	connector.MaxRetries = 0
+	_, err := connector.doGETWithRetry(context.Background(), "https://api.github.com/repos/acme/backend")
+	if err == nil || !strings.Contains(err.Error(), "request timed out before the scan deadline") {
+		t.Fatalf("expected explicit request-timeout error, got %v", err)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("request timeout must not be classified as the parent scan deadline: %v", err)
 	}
 }
 
@@ -619,7 +746,7 @@ func TestMaterializeRepoTreatsEmptyRepositoryAsSuccessfulNoContent(t *testing.T)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repos/acme/empty":
-			_, _ = fmt.Fprint(w, `{"full_name":"acme/empty","default_branch":"main"}`)
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/empty","default_branch":"main","size":0}`)
 		case "/repos/acme/empty/git/trees/main":
 			w.WriteHeader(http.StatusConflict)
 			_, _ = fmt.Fprint(w, `{"message":"Git Repository is empty."}`)
@@ -640,6 +767,57 @@ func TestMaterializeRepoTreatsEmptyRepositoryAsSuccessfulNoContent(t *testing.T)
 	info, err := os.Stat(filepath.Join(tmp, "acme", "empty"))
 	if err != nil || !info.IsDir() {
 		t.Fatalf("expected deterministic empty scan root, info=%+v err=%v", info, err)
+	}
+}
+
+func TestMaterializeRepoArchiveTreatsNotFoundAsEmptyAfterMetadataLookup(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/empty":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/empty","default_branch":"main","size":0}`)
+		case "/repos/acme/empty/tarball/main":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, `{"message":"Not Found"}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
+	connector.SetAllowSourceMaterialization(true)
+	manifest, err := connector.MaterializeRepo(context.Background(), "acme/empty", tmp)
+	if err != nil {
+		t.Fatalf("empty archive repository must be a successful no-content result: %v", err)
+	}
+	if manifest.ContentStatus != source.RepoContentStatusEmpty || manifest.Source != "github_repo_archive" {
+		t.Fatalf("expected empty archive manifest, got %+v", manifest)
+	}
+}
+
+func TestMaterializeRepoArchiveDoesNotHideNotFoundForNonEmptyRepo(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main","size":1}`)
+		case "/repos/acme/backend/tarball/main":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, `{"message":"Not Found"}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
+	connector.SetAllowSourceMaterialization(true)
+	if _, err := connector.MaterializeRepo(context.Background(), "acme/backend", t.TempDir()); err == nil || !strings.Contains(err.Error(), "status 404") {
+		t.Fatalf("non-empty archive 404 must remain a repository failure, got %v", err)
 	}
 }
 

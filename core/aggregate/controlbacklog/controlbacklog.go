@@ -1297,9 +1297,12 @@ func actionForFinding(finding model.Finding, writeCapable bool) string {
 }
 
 func actionFromActionPath(action string, path risk.ActionPath) string {
+	if credentialPathRequiresRemediation(path) {
+		return ActionRemediate
+	}
 	switch strings.TrimSpace(action) {
 	case "control":
-		if path.CredentialAccess && !credentialPathRequiresRemediation(path) {
+		if path.CredentialAccess {
 			return ActionAttachEvidence
 		}
 		return ActionRemediate

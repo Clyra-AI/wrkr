@@ -96,7 +96,29 @@ func buildExecutiveRollup(summary Summary) *controlbacklog.ExecutiveRollup {
 	rollup.TotalGroups = len(ordered)
 	rollup.TotalPaths = len(summary.ActionPaths)
 	rollup.Groups = ordered
+	applyExecutiveRollupDisplayBudget(rollup, 5)
 	return rollup
+}
+
+func applyExecutiveRollupDisplayBudget(rollup *controlbacklog.ExecutiveRollup, requested int) {
+	if rollup == nil {
+		return
+	}
+	limit := requested
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 10 {
+		limit = 10
+	}
+	rollup.DisplayedGroups = len(rollup.Groups)
+	if rollup.DisplayedGroups > limit {
+		rollup.DisplayedGroups = limit
+	}
+	rollup.SuppressedGroups = rollup.TotalGroups - rollup.DisplayedGroups
+	if rollup.SuppressedGroups < 0 {
+		rollup.SuppressedGroups = 0
+	}
 }
 
 func buildGovernedUsageMetrics(summary Summary) *controlbacklog.GovernedUsageMetrics {
@@ -199,8 +221,11 @@ func executiveCredentialAuthority(path risk.ActionPath) string {
 }
 
 func executiveProductionTarget(path risk.ActionPath) string {
-	if path.ProductionWrite || len(path.MatchedProductionTargets) > 0 || strings.TrimSpace(path.TargetClass) == risk.TargetClassProductionImpacting {
+	if path.ProductionWrite {
 		return "production_targeted"
+	}
+	if path.ProductionImpactInferred || len(path.MatchedProductionTargets) > 0 || strings.TrimSpace(path.TargetClass) == risk.TargetClassProductionImpacting {
+		return "production_impact_inferred"
 	}
 	return "non_production_or_unknown"
 }

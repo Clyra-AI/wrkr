@@ -4,14 +4,14 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Contract and Artifact Identity
 
-- Packet: pacpkt-84c2cc0575667b24
-- Artifact: paca-e142d882fa267ef6
-- Contract: pac-22fd12c82bb43339
+- Packet: pacpkt-77a5a532a6f4a7a6
+- Artifact: paca-4cba95fe1e29382f
+- Contract: pac-0e3e7527aa1cb762
 - Family: pacf-3b1a1959823f569c
 - Revision: 2
-- Supersedes: pac-4f2e6a1b08b62a49
-- Contract digest: sha256:792277a6ed493679005e2183c2dd4a70696f56c7c8cd472514acdf658abb3cca
-- Artifact digest: sha256:e142d882fa267ef6cd1847c2c3d419a5382307d27c8b514591c8d2df3527ac02
+- Supersedes: pac-b65eed9851b08cfa
+- Contract digest: sha256:d15b5c546686eae5a6a8aff63183e0e4194bb7f9550ba664dca30fba526aa6e2
+- Artifact digest: sha256:4cba95fe1e29382f6183f76143de23d04a33f2ef126732686bdaea3e8e8ec952
 - Share profile: internal
 - Source scan refs: saved_scan:v1
 - Creation evidence: wch-789ab4b4420d, wch-bd1e152cd6ba
@@ -57,7 +57,7 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 - `pacp-13624d5708c12f2c` expected_effect: required=effect:production_deploy observed=production_deploy result=production_deploy evidence=unknown freshness=unknown producers=action_path
 - `pacp-55d6d9d92571fd64` forbidden_effect: required=effect:not_unbounded observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=control_declaration, gait_policy
 - `pacp-4aee5f849f584009` freshness: required=fresh observed=unknown result=unknown evidence=unknown freshness=unknown producers=evidence_policy
-- `pacp-ff9198909549703c` policy_digest: required=policy_digest:required observed=sha256:ac76d933303b8799967aa5b087c44bba502f2c75ac72bfd06e420a8e716aa21b result=sha256:ac76d933303b8799967aa5b087c44bba502f2c75ac72bfd06e420a8e716aa21b evidence=unknown freshness=unknown producers=control_declaration, gait_policy
+- `pacp-ff9198909549703c` policy_digest: required=policy_digest:required observed=sha256:7cb6d50ff3c52ef24806f5eefb6e058f2b1ffbd562b0109832f7737ccbb439c1 result=sha256:7cb6d50ff3c52ef24806f5eefb6e058f2b1ffbd562b0109832f7737ccbb439c1 evidence=unknown freshness=unknown producers=control_declaration, gait_policy
 - `pacp-f51cfb3702936ae2` producer: required=producer:approved observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=ci, control_declaration, gait_policy
 - `pacp-2f47ef15b33d05b4` required_check: required=check:required observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=ci, control_declaration, gait_policy
 - `pacp-63ff6f4e5fc7ba17` sandbox: required=sandbox:required observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=control_declaration, gait_policy
@@ -110,18 +110,18 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Presentation Limits
 
-- authority_requirements.pacr-15185ff6719048f5.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-3c26daa1b2a53015.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-4fb25de3e66a0af8.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-5917ec1d1bdc4a30.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-59c412679bb84965.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-6bea95fe08297d5c.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-98e178dbfe49ee9a.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-b2fc5c701fb433bb.evidence_refs: reason=item_cap omitted=39
-- authority_requirements.pacr-d1887bb946f03347.evidence_refs: reason=item_cap omitted=39
-- readiness_checks.pacp-13624d5708c12f2c.evidence_refs: reason=item_cap omitted=39
-- readiness_checks.pacp-2f47ef15b33d05b4.evidence_refs: reason=item_cap omitted=39
-- readiness_checks.pacp-3dfc810bc2449485.evidence_refs: reason=item_cap omitted=39
+- authority_requirements.pacr-15185ff6719048f5.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-3c26daa1b2a53015.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-4fb25de3e66a0af8.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-5917ec1d1bdc4a30.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-59c412679bb84965.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-6bea95fe08297d5c.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-98e178dbfe49ee9a.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-b2fc5c701fb433bb.evidence_refs: reason=item_cap omitted=38
+- authority_requirements.pacr-d1887bb946f03347.evidence_refs: reason=item_cap omitted=38
+- readiness_checks.pacp-13624d5708c12f2c.evidence_refs: reason=item_cap omitted=38
+- readiness_checks.pacp-2f47ef15b33d05b4.evidence_refs: reason=item_cap omitted=38
+- readiness_checks.pacp-3dfc810bc2449485.evidence_refs: reason=item_cap omitted=38
 - truncations: 9 additional presentation-limit records omitted
 
 ## Next Action

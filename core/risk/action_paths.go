@@ -21,35 +21,36 @@ import (
 const actionPathIDPrefix = "apc-"
 
 type ActionPathSummary struct {
-	TotalPaths                   int                       `json:"total_paths"`
-	WriteCapablePaths            int                       `json:"write_capable_paths"`
-	CredentialAccessPaths        int                       `json:"credential_access_paths"`
-	StandingPrivilegePaths       int                       `json:"standing_privilege_paths"`
-	ProductionTargetBackedPaths  int                       `json:"production_target_backed_paths"`
-	ControlFirstPaths            int                       `json:"control_first_paths"`
-	GovernFirstPaths             int                       `json:"govern_first_paths"`
-	DetectedControlPaths         int                       `json:"detected_control_paths,omitempty"`
-	DeclaredControlPaths         int                       `json:"declared_control_paths,omitempty"`
-	ExternalControlPaths         int                       `json:"external_control_reference_paths,omitempty"`
-	ContradictoryControlPaths    int                       `json:"contradictory_control_paths,omitempty"`
-	ControlEvidenceUnknownPaths  int                       `json:"control_evidence_unknown_paths,omitempty"`
-	ApprovalEvidenceUnknownPaths int                       `json:"approval_evidence_unknown_paths,omitempty"`
-	OwnerEvidenceUnknownPaths    int                       `json:"owner_evidence_unknown_paths,omitempty"`
-	ProofEvidenceUnknownPaths    int                       `json:"proof_evidence_unknown_paths,omitempty"`
-	MissingApprovalPaths         int                       `json:"missing_approval_paths"`
-	MissingPolicyPaths           int                       `json:"missing_policy_paths"`
-	MissingProofPaths            int                       `json:"missing_proof_paths"`
-	UnresolvedOwnerPaths         int                       `json:"unresolved_owner_paths"`
-	HighReviewBurdenPaths        int                       `json:"high_review_burden_paths"`
-	ConfirmedActionPaths         int                       `json:"confirmed_action_paths"`
-	LikelyActionPaths            int                       `json:"likely_action_paths"`
-	SemanticReviewCandidatePaths int                       `json:"semantic_review_candidate_paths"`
-	ContextOnlyPaths             int                       `json:"context_only_paths"`
-	AutonomyTiers                AutonomyTierCounts        `json:"autonomy_tiers"`
-	DelegationReadiness          DelegationReadinessCounts `json:"delegation_readiness"`
-	RecommendedControls          RecommendedControlCounts  `json:"recommended_controls"`
-	EmptyStateStatus             string                    `json:"empty_state_status,omitempty"`
-	EmptyStateReasons            []string                  `json:"empty_state_reasons,omitempty"`
+	TotalPaths                    int                       `json:"total_paths"`
+	WriteCapablePaths             int                       `json:"write_capable_paths"`
+	CredentialAccessPaths         int                       `json:"credential_access_paths"`
+	StandingPrivilegePaths        int                       `json:"standing_privilege_paths"`
+	ProductionTargetBackedPaths   int                       `json:"production_target_backed_paths"`
+	ProductionImpactInferredPaths int                       `json:"production_impact_inferred_paths"`
+	ControlFirstPaths             int                       `json:"control_first_paths"`
+	GovernFirstPaths              int                       `json:"govern_first_paths"`
+	DetectedControlPaths          int                       `json:"detected_control_paths,omitempty"`
+	DeclaredControlPaths          int                       `json:"declared_control_paths,omitempty"`
+	ExternalControlPaths          int                       `json:"external_control_reference_paths,omitempty"`
+	ContradictoryControlPaths     int                       `json:"contradictory_control_paths,omitempty"`
+	ControlEvidenceUnknownPaths   int                       `json:"control_evidence_unknown_paths,omitempty"`
+	ApprovalEvidenceUnknownPaths  int                       `json:"approval_evidence_unknown_paths,omitempty"`
+	OwnerEvidenceUnknownPaths     int                       `json:"owner_evidence_unknown_paths,omitempty"`
+	ProofEvidenceUnknownPaths     int                       `json:"proof_evidence_unknown_paths,omitempty"`
+	MissingApprovalPaths          int                       `json:"missing_approval_paths"`
+	MissingPolicyPaths            int                       `json:"missing_policy_paths"`
+	MissingProofPaths             int                       `json:"missing_proof_paths"`
+	UnresolvedOwnerPaths          int                       `json:"unresolved_owner_paths"`
+	HighReviewBurdenPaths         int                       `json:"high_review_burden_paths"`
+	ConfirmedActionPaths          int                       `json:"confirmed_action_paths"`
+	LikelyActionPaths             int                       `json:"likely_action_paths"`
+	SemanticReviewCandidatePaths  int                       `json:"semantic_review_candidate_paths"`
+	ContextOnlyPaths              int                       `json:"context_only_paths"`
+	AutonomyTiers                 AutonomyTierCounts        `json:"autonomy_tiers"`
+	DelegationReadiness           DelegationReadinessCounts `json:"delegation_readiness"`
+	RecommendedControls           RecommendedControlCounts  `json:"recommended_controls"`
+	EmptyStateStatus              string                    `json:"empty_state_status,omitempty"`
+	EmptyStateReasons             []string                  `json:"empty_state_reasons,omitempty"`
 }
 
 type ReviewAuditContext struct {
@@ -133,6 +134,8 @@ type ActionPath struct {
 	DeployWrite                         bool                                    `json:"deploy_write,omitempty"`
 	DeliveryChainStatus                 string                                  `json:"delivery_chain_status,omitempty"`
 	ProductionTargetStatus              string                                  `json:"production_target_status,omitempty"`
+	ProductionTargetSource              string                                  `json:"production_target_source,omitempty"`
+	ProductionImpactInferred            bool                                    `json:"production_impact_inferred,omitempty"`
 	ProductionWrite                     bool                                    `json:"production_write"`
 	ApprovalGap                         bool                                    `json:"approval_gap"`
 	SecurityVisibilityStatus            string                                  `json:"security_visibility_status,omitempty"`
@@ -363,6 +366,8 @@ func buildActionPath(
 		DeployWrite:                 entry.DeployWrite,
 		DeliveryChainStatus:         strings.TrimSpace(entry.DeliveryChainStatus),
 		ProductionTargetStatus:      strings.TrimSpace(entry.ProductionTargetStatus),
+		ProductionTargetSource:      strings.TrimSpace(entry.ProductionTargetSource),
+		ProductionImpactInferred:    entry.ProductionImpactInferred,
 		ProductionWrite:             entry.ProductionWrite,
 		ApprovalGap:                 actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
 		SecurityVisibilityStatus:    strings.TrimSpace(entry.SecurityVisibilityStatus),
@@ -540,6 +545,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.MergeExecute = current.MergeExecute || incoming.MergeExecute
 	merged.DeployWrite = current.DeployWrite || incoming.DeployWrite
 	merged.ProductionWrite = current.ProductionWrite || incoming.ProductionWrite
+	merged.ProductionImpactInferred = current.ProductionImpactInferred || incoming.ProductionImpactInferred
 	merged.ApprovalGap = current.ApprovalGap || incoming.ApprovalGap
 	merged.CredentialAccess = current.CredentialAccess || incoming.CredentialAccess
 	merged.Credentials = mergeCredentials(current.Credentials, incoming.Credentials)
@@ -570,6 +576,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.EndpointRefGroupProjection = mergeEndpointRefGroupProjection(current.EndpointRefGroupProjection, incoming.EndpointRefGroupProjection)
 	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
+	merged.ProductionTargetSource = mergeProductionTargetSource(merged.ProductionTargetStatus, current.ProductionTargetSource, incoming.ProductionTargetSource)
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
 	merged.DeploymentStatus = mergeDeploymentStatus(current.DeploymentStatus, incoming.DeploymentStatus)
 	merged.WorkflowTriggerClass = mergeWorkflowTriggerClass(current.WorkflowTriggerClass, incoming.WorkflowTriggerClass)
@@ -1387,12 +1394,32 @@ func mergeProductionTargetStatus(current, incoming string) string {
 	switch {
 	case strings.TrimSpace(current) == agginventory.ProductionTargetsStatusInvalid || strings.TrimSpace(incoming) == agginventory.ProductionTargetsStatusInvalid:
 		return agginventory.ProductionTargetsStatusInvalid
+	case strings.TrimSpace(current) == agginventory.ProductionTargetsStatusCustomerConfigured || strings.TrimSpace(incoming) == agginventory.ProductionTargetsStatusCustomerConfigured:
+		return agginventory.ProductionTargetsStatusCustomerConfigured
+	case strings.TrimSpace(current) == agginventory.ProductionTargetsStatusBuiltinInferred || strings.TrimSpace(incoming) == agginventory.ProductionTargetsStatusBuiltinInferred:
+		return agginventory.ProductionTargetsStatusBuiltinInferred
 	case strings.TrimSpace(current) == agginventory.ProductionTargetsStatusConfigured || strings.TrimSpace(incoming) == agginventory.ProductionTargetsStatusConfigured:
 		return agginventory.ProductionTargetsStatusConfigured
 	case strings.TrimSpace(current) != "":
 		return strings.TrimSpace(current)
 	default:
 		return strings.TrimSpace(incoming)
+	}
+}
+
+func mergeProductionTargetSource(status, current, incoming string) string {
+	switch strings.TrimSpace(status) {
+	case agginventory.ProductionTargetsStatusCustomerConfigured:
+		return agginventory.ProductionTargetSourceCustomerPolicy
+	case agginventory.ProductionTargetsStatusBuiltinInferred,
+		agginventory.ProductionTargetsStatusConfigured:
+		return agginventory.ProductionTargetSourceBuiltinHeuristic
+	case agginventory.ProductionTargetsStatusInvalid:
+		return agginventory.ProductionTargetSourceInvalid
+	case agginventory.ProductionTargetsStatusNotConfigured:
+		return agginventory.ProductionTargetSourceNone
+	default:
+		return canonicalString(current, incoming)
 	}
 }
 

@@ -65,6 +65,22 @@ func TestDeepModeDoesNotReportSuppressedPathSet(t *testing.T) {
 	}
 }
 
+func TestHostedPublicOnlyCoverageReducesCompactConfidence(t *testing.T) {
+	t.Parallel()
+	report := Report{ScanQualityVersion: ReportVersion, Mode: "governance"}
+	report.HostedCoverage = BuildHostedCoverage(HostedCoverageInput{
+		HostedTarget: true, OrgTarget: true, PublicOnlyOptIn: true,
+		RequestedRepos: 8, CompletedRepos: 8,
+	})
+	compact := BuildCompactCoverageSummary(&report)
+	if report.HostedCoverage == nil || report.HostedCoverage.Scope != HostedCoveragePublicOnly || report.HostedCoverage.Completeness != HostedCoverageReduced {
+		t.Fatalf("unexpected hosted coverage: %+v", report.HostedCoverage)
+	}
+	if compact.CoverageConfidence != CoverageConfidenceReduced || !strings.Contains(compact.ImpactStatement, "organization-wide completeness") {
+		t.Fatalf("public-only source coverage must qualify scan completeness: %+v", compact)
+	}
+}
+
 func TestScanQualityReportsReducedCoverageForParseFailures(t *testing.T) {
 	t.Parallel()
 

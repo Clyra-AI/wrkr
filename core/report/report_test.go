@@ -3315,7 +3315,7 @@ func TestPrivilegeBudgetFromInventoryBackfillsMissingStatus(t *testing.T) {
 	}
 }
 
-func TestPrivilegeBudgetFromInventoryConfiguredBackfillsMissingCount(t *testing.T) {
+func TestPrivilegeBudgetFromInventoryLegacyConfiguredFailsClosed(t *testing.T) {
 	t.Parallel()
 
 	inv := &agginventory.Inventory{
@@ -3329,11 +3329,11 @@ func TestPrivilegeBudgetFromInventoryConfiguredBackfillsMissingCount(t *testing.
 		},
 	}
 	got := privilegeBudgetFromInventory(inv)
-	if got.ProductionWrite.Status != agginventory.ProductionTargetsStatusConfigured {
-		t.Fatalf("expected status backfilled to %q, got %q", agginventory.ProductionTargetsStatusConfigured, got.ProductionWrite.Status)
+	if got.ProductionWrite.Status != agginventory.ProductionTargetsStatusBuiltinInferred {
+		t.Fatalf("expected legacy status to fail closed as %q, got %q", agginventory.ProductionTargetsStatusBuiltinInferred, got.ProductionWrite.Status)
 	}
-	if got.ProductionWrite.Count == nil || *got.ProductionWrite.Count != 0 {
-		t.Fatalf("expected configured production count to default to 0, got %v", got.ProductionWrite.Count)
+	if got.ProductionWrite.Count != nil || got.ProductionWrite.Configured {
+		t.Fatalf("expected legacy configured state to suppress numeric claim, got %+v", got.ProductionWrite)
 	}
 }
 

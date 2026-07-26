@@ -178,6 +178,26 @@ func TestWebMCPTypeScriptRouteDetectionStaysDiscoverable(t *testing.T) {
 	}
 }
 
+func TestWebMCPSkipsPassiveDetectorImplementationRouteLiterals(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "core/detect/webmcp/detector.go", `package webmcp
+
+func containsRoute(payload []byte) bool {
+	return bytes.Contains(payload, []byte("/.well-known/webmcp"))
+}
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "scanner", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect webmcp: %v", err)
+	}
+	if count := countFindingType(findings, "webmcp_declaration"); count != 0 {
+		t.Fatalf("passive detector implementation must not become an MCP candidate, got %#v", findings)
+	}
+}
+
 func mustFindWebMCPFinding(t *testing.T, findings []model.Finding) model.Finding {
 	t.Helper()
 	for _, finding := range findings {

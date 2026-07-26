@@ -43,7 +43,7 @@ func TestAggregateCampaignDeterministicMetrics(t *testing.T) {
 				WriteCapableTools:     2,
 				CredentialAccessTools: 1,
 				ExecCapableTools:      2,
-				ProductionWrite:       agginventory.ProductionWriteBudget{Configured: true, Status: agginventory.ProductionTargetsStatusConfigured, Count: &one},
+				ProductionWrite:       agginventory.ProductionWriteBudget{Configured: true, Status: agginventory.ProductionTargetsStatusCustomerConfigured, Source: agginventory.ProductionTargetSourceCustomerPolicy, Count: &one},
 			},
 			Findings: []source.Finding{
 				{Detector: "codex", Repo: "acme/backend", Location: ".codex/config.toml"},
@@ -77,7 +77,7 @@ func TestAggregateCampaignDeterministicMetrics(t *testing.T) {
 				WriteCapableTools:     1,
 				CredentialAccessTools: 1,
 				ExecCapableTools:      0,
-				ProductionWrite:       agginventory.ProductionWriteBudget{Configured: true, Status: agginventory.ProductionTargetsStatusConfigured, Count: &two},
+				ProductionWrite:       agginventory.ProductionWriteBudget{Configured: true, Status: agginventory.ProductionTargetsStatusCustomerConfigured, Source: agginventory.ProductionTargetSourceCustomerPolicy, Count: &two},
 			},
 			Findings: []source.Finding{
 				{Detector: "codex", Repo: "acme/frontend", Location: ".codex/config.toml"},

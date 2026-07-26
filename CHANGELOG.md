@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [semver:minor] Added authenticated assessment-org coverage contracts, explicit `--allow-public-only` reduced coverage, GitHub request-budget receipts, and bounded archive acquisition for broad hosted source scans.
 - [semver:patch] Added executable Go coverage gates for the 85% aggregate core/cmd target and 75% per-package target, with owner-assigned, expiring non-regression floors and fail-closed tests for missing, stale, expired, and regressed exceptions.
 - [semver:patch] Added a source-bound Sprint 0 freeze runner that executes allowlisted validation commands, records command output hashes and the current commit, and publishes a runtime receipt from PR, main, and release lanes.
 - [semver:minor] Added a deterministic `composed_action_path` artifact that identifies bounded multi-stage authority paths from existing action paths and workflow chains without claiming observed execution.
@@ -28,6 +29,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- [semver:patch] Production-write claims now require a valid customer `--production-targets` file; built-in target packs remain labeled `builtin_inferred` context without numeric production-write claims.
+- [semver:patch] Capped primary executive rollups at five groups by default and ten maximum while retaining full groups and suppression receipts in JSON. The regenerated customer-redacted sample fell from 358 lines / 39,696 bytes to 328 lines / 35,461 bytes (-30 lines / -4,235 bytes); coverage receipts are `TestRenderMarkdownCapsExecutiveRollupAtDecisionMemoBudget` and `TestSiteAssetsMatchGenerator`.
+- [semver:patch] Applied assessment profile scope consistently to MCP rows, candidates, diagnostics, and absence aggregation, and limited resume hints to interrupted scans with retained materialized roots.
 - [semver:patch] Split the nightly race lane so ordinary packages retain the 20-minute deterministic budget while the enterprise-sized acceptance package runs separately with a 40-minute ceiling, preventing the endpoint-dense fixture from exhausting the package timeout under race instrumentation.
 - [semver:patch] Bounded first-value command responses while preserving canonical state and evidence artifacts: on `internal/enterprisepressure.VariantBaseline:96-repos`, scan JSON fell from 1,067,262 to 893,867 bytes (-173,395; -16.2%) and evidence JSON fell from 3,182,360 to 537,039 bytes (-2,645,321; -83.1%). The canonical state and customer-redacted BOM measured 8,090,113 and 1,144,221 bytes within their 16 MiB and 2 MiB budgets. Coverage and redaction receipts are `TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted`, `TestBuildEvidenceJSONPayloadBoundsBOMAndPreservesPrimaryPath`, and the 96-repo enterprise-pressure fixture.
 - [semver:patch] Advanced the Factory profile pointer to the revision aligned on Go `1.26.5` and made the root pin checker enforce `factory/profiles/wrkr.yaml` in protected automation.
@@ -50,6 +54,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Made broad GitHub archive acquisition tolerate empty repositories and large excluded dependency trees while retaining compressed, expanded, entry-count, selected-file, redirect, and timeout bounds.
+- [semver:patch] Prevented passive WebMCP detector implementations from becoming candidate MCP evidence during broad source scans while preserving active route and registration discovery.
 - [semver:patch] Kept scenario consumers on canonical saved-state findings when bounded scan command responses omit raw arrays, and refreshed the precision-calibration branch-protection receipt to match its verified imported control evidence.
 - [semver:patch] Aligned external-control sidecar validation with documented evidence classes and target-only correlation, and kept grouped top-risk identity, action, rationale, and remediation metadata on the highest-scoring path.
 - [semver:patch] Raised weaker equivalent-outcome routes to the deterministic peer control floor so approval-evasion alternatives cannot retain a less restrictive proposed Action Contract.

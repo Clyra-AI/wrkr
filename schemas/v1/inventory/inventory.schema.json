@@ -309,7 +309,8 @@
           "required": ["configured", "status", "count"],
           "properties": {
             "configured": {"type": "boolean"},
-            "status": {"type": "string", "enum": ["configured", "not_configured", "invalid"]},
+            "status": {"type": "string", "enum": ["customer_configured", "builtin_inferred", "not_configured", "invalid"]},
+            "source": {"type": "string", "enum": ["customer_policy", "builtin_heuristic", "none", "invalid"]},
             "count": {"type": ["integer", "null"]}
           }
         }
@@ -385,7 +386,9 @@
           "merge_execute": {"type": "boolean"},
           "deploy_write": {"type": "boolean"},
           "delivery_chain_status": {"type": "string", "enum": ["none", "pr_only", "merge_only", "deploy_only", "pr_merge", "merge_deploy", "pr_merge_deploy"]},
-          "production_target_status": {"type": "string", "enum": ["configured", "not_configured", "invalid"]},
+          "production_target_status": {"type": "string", "enum": ["customer_configured", "builtin_inferred", "not_configured", "invalid"]},
+          "production_target_source": {"type": "string", "enum": ["customer_policy", "builtin_heuristic", "none", "invalid"]},
+          "production_impact_inferred": {"type": "boolean"},
           "write_capable": {"type": "boolean"},
           "credential_access": {"type": "boolean"},
           "credentials": {

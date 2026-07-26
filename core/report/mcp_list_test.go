@@ -10,6 +10,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/model"
+	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -424,6 +425,63 @@ func TestBuildMCPListFallsBackToReducedCoverageWhenOnlyCandidatesExist(t *testin
 	}
 	if !containsString(payload.AbsenceReasons, "candidate_evidence:present") {
 		t.Fatalf("expected candidate evidence reason, got %+v", payload.AbsenceReasons)
+	}
+}
+
+func TestBuildMCPListAssessmentSuppressesFixtureCandidates(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		Profile: &profileeval.Result{ProfileName: "assessment"},
+		Findings: []source.Finding{{
+			FindingType: "mcp_server_candidate",
+			ToolType:    "mcp",
+			Location:    "scenarios/mcp/package.json",
+			Repo:        "acme/wrkr",
+			Org:         "acme",
+			Evidence:    []model.Evidence{{Key: "candidate_name", Value: "fixture-mcp"}},
+		}},
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			AbsenceClaims: []scanquality.AbsenceClaim{{
+				Org:     "acme",
+				Repo:    "acme/wrkr",
+				Surface: scanquality.SurfaceMCPServer,
+				Status:  scanquality.AbsenceStatusNotFoundCompleteCoverage,
+			}},
+		},
+	}, MCPListOptions{})
+
+	if len(payload.Candidates) != 0 || len(payload.Rows) != 0 {
+		t.Fatalf("assessment output leaked fixture MCP evidence: %+v", payload)
+	}
+	if payload.AbsenceStatus != scanquality.AbsenceStatusNotFoundCompleteCoverage {
+		t.Fatalf("expected profile-consistent absence status, got %+v", payload)
+	}
+}
+
+func TestBuildMCPListCandidateOverridesCompleteAbsenceClaim(t *testing.T) {
+	t.Parallel()
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		Findings: []source.Finding{{
+			FindingType: "mcp_server_candidate",
+			ToolType:    "mcp",
+			Location:    "package.json",
+			Repo:        "acme/payments",
+			Org:         "acme",
+		}},
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			AbsenceClaims: []scanquality.AbsenceClaim{{
+				Org: "acme", Repo: "acme/payments", Surface: scanquality.SurfaceMCPServer,
+				Status: scanquality.AbsenceStatusNotFoundCompleteCoverage,
+			}},
+		},
+	}, MCPListOptions{})
+	if payload.AbsenceStatus != scanquality.AbsenceStatusNotFoundReducedCoverage {
+		t.Fatalf("candidate evidence must conservatively override a complete absence claim: %+v", payload)
 	}
 }
 

@@ -115,10 +115,11 @@ func projectStory24DuplicateFixture(paths []risk.ActionPath, choice *risk.Action
 	}
 	out["control_first"] = map[string]any{
 		"summary": map[string]any{
-			"total_paths":                    float64(choice.Summary.TotalPaths),
-			"write_capable_paths":            float64(choice.Summary.WriteCapablePaths),
-			"production_target_backed_paths": float64(choice.Summary.ProductionTargetBackedPaths),
-			"govern_first_paths":             float64(choice.Summary.GovernFirstPaths),
+			"total_paths":                      float64(choice.Summary.TotalPaths),
+			"write_capable_paths":              float64(choice.Summary.WriteCapablePaths),
+			"production_target_backed_paths":   float64(choice.Summary.ProductionTargetBackedPaths),
+			"production_impact_inferred_paths": float64(choice.Summary.ProductionImpactInferredPaths),
+			"govern_first_paths":               float64(choice.Summary.GovernFirstPaths),
 		},
 		"path": story24ProjectRiskActionPath(choice.Path),
 	}
@@ -136,13 +137,14 @@ func projectStory24MixedGovernanceReport(t *testing.T, payload map[string]any) m
 		"action_paths":   story24ProjectActionPaths(t, story24RequireSlice(t, payload, "action_paths")),
 		"control_first":  story24ProjectRequiredControlFirst(t, story24RequireMap(t, payload, "action_path_to_control_first")),
 		"assessment_summary": map[string]any{
-			"governable_path_count":               float64(story24RequireInt(t, assessmentSummary, "governable_path_count")),
-			"write_capable_path_count":            float64(story24RequireInt(t, assessmentSummary, "write_capable_path_count")),
-			"production_target_backed_path_count": float64(story24RequireInt(t, assessmentSummary, "production_target_backed_path_count")),
-			"ownerless_exposure":                  story24RequireMap(t, assessmentSummary, "ownerless_exposure"),
-			"identity_exposure_summary":           story24RequireMap(t, assessmentSummary, "identity_exposure_summary"),
-			"identity_to_review_first":            story24ProjectIdentityActionTarget(t, story24RequireMap(t, assessmentSummary, "identity_to_review_first")),
-			"identity_to_revoke_first":            story24ProjectIdentityActionTarget(t, story24RequireMap(t, assessmentSummary, "identity_to_revoke_first")),
+			"governable_path_count":                 float64(story24RequireInt(t, assessmentSummary, "governable_path_count")),
+			"write_capable_path_count":              float64(story24RequireInt(t, assessmentSummary, "write_capable_path_count")),
+			"production_target_backed_path_count":   float64(story24RequireInt(t, assessmentSummary, "production_target_backed_path_count")),
+			"production_impact_inferred_path_count": float64(story24RequireInt(t, assessmentSummary, "production_impact_inferred_path_count")),
+			"ownerless_exposure":                    story24RequireMap(t, assessmentSummary, "ownerless_exposure"),
+			"identity_exposure_summary":             story24RequireMap(t, assessmentSummary, "identity_exposure_summary"),
+			"identity_to_review_first":              story24ProjectIdentityActionTarget(t, story24RequireMap(t, assessmentSummary, "identity_to_review_first")),
+			"identity_to_revoke_first":              story24ProjectIdentityActionTarget(t, story24RequireMap(t, assessmentSummary, "identity_to_revoke_first")),
 		},
 		"exposure_groups": story24ProjectExposureGroups(t, story24RequireSlice(t, payload, "exposure_groups")),
 	}
@@ -224,10 +226,11 @@ func story24ProjectRequiredControlFirst(t *testing.T, controlFirst map[string]an
 	summary := story24RequireMap(t, controlFirst, "summary")
 	projected := map[string]any{
 		"summary": map[string]any{
-			"total_paths":                    float64(story24RequireInt(t, summary, "total_paths")),
-			"write_capable_paths":            float64(story24RequireInt(t, summary, "write_capable_paths")),
-			"production_target_backed_paths": float64(story24RequireInt(t, summary, "production_target_backed_paths")),
-			"govern_first_paths":             float64(story24RequireInt(t, summary, "govern_first_paths")),
+			"total_paths":                      float64(story24RequireInt(t, summary, "total_paths")),
+			"write_capable_paths":              float64(story24RequireInt(t, summary, "write_capable_paths")),
+			"production_target_backed_paths":   float64(story24RequireInt(t, summary, "production_target_backed_paths")),
+			"production_impact_inferred_paths": float64(story24RequireInt(t, summary, "production_impact_inferred_paths")),
+			"govern_first_paths":               float64(story24RequireInt(t, summary, "govern_first_paths")),
 		},
 		"path": map[string]any{
 			"path_id":            story24RequireString(t, path, "path_id"),

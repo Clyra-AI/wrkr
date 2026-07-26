@@ -7,13 +7,14 @@ Use this workflow when platform or security teams need the recommended minimum-n
 Hosted prerequisites for this path:
 
 - pass `--github-api https://api.github.com` (or set `WRKR_GITHUB_API_BASE`)
-- provide a GitHub token for private repos or to avoid public API rate limits
+- export `WRKR_GITHUB_TOKEN="$(gh auth token)"` once for the engagement; assessment org scans require authenticated coverage by default
 - token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
 - fine-grained PAT guidance: select only the target repositories and grant read-only repository metadata plus read-only repository contents
-- connector endpoints: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, `GET /repos/{owner}/{repo}/git/blobs/{sha}`
+- connector endpoints: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, sparse tree/blob reads, and a bounded tarball fetch for explicit broad-source scans
 - if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md` or `wrkr scan --my-setup --state ./.wrkr/last-scan.json` first and return to this flow when GitHub access is configured; `--path` scans the selected directory itself when it is the repo root and uses bundle roots like `./scenarios/wrkr/scan-mixed-org/repos` when you want a deterministic repo-set
 
 ```bash
+export WRKR_GITHUB_TOKEN="$(gh auth token)"
 wrkr init --non-interactive --org acme --github-api https://api.github.com
 wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.wrkr/agent-action-bom.md --evidence-json --evidence-json-path ./.wrkr/agent-action-bom-evidence.json
@@ -26,11 +27,13 @@ wrkr verify --chain --state ./.wrkr/last-scan.json
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain --json` remains the explicit operator/CI integrity gate.
 `wrkr init` can now persist the hosted GitHub API base together with the default org target, so the follow-on `wrkr scan --config ...` path stays copy-pasteable without repeating `--github-api` on every run.
 
-If a hosted org scan is interrupted, rerun the same target with `--resume` to reuse checkpointed materialization state under the scan-state directory:
+If resumability is required, start the original scan with `--source-retention retain_for_resume`. Only then does an interrupted run retain materialized roots and emit a valid `--resume` hint:
 
 ```bash
-wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --resume --json --json-path ./.wrkr/scan.json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --source-retention retain_for_resume --resume --json --json-path ./.wrkr/scan.json
 ```
+
+The default `ephemeral` mode removes materialized roots after interruption and must be rerun from the beginning.
 
 Interpretation notes:
 

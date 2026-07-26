@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "4127579461a8d0a7deca469c597b23dbbeea0d3549bdfa1dce60052fc473e127",
+  "validated_content_sha256": "396a7bd709ba0c5092bc931947906138453a1a3033c689c422eed11a8603d5d8",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -40,7 +40,7 @@
     "action_contract_conformance_fixture_v1",
     "bounded_multi_stage_composed_action_contracts"
   ],
-  "validated_on": "2026-07-25",
+  "validated_on": "2026-07-26",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:4-repos",
@@ -72,46 +72,46 @@
     {
       "artifact": "last-scan.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 8090113,
+      "measured_bytes": 7946907,
       "baseline_bytes": 0,
       "budget_bytes": 16777216,
-      "delta_bytes": 8090113,
+      "delta_bytes": 7946907,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
       "artifact": "agent-action-bom-evidence.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 1144221,
+      "measured_bytes": 1109705,
       "baseline_bytes": 0,
       "budget_bytes": 2097152,
-      "delta_bytes": 1144221,
+      "delta_bytes": 1109705,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
       "artifact": "endpoint-dense-scan.json",
       "fixture": "internal/enterprisepressure.EndpointDense:4-repos",
-      "measured_bytes": 23807386,
+      "measured_bytes": 23747901,
       "baseline_bytes": 0,
       "budget_bytes": 25165824,
-      "delta_bytes": 23807386,
+      "delta_bytes": 23747901,
       "measurement_source": "internal/acceptance.TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection"
     },
     {
       "artifact": "scan-command-response.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 893867,
+      "measured_bytes": 879846,
       "baseline_bytes": 1067262,
       "budget_bytes": 2097152,
-      "delta_bytes": -173395,
+      "delta_bytes": -187416,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
       "artifact": "evidence-command-response.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 537039,
+      "measured_bytes": 523708,
       "baseline_bytes": 3182360,
       "budget_bytes": 1048576,
-      "delta_bytes": -2645321,
+      "delta_bytes": -2658652,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
@@ -135,37 +135,37 @@
     {
       "artifact": "action-contract-interop-exact-byte-pack",
       "fixture": "scenarios/cross-product/action-contract-interop/expected",
-      "measured_bytes": 810663,
+      "measured_bytes": 927142,
       "baseline_bytes": 0,
       "budget_bytes": 1048576,
-      "delta_bytes": 810663,
+      "delta_bytes": 927142,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceExactBytesRegenerateFromWrkr"
     },
     {
       "artifact": "action-contract-artifact.json",
       "fixture": "scenarios/cross-product/action-contract-interop/expected/approval-expiry",
-      "measured_bytes": 51391,
+      "measured_bytes": 53241,
       "baseline_bytes": 0,
       "budget_bytes": 65536,
-      "delta_bytes": 51391,
+      "delta_bytes": 53241,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
     },
     {
       "artifact": "action-contract-packet.json",
       "fixture": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation",
-      "measured_bytes": 33319,
+      "measured_bytes": 31732,
       "baseline_bytes": 0,
       "budget_bytes": 65536,
-      "delta_bytes": 33319,
+      "delta_bytes": 31732,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
     },
     {
       "artifact": "action-contract-packet.md",
       "fixture": "scenarios/cross-product/action-contract-interop/expected/failed-effect-validation",
-      "measured_bytes": 13626,
+      "measured_bytes": 13630,
       "baseline_bytes": 0,
       "budget_bytes": 32768,
-      "delta_bytes": 13626,
+      "delta_bytes": 13630,
       "measurement_source": "testinfra/contracts.TestActionContractConformanceManifestPinsNineVerifiedScenarios"
     },
     {
@@ -189,19 +189,19 @@
     {
       "artifact": "composed-action-paths-default-projection.json",
       "fixture": "core/risk.high-fanout-multi-stage:38-paths",
-      "measured_bytes": 2226242,
-      "baseline_bytes": 1805850,
+      "measured_bytes": 2209205,
+      "baseline_bytes": 1786834,
       "budget_bytes": 4194304,
-      "delta_bytes": 420392,
+      "delta_bytes": 422371,
       "measurement_source": "core/risk.TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget"
     },
     {
       "artifact": "default-report-summary.json",
       "fixture": "core/report.multiStageReportPath:20-paths",
-      "measured_bytes": 3452852,
-      "baseline_bytes": 2630733,
+      "measured_bytes": 3434590,
+      "baseline_bytes": 2608450,
       "budget_bytes": 4194304,
-      "delta_bytes": 822119,
+      "delta_bytes": 826140,
       "measurement_source": "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget"
     }
   ],

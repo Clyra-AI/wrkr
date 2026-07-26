@@ -73,13 +73,24 @@ type RepoFailure struct {
 
 // Manifest is the deterministic source acquisition output.
 type Manifest struct {
-	Target                     Target           `json:"target"`
-	Targets                    []Target         `json:"targets,omitempty"`
-	Repos                      []RepoManifest   `json:"repos"`
-	PublicEvidenceManifestName string           `json:"public_evidence_manifest_name,omitempty"`
-	PublicEvidence             []PublicEvidence `json:"public_evidence,omitempty"`
-	Failures                   []RepoFailure    `json:"failures,omitempty"`
-	MaterializedRoot           string           `json:"-" yaml:"-"`
+	Target                     Target                `json:"target"`
+	Targets                    []Target              `json:"targets,omitempty"`
+	Repos                      []RepoManifest        `json:"repos"`
+	PublicEvidenceManifestName string                `json:"public_evidence_manifest_name,omitempty"`
+	PublicEvidence             []PublicEvidence      `json:"public_evidence,omitempty"`
+	Failures                   []RepoFailure         `json:"failures,omitempty"`
+	MaterializedRoot           string                `json:"-" yaml:"-"`
+	Acquisition                *AcquisitionTelemetry `json:"acquisition,omitempty"`
+}
+
+type AcquisitionTelemetry struct {
+	Mode               string   `json:"mode"`
+	Requests           int      `json:"requests"`
+	RateLimitLimit     int      `json:"rate_limit_limit,omitempty"`
+	RateLimitRemaining int      `json:"rate_limit_remaining,omitempty"`
+	RateLimitReset     string   `json:"rate_limit_reset,omitempty"`
+	EstimatedRequests  int      `json:"estimated_requests,omitempty"`
+	Warnings           []string `json:"warnings,omitempty"`
 }
 
 // Finding is the canonical scan record used by diff/state.

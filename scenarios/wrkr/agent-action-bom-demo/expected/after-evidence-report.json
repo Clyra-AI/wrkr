@@ -27,7 +27,7 @@
       "credential_access_paths_present",
       "high_review_burden_paths_present",
       "likely_action_paths_present",
-      "production_target_backed_paths_present",
+      "production_impact_inferred_paths_present",
       "semantic_review_candidates_present",
       "standing_privilege_paths_present",
       "write_capable_paths_present"
@@ -133,9 +133,9 @@
             "detector_confidence": "confirmed_action_path",
             "evidence_state": "unknown",
             "owner_state": "inferred",
-            "production_target": "production_targeted",
+            "production_target": "production_impact_inferred",
             "repo_cluster": "single_repo",
-            "risk_zone": "production_data",
+            "risk_zone": "release",
             "target_class": "production_impacting"
           },
           "evidence_state_summary": {
@@ -145,7 +145,7 @@
             "unknown": 2,
             "verified": 0
           },
-          "group_id": "xrg-807baf425c49",
+          "group_id": "xrg-e50ba15a34b3",
           "highest_priority": "control_first",
           "highest_severity": "critical",
           "rationale": [
@@ -168,7 +168,7 @@
             "detector_confidence": "likely_action_path",
             "evidence_state": "unknown",
             "owner_state": "inferred",
-            "production_target": "production_targeted",
+            "production_target": "production_impact_inferred",
             "repo_cluster": "single_repo",
             "risk_zone": "production_data",
             "target_class": "production_impacting"
@@ -180,7 +180,7 @@
             "unknown": 2,
             "verified": 0
           },
-          "group_id": "xrg-b45caa145891",
+          "group_id": "xrg-0e8d7f00d96e",
           "highest_priority": "control_first",
           "highest_severity": "critical",
           "rationale": [
@@ -271,9 +271,9 @@
             "detector_confidence": "context_only",
             "evidence_state": "unknown",
             "owner_state": "inferred",
-            "production_target": "production_targeted",
+            "production_target": "production_impact_inferred",
             "repo_cluster": "single_repo",
-            "risk_zone": "production_data",
+            "risk_zone": "release",
             "target_class": "production_impacting"
           },
           "evidence_state_summary": {
@@ -283,7 +283,7 @@
             "unknown": 1,
             "verified": 0
           },
-          "group_id": "xrg-94c9513d3ddb",
+          "group_id": "xrg-6040b3926752",
           "highest_priority": "inventory_hygiene",
           "highest_severity": "low",
           "rationale": [
@@ -331,7 +331,7 @@
       "grade": "critical",
       "path_count": 7,
       "rationale": [
-        "production_backed_paths=5",
+        "production_backed_paths=2",
         "credential_bearing_paths=1",
         "write_capable_paths=5",
         "runtime_deployed_paths=2"
@@ -439,7 +439,7 @@
         "approval"
       ]
     },
-    "production_target_items": 5,
+    "production_target_items": 0,
     "recommended_controls": {
       "allow": 0,
       "approval_required": 0,
@@ -656,7 +656,7 @@
     "policy_status": "runtime_proven",
     "proof_coverage": "missing",
     "review_burden": "critical",
-    "risk_zone": "production_data",
+    "risk_zone": "release",
     "runtime_evidence_classes": [
       "action_outcome",
       "approval",

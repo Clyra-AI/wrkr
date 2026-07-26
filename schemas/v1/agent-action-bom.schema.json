@@ -52,6 +52,7 @@
         "standing_privilege_items": {"type": "integer"},
         "static_credential_items": {"type": "integer"},
         "production_target_items": {"type": "integer"},
+        "production_impact_inferred_items": {"type": "integer"},
         "accepted_risk_items": {"type": "integer"},
         "resolved_appendix_items": {"type": "integer"},
         "lifecycle_queue_items": {"type": "integer"},
@@ -281,6 +282,8 @@
         },
         "production_write": {"type": "boolean"},
         "production_target_status": {"type": "string"},
+        "production_target_source": {"type": "string", "enum": ["customer_policy", "builtin_heuristic", "none", "invalid"]},
+        "production_impact_inferred": {"type": "boolean"},
         "matched_production_targets": {"type": "array", "items": {"type": "string"}},
         "approval_gap": {"type": "boolean"},
         "approval_gap_reasons": {"type": "array", "items": {"type": "string"}},
@@ -953,6 +956,8 @@
       "properties": {
         "total_groups": {"type": "integer", "minimum": 0},
         "total_paths": {"type": "integer", "minimum": 0},
+        "displayed_groups": {"type": "integer", "minimum": 0, "maximum": 10},
+        "suppressed_groups": {"type": "integer", "minimum": 0},
         "groups": {
           "type": "array",
           "items": {"$ref": "#/$defs/executiveRollupGroup"}
@@ -1079,7 +1084,8 @@
         "absence_claims": {
           "type": "array",
           "items": {"$ref": "#/$defs/absenceClaim"}
-        }
+        },
+        "hosted_coverage": {"$ref": "#/$defs/hostedCoverage"}
       },
       "additionalProperties": false
     },
@@ -1094,6 +1100,26 @@
         "blocked_detector_count": {"type": "integer"},
         "unsupported_declaration_count": {"type": "integer"},
         "impact_statement": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "hostedCoverage": {
+      "type": "object",
+      "required": ["scope", "authenticated", "completeness"],
+      "properties": {
+        "scope": {"type": "string", "enum": ["authenticated_org", "authenticated_repo", "public_only", "not_applicable"]},
+        "authenticated": {"type": "boolean"},
+        "completeness": {"type": "string", "enum": ["complete", "reduced"]},
+        "requested_repos": {"type": "integer", "minimum": 0},
+        "completed_repos": {"type": "integer", "minimum": 0},
+        "failed_repos": {"type": "integer", "minimum": 0},
+        "acquisition_mode": {"type": "string", "enum": ["sparse_api", "archive"]},
+        "requests": {"type": "integer", "minimum": 0},
+        "estimated_requests": {"type": "integer", "minimum": 0},
+        "rate_limit_limit": {"type": "integer", "minimum": 0},
+        "rate_limit_remaining": {"type": "integer", "minimum": 0},
+        "rate_limit_reset": {"type": "string", "format": "date-time"},
+        "reasons": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },

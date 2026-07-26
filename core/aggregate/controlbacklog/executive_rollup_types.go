@@ -1,9 +1,11 @@
 package controlbacklog
 
 type ExecutiveRollup struct {
-	TotalGroups int                    `json:"total_groups"`
-	TotalPaths  int                    `json:"total_paths"`
-	Groups      []ExecutiveRollupGroup `json:"groups,omitempty"`
+	TotalGroups      int                    `json:"total_groups"`
+	TotalPaths       int                    `json:"total_paths"`
+	DisplayedGroups  int                    `json:"displayed_groups"`
+	SuppressedGroups int                    `json:"suppressed_groups"`
+	Groups           []ExecutiveRollupGroup `json:"groups,omitempty"`
 }
 
 type ExecutiveRollupGroup struct {

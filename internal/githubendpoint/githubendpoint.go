@@ -62,6 +62,28 @@ func RedirectPolicy(base *url.URL) func(*http.Request, []*http.Request) error {
 	}
 }
 
+// ArchiveRedirectPolicy permits GitHub.com's documented archive redirect to
+// codeload.github.com. Authorization is removed before the cross-origin hop;
+// every other cross-origin redirect remains blocked.
+func ArchiveRedirectPolicy(base *url.URL) func(*http.Request, []*http.Request) error {
+	return func(next *http.Request, _ []*http.Request) error {
+		if next == nil || next.URL == nil {
+			return fmt.Errorf("%w: invalid redirect target", ErrUnsafeEndpoint)
+		}
+		if next.URL.Scheme != "https" || next.URL.User != nil || next.URL.Fragment != "" || next.URL.Hostname() == "" {
+			return fmt.Errorf("%w: archive redirect must use HTTPS without userinfo or fragments", ErrUnsafeEndpoint)
+		}
+		if sameOrigin(base, next.URL) {
+			return nil
+		}
+		if base != nil && strings.EqualFold(base.Hostname(), "api.github.com") && strings.EqualFold(next.URL.Hostname(), "codeload.github.com") {
+			next.Header.Del("Authorization")
+			return nil
+		}
+		return fmt.Errorf("%w: archive redirect target is not trusted", ErrUnsafeEndpoint)
+	}
+}
+
 func isLoopback(host string) bool {
 	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
 	if host == "localhost" {
