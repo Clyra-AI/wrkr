@@ -39,7 +39,9 @@ func Build(
 	productionRules *productiontargets.Config,
 ) (agginventory.PrivilegeBudget, []agginventory.AgentPrivilegeMapEntry) {
 	writeSet := mapFromList(productiontargets.DefaultWritePermissions())
-	productionConfigured := productionRules != nil
+	productionRulesAvailable := productionRules != nil
+	productionCustomerConfigured := productionRules != nil && productionRules.HasTargets()
+	productionStatus := currentProductionTargetStatus(productionRules)
 	effectiveProductionRules := productiontargets.Config{}
 	if productionRules != nil {
 		writeSet = mapFromList(productionRules.WritePermissions)
@@ -52,13 +54,16 @@ func Build(
 	budget := agginventory.PrivilegeBudget{
 		TotalTools: len(tools),
 		ProductionWrite: agginventory.ProductionWriteBudget{
-			Configured: productionConfigured,
-			Status:     currentProductionTargetStatus(productionConfigured),
+			Configured: productionCustomerConfigured,
+			Status:     productionStatus,
+			Source:     productionTargetSource(productionStatus),
 			Count:      nil,
 		},
 	}
-	zero := 0
-	budget.ProductionWrite.Count = &zero
+	if productionCustomerConfigured {
+		zero := 0
+		budget.ProductionWrite.Count = &zero
+	}
 
 	for _, tool := range tools {
 		writeCapable := agginventory.CanonicalWriteCapable(agginventory.ActionClassInput{
@@ -79,9 +84,9 @@ func Build(
 		}
 
 		productionWrite := false
-		if productionConfigured && writeCapable {
+		if productionRulesAvailable && writeCapable {
 			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation, signalsByRepo)
-			productionWrite = len(matchedProductionTargets(tool.Repos, signal, effectiveProductionRules)) > 0
+			productionWrite = productionCustomerConfigured && len(matchedProductionTargets(tool.Repos, signal, effectiveProductionRules)) > 0
 			if productionWrite && budget.ProductionWrite.Count != nil {
 				*budget.ProductionWrite.Count = *budget.ProductionWrite.Count + 1
 			}
@@ -110,9 +115,9 @@ func Build(
 				PullRequestWrite:         pullRequestWrite,
 			})
 			writePathClasses := agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, primaryLocation(tool), tool.ToolType)
-			if productionConfigured && writeCapable {
+			if productionRulesAvailable && writeCapable {
 				matchedTargets = matchedProductionTargets(tool.Repos, signal, effectiveProductionRules)
-				productionWrite = len(matchedTargets) > 0
+				productionWrite = productionCustomerConfigured && len(matchedTargets) > 0
 				writePathClasses = agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite, primaryLocation(tool), tool.ToolType)
 			}
 
@@ -201,7 +206,9 @@ func Build(
 				MergeExecute:             mergeExecute,
 				DeployWrite:              deployWrite,
 				DeliveryChainStatus:      deliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite),
-				ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
+				ProductionTargetStatus:   productionStatus,
+				ProductionTargetSource:   productionTargetSource(productionStatus),
+				ProductionImpactInferred: productionStatus == agginventory.ProductionTargetsStatusBuiltinInferred && len(matchedTargets) > 0,
 				WriteCapable:             writeCapable,
 				CredentialAccess:         credentialAccess,
 				Credentials:              credentials,
@@ -228,7 +235,7 @@ func Build(
 		return budget, entries
 	}
 
-	entries := buildInstanceEntries(tools, agents, findings, writeSet, productionRules, productionConfigured)
+	entries := buildInstanceEntries(tools, agents, findings, writeSet, productionRules)
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].Org != entries[j].Org {
 			return entries[i].Org < entries[j].Org
@@ -280,8 +287,10 @@ func buildInstanceEntries(
 	findings []model.Finding,
 	writeSet map[string]struct{},
 	productionRules *productiontargets.Config,
-	productionConfigured bool,
 ) []agginventory.AgentPrivilegeMapEntry {
+	productionRulesAvailable := productionRules != nil
+	productionCustomerConfigured := productionRules != nil && productionRules.HasTargets()
+	productionStatus := currentProductionTargetStatus(productionRules)
 	signalsByInstance := buildSignalsByInstance(findings)
 	signalsByRepoLocation := buildSignalsByRepoLocation(findings)
 	signalsByRepo := buildSignalsByRepo(findings)
@@ -356,9 +365,9 @@ func buildInstanceEntries(
 		writePathClasses := agginventory.DeriveWritePathClasses(permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, agent.Location, framework)
 		matchedTargets := []string{}
 		productionWrite := false
-		if productionConfigured && writeCapable {
+		if productionRulesAvailable && writeCapable {
 			matchedTargets = matchedProductionTargets(repos, signals, effectiveProductionRules)
-			productionWrite = len(matchedTargets) > 0
+			productionWrite = productionCustomerConfigured && len(matchedTargets) > 0
 			writePathClasses = agginventory.DeriveWritePathClasses(permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite, agent.Location, framework)
 		}
 
@@ -447,7 +456,9 @@ func buildInstanceEntries(
 			MergeExecute:             mergeExecute,
 			DeployWrite:              deployWrite,
 			DeliveryChainStatus:      deliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite),
-			ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
+			ProductionTargetStatus:   productionStatus,
+			ProductionTargetSource:   productionTargetSource(productionStatus),
+			ProductionImpactInferred: productionStatus == agginventory.ProductionTargetsStatusBuiltinInferred && len(matchedTargets) > 0,
 			WriteCapable:             writeCapable,
 			CredentialAccess:         credentialAccess,
 			Credentials:              credentials,
@@ -1167,11 +1178,25 @@ func deliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite bool) strin
 	}
 }
 
-func currentProductionTargetStatus(productionConfigured bool) string {
-	if productionConfigured {
-		return agginventory.ProductionTargetsStatusConfigured
+func currentProductionTargetStatus(rules *productiontargets.Config) string {
+	if rules == nil {
+		return agginventory.ProductionTargetsStatusNotConfigured
 	}
-	return agginventory.ProductionTargetsStatusNotConfigured
+	if rules.HasTargets() {
+		return agginventory.ProductionTargetsStatusCustomerConfigured
+	}
+	return agginventory.ProductionTargetsStatusBuiltinInferred
+}
+
+func productionTargetSource(status string) string {
+	switch strings.TrimSpace(status) {
+	case agginventory.ProductionTargetsStatusCustomerConfigured:
+		return agginventory.ProductionTargetSourceCustomerPolicy
+	case agginventory.ProductionTargetsStatusBuiltinInferred:
+		return agginventory.ProductionTargetSourceBuiltinHeuristic
+	default:
+		return agginventory.ProductionTargetSourceNone
+	}
 }
 
 func mutableEndpointSemanticsFromSignals(signals findingSignals) []agginventory.MutableEndpointSemantic {

@@ -25,7 +25,7 @@ Wrkr does not upload source code by default. Hosted `--repo` and `--org` scans f
 
 ### Does Wrkr require setup for repo or org scans?
 
-`--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`, and they usually also need a GitHub token for private repos or to avoid public API rate limits. Token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
+`--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`. Assessment org scans require a token by default so public-only enumeration cannot be mistaken for complete organization coverage. Export `WRKR_GITHUB_TOKEN="$(gh auth token)"` once for a 10-15 repo engagement; token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`. `--allow-public-only` is an explicit reduced-coverage acknowledgement, not an organization-complete scan.
 
 `wrkr init` can now persist both the default hosted target and the hosted GitHub API base, so org-first onboarding can be:
 

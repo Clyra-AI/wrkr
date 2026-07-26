@@ -48,6 +48,8 @@ Each row includes:
 
 `candidates[]` is additive saved-state evidence for MCP-like package scripts, package dependencies, workspace hints, source literals, and WebMCP declarations that are not yet authoritative servers. Each candidate includes `candidate_name`, `org`, `repo`, `location`, `evidence_type`, `confidence`, `declaration_type`, `transport_hint`, optional `credential_refs`, and optional `unsupported_reason`.
 
+When the saved scan used the `assessment` profile, rows, candidates, diagnostics, and absence aggregation all use the same assessment scope. Scenario, fixture, sample, test, generated, and vendored MCP evidence cannot leak back into the customer-facing projection through candidate fallback.
+
 `diagnostics[]` is additive miss-explanation output. It is designed for questions like “we expected server X in repo Y; why was it not emitted?” Each diagnostic includes deterministic `status` (`found`, `candidate_only`, `reduced_coverage`, or `not_detected`), additive `absence_status`, additive `absence_impact`, and the supporting `candidate_files_scanned`, `parsed_configs`, `candidates_found`, `parse_failures`, `generated_suppressions`, and `unsupported_declarations`.
 
 When `rows[]` is empty, Wrkr now qualifies absence claims instead of always saying “no MCP servers found.” The additive `absence_status` values are:

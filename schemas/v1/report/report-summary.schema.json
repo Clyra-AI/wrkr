@@ -410,6 +410,8 @@
       "properties": {
         "total_groups": {"type": "integer", "minimum": 0},
         "total_paths": {"type": "integer", "minimum": 0},
+        "displayed_groups": {"type": "integer", "minimum": 0, "maximum": 10},
+        "suppressed_groups": {"type": "integer", "minimum": 0},
         "groups": {
           "type": "array",
           "items": {"$ref": "#/$defs/executiveRollupGroup"}
@@ -1280,6 +1282,7 @@
             "credential_access_paths": {"type": "integer"},
             "standing_privilege_paths": {"type": "integer"},
             "production_target_backed_paths": {"type": "integer"},
+            "production_impact_inferred_paths": {"type": "integer"},
             "control_first_paths": {"type": "integer"},
             "govern_first_paths": {"type": "integer"},
             "detected_control_paths": {"type": "integer"},
@@ -1407,7 +1410,8 @@
         "absence_claims": {
           "type": "array",
           "items": {"$ref": "#/$defs/absenceClaim"}
-        }
+        },
+        "hosted_coverage": {"$ref": "#/$defs/hostedCoverage"}
       },
       "additionalProperties": false
     },
@@ -1422,6 +1426,26 @@
         "blocked_detector_count": {"type": "integer"},
         "unsupported_declaration_count": {"type": "integer"},
         "impact_statement": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "hostedCoverage": {
+      "type": "object",
+      "required": ["scope", "authenticated", "completeness"],
+      "properties": {
+        "scope": {"type": "string", "enum": ["authenticated_org", "authenticated_repo", "public_only", "not_applicable"]},
+        "authenticated": {"type": "boolean"},
+        "completeness": {"type": "string", "enum": ["complete", "reduced"]},
+        "requested_repos": {"type": "integer", "minimum": 0},
+        "completed_repos": {"type": "integer", "minimum": 0},
+        "failed_repos": {"type": "integer", "minimum": 0},
+        "acquisition_mode": {"type": "string", "enum": ["sparse_api", "archive"]},
+        "requests": {"type": "integer", "minimum": 0},
+        "estimated_requests": {"type": "integer", "minimum": 0},
+        "rate_limit_limit": {"type": "integer", "minimum": 0},
+        "rate_limit_remaining": {"type": "integer", "minimum": 0},
+        "rate_limit_reset": {"type": "string", "format": "date-time"},
+        "reasons": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },
@@ -1729,7 +1753,8 @@
           "required": ["configured", "status", "count"],
           "properties": {
             "configured": {"type": "boolean"},
-            "status": {"type": "string", "enum": ["configured", "not_configured", "invalid"]},
+            "status": {"type": "string", "enum": ["customer_configured", "builtin_inferred", "not_configured", "invalid"]},
+            "source": {"type": "string", "enum": ["customer_policy", "builtin_heuristic", "none", "invalid"]},
             "count": {"type": ["integer", "null"]}
           }
         }

@@ -153,6 +153,16 @@ func TestBuildActivationAddsGovernFirstOrgItems(t *testing.T) {
 				ApprovalClassification: "approved",
 			},
 			{
+				AgentID:                  "wrkr:inferred:acme",
+				Framework:                "ci_agent",
+				Repos:                    []string{"release"},
+				Location:                 ".github/workflows/release.yml",
+				RiskScore:                8.0,
+				WriteCapable:             true,
+				ProductionImpactInferred: true,
+				ApprovalClassification:   "unknown",
+			},
+			{
 				AgentID:                  "wrkr:beta:acme",
 				Framework:                "crewai",
 				Repos:                    []string{"ops"},
@@ -174,13 +184,16 @@ func TestBuildActivationAddsGovernFirstOrgItems(t *testing.T) {
 	if got.TargetMode != "org" {
 		t.Fatalf("unexpected target mode: %+v", got)
 	}
-	if got.EligibleCount != 2 || len(got.Items) != 2 {
-		t.Fatalf("expected 2 govern-first items, got %+v", got)
+	if got.EligibleCount != 3 || len(got.Items) != 3 {
+		t.Fatalf("expected 3 govern-first items, got %+v", got)
 	}
 	if got.Items[0].ItemClass != activationClassProductionBacked {
 		t.Fatalf("expected production-target-backed item first, got %+v", got.Items[0])
 	}
-	if got.Items[1].ItemClass != activationClassUnknownWrite {
-		t.Fatalf("expected unknown-to-security item second, got %+v", got.Items[1])
+	if got.Items[1].ItemClass != activationClassProductionInferred || !got.Items[1].ProductionImpactInferred {
+		t.Fatalf("expected production-impact inference second, got %+v", got.Items[1])
+	}
+	if got.Items[2].ItemClass != activationClassUnknownWrite {
+		t.Fatalf("expected unknown-to-security item third, got %+v", got.Items[2])
 	}
 }

@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--progress auto|bar|plain|events|none] [--progress-heap] [--source-retention ephemeral|retain_for_resume|retain] [--deployment-mode local_only|customer_controlled_storage|connected_saas_metadata|managed_platform] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--report-share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-stdout auto|full] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--progress auto|bar|plain|events|none] [--progress-heap] [--source-retention ephemeral|retain_for_resume|retain] [--deployment-mode local_only|customer_controlled_storage|connected_saas_metadata|managed_platform] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--allow-public-only] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--report-share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-stdout auto|full] [--json-path <path>] [--resume] [--quiet] [--explain]
 
 Govern-first `action_paths` in the bounded scan JSON preview and saved scan state carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`), buyer-facing `control_state`, `risk_zone`, and `review_burden` fields, and optional `introduced_by` metadata derived from deterministic repo-local provenance before local git fallback when available.
 wrkr scan status --state <path> [--json]
@@ -76,10 +76,11 @@ Acquisition behavior is fail-closed by target:
 - Hosted scans do not fetch broad source-code extensions by default. Use `--mode deep` or `--allow-source-materialization` only when you explicitly want generic source files such as `.go`, `.py`, `.js`, or `.ts` to be materialized for deeper static detector coverage.
 - Hosted GitHub API base resolution order is: `--github-api`, config `github_api_base`, then `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
+- Assessment-profile org scans require authenticated GitHub coverage by default. `--allow-public-only` is an explicit reduced-coverage acknowledgement; it records `scan_quality.hosted_coverage.scope=public_only` and never supports an organization-complete claim.
 - `--github-org` is an additive alias for `--org`.
 - Explicit multi-target scans set `target.mode=multi` and add deterministic `targets[]` arrays to the top-level scan payload, saved state snapshot, and `source_manifest`.
 - `--repo` and `--org` materialize the required hosted files into a deterministic local workspace under the scan state directory before detectors run.
-- Hosted materialized source retention defaults to `--source-retention ephemeral`: Wrkr removes the managed materialized root after scan artifacts are committed, and it also cleans up failed runs unless retention is explicitly requested. Use `retain_for_resume` to preserve materialized files after a failed/interrupted run for resume, or `retain` to keep them after success. Both modes leave private repository contents on disk and should be used deliberately.
+- Hosted materialized source retention defaults to `--source-retention ephemeral`: Wrkr removes the managed materialized root after scan artifacts are committed, and it also cleans up failed runs unless retention is explicitly requested. Ephemeral interrupted runs do not advertise `--resume`; rerun them from the beginning. Use `retain_for_resume` to preserve materialized files after a failed/interrupted run and receive a valid resume hint, or `retain` to keep them after success. Both modes leave private repository contents on disk and should be used deliberately.
 - Hosted scan artifacts emit `source_privacy` with `retention_mode`, additive `deployment_mode`, `materialized_source_retained`, `raw_source_in_artifacts=false`, `serialized_locations`, `cleanup_status`, and optional warnings.
 - Materialized workspace root (`materialized-sources/`) is ownership-gated:
   - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed` with state-bound provenance, not just a static marker body.
@@ -140,6 +141,7 @@ Scan mode behavior is explicit:
 - `--profile`
 - `--github-api`
 - `--github-token`
+- `--allow-public-only`
 - `--report-md`
 - `--report-md-path`
 - `--report-template`
@@ -175,11 +177,12 @@ For the current minimum-now launch posture, security/platform teams should start
 ## Security-team org example
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+export WRKR_GITHUB_TOKEN="$(gh auth token)"
+wrkr scan --github-org acme --github-api https://api.github.com --profile assessment --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
 `--github-org` is the additive alias for `--org`. Use it when security or platform teams need the deterministic saved-state input for `wrkr report`, `wrkr evidence`, `wrkr mcp-list`, or `wrkr inventory --diff`.
-Private repos and public API rate-limit avoidance usually require a GitHub token even when `--github-api` is set.
+The exported token avoids repeated auth prompts across a 10-15 repository engagement. Wrkr reads it from the environment and does not persist the token in scan state. Confirm the active account with `gh auth status` before scanning. Assessment org scans fail before acquisition when no token is available, unless `--allow-public-only` explicitly accepts reduced public-only coverage.
 If you already configured the hosted source and target with `wrkr init`, you can reuse them:
 
 ```bash
@@ -193,6 +196,18 @@ Wrkr's hosted connector currently calls these GitHub REST endpoints:
 - `GET /repos/{owner}/{repo}`
 - `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`
 - `GET /repos/{owner}/{repo}/git/blobs/{sha}`
+- `GET /repos/{owner}/{repo}/tarball/{ref}` for explicit broad-source scans; GitHub.com's HTTPS redirect to `codeload.github.com` is allowlisted and the authorization header is removed before that hop.
+
+Sparse assessment scans remain the customer default. `--mode deep` or `--allow-source-materialization` uses one bounded archive acquisition per repository instead of per-blob REST requests. `scan_quality.hosted_coverage` records acquisition mode, actual requests, the preflight estimate, and observed rate-limit receipts. If the remaining request budget cannot cover the deterministic estimate, Wrkr fails before repository materialization with reset, scope-reduction, and local-scan guidance.
+
+For a local fallback that consumes GitHub authentication only during cloning, pre-clone the selected repository set and scan it offline:
+
+```bash
+mkdir -p ./.tmp/customer-repos
+gh repo list acme --limit 15 --json nameWithOwner --jq '.[].nameWithOwner' |
+  while read -r repo; do gh repo clone "$repo" "./.tmp/customer-repos/${repo#*/}" -- --depth=1; done
+wrkr scan --path ./.tmp/customer-repos --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.wrkr/scan-summary.md
+```
 
 Fine-grained PAT guidance for the selected repositories:
 
@@ -353,8 +368,9 @@ production_write = has_any(write_permissions) AND matches_any_production_target
 Safe claim rule:
 
 - `write_capable` is always available from the privilege budget and `agent_privilege_map`.
-- `production_write` is safe to claim only when `--production-targets` is configured and valid.
-- When production targets are missing or invalid, public/report wording must stay at `write_capable` and only expose production-target status, not a production-write count.
+- `production_write` is safe to claim only when `--production-targets` is configured and valid; those scans emit `customer_configured` with source `customer_policy`.
+- Without a customer file, built-in deployment/release classifiers remain visible as `builtin_inferred` context but emit `production_write=false` and no numeric production-write count.
+- When production targets are missing, inferred, or invalid, public/report wording stays at `write_capable` and exposes provenance-qualified production-target status rather than a production-write count.
 
 Every discovered entity now emits `discovery_method: static` in both `findings` and `inventory.tools` for deterministic v1 schema compatibility.
 Saved lifecycle-bearing identities written beside scan state are intentionally narrower: real tool, agent, CI, skill, and MCP surfaces only. Posture/bookkeeping findings such as `secret_presence`, `source_discovery`, `policy_*`, and `parse_error` remain in findings/risk surfaces only.

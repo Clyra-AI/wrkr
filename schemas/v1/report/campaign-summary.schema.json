@@ -88,7 +88,7 @@
         "unapproved_per_approved": {"type": ["number", "null"]},
         "production_write_status": {
           "type": "string",
-          "enum": ["configured", "not_configured", "invalid"]
+          "enum": ["customer_configured", "builtin_inferred", "not_configured", "invalid"]
         },
         "production_write_tools": {"type": ["integer", "null"]}
       }

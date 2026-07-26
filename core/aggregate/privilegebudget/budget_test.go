@@ -75,8 +75,8 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 	if !budget.ProductionWrite.Configured {
 		t.Fatal("expected production_write.configured=true")
 	}
-	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusConfigured {
-		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusConfigured, budget.ProductionWrite.Status)
+	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusCustomerConfigured {
+		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusCustomerConfigured, budget.ProductionWrite.Status)
 	}
 	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 1 {
 		t.Fatalf("expected production_write.count=1 got %v", budget.ProductionWrite.Count)
@@ -116,14 +116,14 @@ func TestBuildDefaultConfigUsesBuiltInProductionTargetPacks(t *testing.T) {
 
 	cfg := productiontargets.DefaultConfig()
 	budget, entries := Build([]agginventory.Tool{}, nil, nil, &cfg)
-	if !budget.ProductionWrite.Configured {
-		t.Fatal("expected production_write.configured=true from built-in packs")
+	if budget.ProductionWrite.Configured {
+		t.Fatal("built-in packs must not configure a customer production-write claim")
 	}
-	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusConfigured {
-		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusConfigured, budget.ProductionWrite.Status)
+	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusBuiltinInferred {
+		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusBuiltinInferred, budget.ProductionWrite.Status)
 	}
-	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 0 {
-		t.Fatalf("expected production count 0 when no targets matched, got %v", budget.ProductionWrite.Count)
+	if budget.ProductionWrite.Count != nil {
+		t.Fatalf("expected no numeric production count for built-in inference, got %v", budget.ProductionWrite.Count)
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected no entries, got %d", len(entries))
@@ -140,8 +140,8 @@ func TestBuildWithoutRulesLeavesProductionBudgetUnconfigured(t *testing.T) {
 	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusNotConfigured {
 		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusNotConfigured, budget.ProductionWrite.Status)
 	}
-	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 0 {
-		t.Fatalf("expected production count 0 when production targets are disabled, got %v", budget.ProductionWrite.Count)
+	if budget.ProductionWrite.Count != nil {
+		t.Fatalf("expected no production count when production targets are disabled, got %v", budget.ProductionWrite.Count)
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected no entries, got %d", len(entries))

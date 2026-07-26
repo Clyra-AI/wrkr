@@ -1040,8 +1040,11 @@ func TestScanIncludesPrivilegeBudgetAndAgentMap(t *testing.T) {
 	if productionWrite["configured"] != true {
 		t.Fatalf("expected production_write.configured=true, got %v", productionWrite["configured"])
 	}
-	if productionWrite["status"] != "configured" {
-		t.Fatalf("expected production_write.status=configured, got %v", productionWrite["status"])
+	if productionWrite["status"] != "customer_configured" {
+		t.Fatalf("expected production_write.status=customer_configured, got %v", productionWrite["status"])
+	}
+	if productionWrite["source"] != "customer_policy" {
+		t.Fatalf("expected production_write.source=customer_policy, got %v", productionWrite["source"])
 	}
 	if count, ok := productionWrite["count"].(float64); !ok || count < 1 {
 		t.Fatalf("expected production_write.count >= 1, got %v", productionWrite["count"])
@@ -1255,15 +1258,15 @@ targets:
     exact:
       - payments-prod
 `,
-			wantStatus:          "configured",
+			wantStatus:          "customer_configured",
 			wantProductionWrite: true,
 			wantAction:          "control",
 		},
 		{
 			name:                "not configured",
 			productionTargets:   "",
-			wantStatus:          "configured",
-			wantProductionWrite: true,
+			wantStatus:          "builtin_inferred",
+			wantProductionWrite: false,
 			wantAction:          "control",
 		},
 		{
@@ -1345,6 +1348,11 @@ jobs:
 			}
 			if first["production_write"] != tc.wantProductionWrite {
 				t.Fatalf("expected production_write=%t, got %v", tc.wantProductionWrite, first["production_write"])
+			}
+			if tc.wantStatus == "builtin_inferred" {
+				if first["production_target_source"] != "builtin_heuristic" || first["production_impact_inferred"] != true {
+					t.Fatalf("expected explicit built-in inference provenance, got %v", first)
+				}
 			}
 			if first["recommended_action"] != tc.wantAction {
 				t.Fatalf("expected recommended_action=%s, got %v", tc.wantAction, first["recommended_action"])

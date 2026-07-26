@@ -24,7 +24,8 @@
     "summary": {
       "total_paths": 1,
       "write_capable_paths": 1,
-      "production_target_backed_paths": 1,
+      "production_target_backed_paths": 0,
+      "production_impact_inferred_paths": 1,
       "govern_first_paths": 1
     },
     "path": {
@@ -39,7 +40,7 @@
     "eligible_count": 1,
     "message": "Review 1 govern-first candidate path(s) first.",
     "item_classes": [
-      "production_target_backed"
+      "production_impact_inferred"
     ]
   }
 }

@@ -11,6 +11,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 	"gopkg.in/yaml.v3"
@@ -104,6 +105,11 @@ func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath st
 }
 
 func BuildMCPListWithOptions(snapshot state.Snapshot, opts MCPListOptions) MCPList {
+	profileName := ""
+	if snapshot.Profile != nil {
+		profileName = snapshot.Profile.ProfileName
+	}
+	snapshot.Findings = risk.ApplyFindingProfile(profileName, snapshot.Findings)
 	overlay, warnings := loadMCPTrustOverlay(strings.TrimSpace(opts.OverlayPath), opts.AllowAmbientOverlay)
 	warnings = append(warnings, MCPVisibilityWarnings(snapshot.Findings)...)
 	toolSurfaces := buildMCPToolSurfaceIndex(snapshot.Inventory)
@@ -481,16 +487,20 @@ func mcpAbsenceSummary(report *scanquality.Report, repoFilter string, rows []MCP
 	if len(rows) > 0 {
 		return "", nil, ""
 	}
+	status := ""
+	reasons := []string{}
 	if claim := mcpAbsenceClaim(report, repoFilter); claim != nil {
-		return claim.Status, append([]string(nil), claim.Reasons...), strings.TrimSpace(claim.Impact)
+		status = moreConservativeAbsenceStatus(status, claim.Status)
+		reasons = append(reasons, claim.Reasons...)
 	}
 
-	reasons := []string{"scan_quality:unavailable"}
+	if report == nil {
+		reasons = append(reasons, "scan_quality:unavailable")
+	}
 	if len(candidates) > 0 {
 		reasons = append(reasons, "candidate_evidence:present")
-		return scanquality.AbsenceStatusNotFoundReducedCoverage, uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(scanquality.AbsenceStatusNotFoundReducedCoverage)
+		status = moreConservativeAbsenceStatus(status, scanquality.AbsenceStatusNotFoundReducedCoverage)
 	}
-	status := ""
 	for _, diagnostic := range diagnostics {
 		diagnosticStatus := strings.TrimSpace(diagnostic.AbsenceStatus)
 		if diagnosticStatus == "" {

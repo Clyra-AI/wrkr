@@ -153,7 +153,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			}
 		}
 
-		if couldContainRoutes(ext) {
+		if couldContainRoutes(ext) && !isPassiveDetectorSource(rel) {
 			contains, containsErr := containsWebMCPRoute(scope.Root, rel)
 			if containsErr != nil {
 				return nil, containsErr
@@ -213,6 +213,22 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 
 	model.SortFindings(findings)
 	return findings, nil
+}
+
+func isPassiveDetectorSource(rel string) bool {
+	normalized := strings.ToLower(filepath.ToSlash(strings.TrimSpace(rel)))
+	base := strings.TrimSuffix(filepath.Base(normalized), filepath.Ext(normalized))
+	base = strings.TrimSuffix(base, "_test")
+	if base != "detector" {
+		return false
+	}
+	for _, segment := range strings.Split(normalized, "/") {
+		switch segment {
+		case "detect", "detection", "detector", "detectors":
+			return true
+		}
+	}
+	return false
 }
 
 func parseHTMLDeclarations(root, rel string) ([]string, *model.ParseError) {

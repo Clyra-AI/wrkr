@@ -135,13 +135,14 @@ func projectFirstOfferMixedGovernanceReport(t *testing.T, payload map[string]any
 		"action_paths":   projectActionPaths(t, requireSliceValue(t, payload, "action_paths")),
 		"control_first":  projectRequiredControlFirst(t, requireMapValue(t, payload, "action_path_to_control_first")),
 		"assessment_summary": map[string]any{
-			"governable_path_count":               float64(requireIntValue(t, assessmentSummary, "governable_path_count")),
-			"write_capable_path_count":            float64(requireIntValue(t, assessmentSummary, "write_capable_path_count")),
-			"production_target_backed_path_count": float64(requireIntValue(t, assessmentSummary, "production_target_backed_path_count")),
-			"ownerless_exposure":                  requireMapValue(t, assessmentSummary, "ownerless_exposure"),
-			"identity_exposure_summary":           requireMapValue(t, assessmentSummary, "identity_exposure_summary"),
-			"identity_to_review_first":            projectIdentityActionTarget(t, requireMapValue(t, assessmentSummary, "identity_to_review_first")),
-			"identity_to_revoke_first":            projectIdentityActionTarget(t, requireMapValue(t, assessmentSummary, "identity_to_revoke_first")),
+			"governable_path_count":                 float64(requireIntValue(t, assessmentSummary, "governable_path_count")),
+			"write_capable_path_count":              float64(requireIntValue(t, assessmentSummary, "write_capable_path_count")),
+			"production_target_backed_path_count":   float64(requireIntValue(t, assessmentSummary, "production_target_backed_path_count")),
+			"production_impact_inferred_path_count": float64(requireIntValue(t, assessmentSummary, "production_impact_inferred_path_count")),
+			"ownerless_exposure":                    requireMapValue(t, assessmentSummary, "ownerless_exposure"),
+			"identity_exposure_summary":             requireMapValue(t, assessmentSummary, "identity_exposure_summary"),
+			"identity_to_review_first":              projectIdentityActionTarget(t, requireMapValue(t, assessmentSummary, "identity_to_review_first")),
+			"identity_to_revoke_first":              projectIdentityActionTarget(t, requireMapValue(t, assessmentSummary, "identity_to_revoke_first")),
 		},
 		"exposure_groups": projectExposureGroups(t, requireSliceValue(t, payload, "exposure_groups")),
 	}
@@ -158,10 +159,11 @@ func projectFirstOfferDuplicateFixture(paths []risk.ActionPath, choice *risk.Act
 	}
 	out["control_first"] = map[string]any{
 		"summary": map[string]any{
-			"total_paths":                    float64(choice.Summary.TotalPaths),
-			"write_capable_paths":            float64(choice.Summary.WriteCapablePaths),
-			"production_target_backed_paths": float64(choice.Summary.ProductionTargetBackedPaths),
-			"govern_first_paths":             float64(choice.Summary.GovernFirstPaths),
+			"total_paths":                      float64(choice.Summary.TotalPaths),
+			"write_capable_paths":              float64(choice.Summary.WriteCapablePaths),
+			"production_target_backed_paths":   float64(choice.Summary.ProductionTargetBackedPaths),
+			"production_impact_inferred_paths": float64(choice.Summary.ProductionImpactInferredPaths),
+			"govern_first_paths":               float64(choice.Summary.GovernFirstPaths),
 		},
 		"path": projectRiskActionPath(choice.Path),
 	}
@@ -244,10 +246,11 @@ func projectRequiredControlFirst(t *testing.T, controlFirst map[string]any) map[
 	summary := requireMapValue(t, controlFirst, "summary")
 	projected := map[string]any{
 		"summary": map[string]any{
-			"total_paths":                    float64(requireIntValue(t, summary, "total_paths")),
-			"write_capable_paths":            float64(requireIntValue(t, summary, "write_capable_paths")),
-			"production_target_backed_paths": float64(requireIntValue(t, summary, "production_target_backed_paths")),
-			"govern_first_paths":             float64(requireIntValue(t, summary, "govern_first_paths")),
+			"total_paths":                      float64(requireIntValue(t, summary, "total_paths")),
+			"write_capable_paths":              float64(requireIntValue(t, summary, "write_capable_paths")),
+			"production_target_backed_paths":   float64(requireIntValue(t, summary, "production_target_backed_paths")),
+			"production_impact_inferred_paths": float64(requireIntValue(t, summary, "production_impact_inferred_paths")),
+			"govern_first_paths":               float64(requireIntValue(t, summary, "govern_first_paths")),
 		},
 		"path": map[string]any{
 			"path_id":            requireStringValue(t, path, "path_id"),

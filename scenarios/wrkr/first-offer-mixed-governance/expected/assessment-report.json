@@ -66,7 +66,8 @@
       "inferred_owner_paths": 2,
       "unresolved_owner_paths": 0
     },
-    "production_target_backed_path_count": 2,
+    "production_target_backed_path_count": 0,
+    "production_impact_inferred_path_count": 2,
     "write_capable_path_count": 2
   },
   "control_first": {
@@ -79,25 +80,13 @@
     },
     "summary": {
       "govern_first_paths": 4,
-      "production_target_backed_paths": 2,
+      "production_target_backed_paths": 0,
+      "production_impact_inferred_paths": 2,
       "total_paths": 4,
       "write_capable_paths": 2
     }
   },
   "exposure_groups": [
-    {
-      "business_state_surface": "admin_api",
-      "delivery_chain_status": "none",
-      "group_id": "grp-5ddd3c815fa1",
-      "path_count": 1,
-      "path_ids": [
-        "apc-8ec8602cb415"
-      ],
-      "recommended_action": "control",
-      "tool_types": [
-        "mcp"
-      ]
-    },
     {
       "business_state_surface": "deploy",
       "delivery_chain_status": "pr_merge_deploy",
@@ -109,6 +98,19 @@
       "recommended_action": "control",
       "tool_types": [
         "ci_agent"
+      ]
+    },
+    {
+      "business_state_surface": "admin_api",
+      "delivery_chain_status": "none",
+      "group_id": "grp-bccd44130e37",
+      "path_count": 1,
+      "path_ids": [
+        "apc-8ec8602cb415"
+      ],
+      "recommended_action": "control",
+      "tool_types": [
+        "mcp"
       ]
     },
     {

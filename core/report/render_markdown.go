@@ -77,6 +77,7 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString(fmt.Sprintf("- Governable paths: %d\n", summary.AssessmentSummary.GovernablePathCount))
 		builder.WriteString(fmt.Sprintf("- Write-capable paths: %d\n", summary.AssessmentSummary.WriteCapablePathCount))
 		builder.WriteString(fmt.Sprintf("- Production-target-backed paths: %d\n", summary.AssessmentSummary.ProductionBackedPathCount))
+		builder.WriteString(fmt.Sprintf("- Production-impact-inferred paths: %d\n", summary.AssessmentSummary.ProductionInferredPathCount))
 		if summary.AssessmentSummary.TopPathToControlFirst != nil {
 			builder.WriteString(fmt.Sprintf("- Top path to control first: %s %s (%s%s)\n",
 				summary.AssessmentSummary.TopPathToControlFirst.Repo,
@@ -155,13 +156,29 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
-	if summary.ScanQuality != nil && len(summary.ScanQuality.Detectors) > 0 {
+	if summary.ScanQuality != nil && (len(summary.ScanQuality.Detectors) > 0 || summary.ScanQuality.HostedCoverage != nil) {
 		title := "Scan Quality"
 		if isAgentActionBOMTemplate {
 			title = "Scan Quality Appendix"
 		}
 		builder.WriteString("## " + title + "\n\n")
 		builder.WriteString(fmt.Sprintf("- Mode: %s\n", summary.ScanQuality.Mode))
+		if hosted := summary.ScanQuality.HostedCoverage; hosted != nil {
+			builder.WriteString(fmt.Sprintf("- Hosted coverage: scope=%s authenticated=%t completeness=%s repos=%d/%d failed=%d acquisition=%s requests=%d estimated=%d rate_remaining=%d rate_limit=%d reset=%s\n",
+				hosted.Scope,
+				hosted.Authenticated,
+				hosted.Completeness,
+				hosted.CompletedRepos,
+				hosted.RequestedRepos,
+				hosted.FailedRepos,
+				firstNonEmptyValue(hosted.AcquisitionMode, "unknown"),
+				hosted.Requests,
+				hosted.EstimatedRequests,
+				hosted.RateLimitRemaining,
+				hosted.RateLimitLimit,
+				firstNonEmptyValue(hosted.RateLimitReset, "unknown"),
+			))
+		}
 		if compact := scanquality.BuildCompactCoverageSummary(summary.ScanQuality); compact.CoverageConfidence != "" {
 			builder.WriteString(fmt.Sprintf("- Coverage summary: confidence=%s reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
 				compact.CoverageConfidence,
@@ -1787,8 +1804,15 @@ func renderExecutiveRollupSection(builder *strings.Builder, title string, rollup
 	}
 	builder.WriteString("## " + title + "\n\n")
 	fmt.Fprintf(builder, "- Summary: %d grouped exposures across %d action paths.\n", rollup.TotalGroups, rollup.TotalPaths)
-	for _, group := range rollup.Groups {
-		fmt.Fprintf(builder, "- %s affecting %s: %d %s; %s severity; %s priority; %s closure.\n",
+	displayed := rollup.DisplayedGroups
+	if displayed <= 0 || displayed > len(rollup.Groups) {
+		displayed = len(rollup.Groups)
+		if displayed > 5 {
+			displayed = 5
+		}
+	}
+	for _, group := range rollup.Groups[:displayed] {
+		fmt.Fprintf(builder, "- %s with target scope %s: %d %s; %s severity; %s priority; %s closure.\n",
 			humanizeActionText(firstNonEmptyValue(group.Dimensions.ActionClass, "grouped exposure")),
 			humanizeEnum(firstNonEmptyValue(group.Dimensions.TargetClass, "unknown target")),
 			group.Count,
@@ -1811,6 +1835,9 @@ func renderExecutiveRollupSection(builder *strings.Builder, title string, rollup
 		if len(group.Rationale) > 0 {
 			fmt.Fprintf(builder, "  Rationale: %s.\n", strings.Join(humanizeExecutiveRationale(group.Rationale), " | "))
 		}
+	}
+	if suppressed := rollup.TotalGroups - displayed; suppressed > 0 {
+		fmt.Fprintf(builder, "- %d additional exposure groups are retained in the JSON evidence and appendix exports.\n", suppressed)
 	}
 	builder.WriteString("\n")
 }
@@ -1862,6 +1889,15 @@ func executiveRollupEvidenceLabels(group controlbacklog.ExecutiveRollupGroup) (s
 		unresolved = append(unresolved, "repository scope")
 	default:
 		inferred = append(inferred, "repository grouping "+humanizeEnum(group.Dimensions.RepoCluster))
+	}
+
+	switch strings.TrimSpace(group.Dimensions.ProductionTarget) {
+	case "production_targeted":
+		confirmed = append(confirmed, "customer-configured production target")
+	case "production_impact_inferred":
+		inferred = append(inferred, "production impact from built-in heuristics")
+	case "":
+		unresolved = append(unresolved, "production target scope")
 	}
 
 	return firstNonEmptyValue(strings.Join(confirmed, ", "), "none"),

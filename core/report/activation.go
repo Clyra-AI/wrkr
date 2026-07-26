@@ -19,10 +19,11 @@ const (
 	activationReasonNoConcreteItems = "no_concrete_activation_items"
 	activationReasonNoGovernFirst   = "no_govern_first_activation_items"
 
-	activationClassProductionBacked = "production_target_backed"
-	activationClassUnknownWrite     = "unknown_to_security_write_path"
-	activationClassApprovalGap      = "approval_gap_path"
-	activationClassGovernFirst      = "govern_first_candidate"
+	activationClassProductionBacked   = "production_target_backed"
+	activationClassProductionInferred = "production_impact_inferred"
+	activationClassUnknownWrite       = "unknown_to_security_write_path"
+	activationClassApprovalGap        = "approval_gap_path"
+	activationClassGovernFirst        = "govern_first_candidate"
 )
 
 // BuildActivation projects a first-value view for local-machine scans without mutating raw risk ranking.
@@ -64,6 +65,7 @@ func buildGovernFirstActivationFromPaths(targetMode string, paths []risk.ActionP
 			ItemClass:                classifyGovernFirstActionPath(path),
 			WriteCapable:             path.WriteCapable,
 			ProductionWrite:          path.ProductionWrite,
+			ProductionImpactInferred: path.ProductionImpactInferred,
 			ApprovalClassification:   path.RecommendedAction,
 			SecurityVisibilityStatus: strings.TrimSpace(path.SecurityVisibilityStatus),
 		})
@@ -193,6 +195,7 @@ func buildGovernFirstActivation(targetMode string, inventory *agginventory.Inven
 			ItemClass:                class,
 			WriteCapable:             entry.WriteCapable,
 			ProductionWrite:          entry.ProductionWrite,
+			ProductionImpactInferred: entry.ProductionImpactInferred,
 			ApprovalClassification:   strings.TrimSpace(entry.ApprovalClassification),
 			SecurityVisibilityStatus: strings.TrimSpace(entry.SecurityVisibilityStatus),
 		})
@@ -258,6 +261,8 @@ func classifyGovernFirstClass(entry agginventory.AgentPrivilegeMapEntry) string 
 	switch {
 	case entry.ProductionWrite:
 		return activationClassProductionBacked
+	case entry.ProductionImpactInferred:
+		return activationClassProductionInferred
 	case entry.WriteCapable && strings.TrimSpace(entry.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity:
 		return activationClassUnknownWrite
 	case entry.WriteCapable && isApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons):
@@ -273,12 +278,14 @@ func activationClassPriority(class string) int {
 	switch class {
 	case activationClassProductionBacked:
 		return 0
-	case activationClassUnknownWrite:
+	case activationClassProductionInferred:
 		return 1
-	case activationClassApprovalGap:
+	case activationClassUnknownWrite:
 		return 2
-	case activationClassGovernFirst:
+	case activationClassApprovalGap:
 		return 3
+	case activationClassGovernFirst:
+		return 4
 	default:
 		return 99
 	}
@@ -286,7 +293,7 @@ func activationClassPriority(class string) int {
 
 func governFirstSeverity(entry agginventory.AgentPrivilegeMapEntry, class string) string {
 	switch class {
-	case activationClassProductionBacked, activationClassUnknownWrite:
+	case activationClassProductionBacked, activationClassProductionInferred, activationClassUnknownWrite:
 		return model.SeverityHigh
 	case activationClassApprovalGap:
 		return model.SeverityMedium
@@ -302,6 +309,8 @@ func governFirstNextStep(class string) string {
 	switch class {
 	case activationClassProductionBacked:
 		return "Review this production-target-backed write path and decide whether proof or control should land first."
+	case activationClassProductionInferred:
+		return "Review this built-in production-impact inference, provide customer production targets, and apply controls conservatively in the meantime."
 	case activationClassUnknownWrite:
 		return "Inventory this unknown-to-security write-capable path and assign an explicit review owner."
 	case activationClassApprovalGap:
@@ -315,6 +324,8 @@ func classifyGovernFirstActionPath(path risk.ActionPath) string {
 	switch {
 	case path.ProductionWrite:
 		return activationClassProductionBacked
+	case path.ProductionImpactInferred:
+		return activationClassProductionInferred
 	case path.WriteCapable && strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity:
 		return activationClassUnknownWrite
 	case path.WriteCapable && strings.TrimSpace(path.RecommendedAction) == "approval":
@@ -329,6 +340,7 @@ func governFirstPathSeverity(path risk.ActionPath) string {
 		RiskScore:                path.RiskScore,
 		WriteCapable:             path.WriteCapable,
 		ProductionWrite:          path.ProductionWrite,
+		ProductionImpactInferred: path.ProductionImpactInferred,
 		ApprovalGapReasons:       append([]string(nil), path.ApprovalGapReasons...),
 		SecurityVisibilityStatus: path.SecurityVisibilityStatus,
 	}, classifyGovernFirstActionPath(path))

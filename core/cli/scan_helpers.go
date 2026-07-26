@@ -191,6 +191,48 @@ func normalizeScanTargets(targets []config.Target) []config.Target {
 	return deduped
 }
 
+func acquisitionMode(in *source.AcquisitionTelemetry) string {
+	if in == nil {
+		return ""
+	}
+	return in.Mode
+}
+
+func acquisitionRequests(in *source.AcquisitionTelemetry) int {
+	if in == nil {
+		return 0
+	}
+	return in.Requests
+}
+
+func acquisitionEstimatedRequests(in *source.AcquisitionTelemetry) int {
+	if in == nil {
+		return 0
+	}
+	return in.EstimatedRequests
+}
+
+func acquisitionRateLimitLimit(in *source.AcquisitionTelemetry) int {
+	if in == nil {
+		return 0
+	}
+	return in.RateLimitLimit
+}
+
+func acquisitionRateLimitRemaining(in *source.AcquisitionTelemetry) int {
+	if in == nil {
+		return 0
+	}
+	return in.RateLimitRemaining
+}
+
+func acquisitionRateLimitReset(in *source.AcquisitionTelemetry) string {
+	if in == nil {
+		return ""
+	}
+	return in.RateLimitReset
+}
+
 func acquireSources(ctx context.Context, targets []config.Target, githubBaseURL, githubToken string, opts acquireOptions) (source.Manifest, []source.Finding, error) {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return source.Manifest{}, nil, ctxErr
@@ -267,6 +309,10 @@ func acquireSources(ctx context.Context, targets []config.Target, githubBaseURL,
 			seenRepos[key] = struct{}{}
 			manifestOut.Repos = append(manifestOut.Repos, repoManifest)
 		}
+	}
+	if anyTargetNeedsGitHub(targets) {
+		telemetry := connector.AcquisitionTelemetry()
+		manifestOut.Acquisition = &telemetry
 	}
 
 	manifestOut = source.SortManifest(manifestOut)

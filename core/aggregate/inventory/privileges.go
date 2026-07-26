@@ -19,9 +19,16 @@ const (
 	PathContextPackageCache     = "package_cache"
 	PathContextUnknown          = "unknown"
 
-	ProductionTargetsStatusConfigured    = "configured"
-	ProductionTargetsStatusNotConfigured = "not_configured"
-	ProductionTargetsStatusInvalid       = "invalid"
+	ProductionTargetsStatusConfigured         = "configured" // Legacy saved-state value; new scans emit customer_configured.
+	ProductionTargetsStatusCustomerConfigured = "customer_configured"
+	ProductionTargetsStatusBuiltinInferred    = "builtin_inferred"
+	ProductionTargetsStatusNotConfigured      = "not_configured"
+	ProductionTargetsStatusInvalid            = "invalid"
+
+	ProductionTargetSourceCustomerPolicy   = "customer_policy"
+	ProductionTargetSourceBuiltinHeuristic = "builtin_heuristic"
+	ProductionTargetSourceNone             = "none"
+	ProductionTargetSourceInvalid          = "invalid"
 
 	CredentialProvenanceStaticSecret     = "static_secret"
 	CredentialProvenanceWorkloadIdentity = "workload_identity"
@@ -62,6 +69,7 @@ const (
 type ProductionWriteBudget struct {
 	Configured bool   `json:"configured" yaml:"configured"`
 	Status     string `json:"status" yaml:"status"`
+	Source     string `json:"source" yaml:"source"`
 	Count      *int   `json:"count" yaml:"count"`
 }
 
@@ -163,6 +171,8 @@ type AgentPrivilegeMapEntry struct {
 	DeployWrite                 bool                       `json:"deploy_write,omitempty" yaml:"deploy_write,omitempty"`
 	DeliveryChainStatus         string                     `json:"delivery_chain_status,omitempty" yaml:"delivery_chain_status,omitempty"`
 	ProductionTargetStatus      string                     `json:"production_target_status,omitempty" yaml:"production_target_status,omitempty"`
+	ProductionTargetSource      string                     `json:"production_target_source,omitempty" yaml:"production_target_source,omitempty"`
+	ProductionImpactInferred    bool                       `json:"production_impact_inferred,omitempty" yaml:"production_impact_inferred,omitempty"`
 	WriteCapable                bool                       `json:"write_capable" yaml:"write_capable"`
 	CredentialAccess            bool                       `json:"credential_access" yaml:"credential_access"`
 	Credentials                 []*CredentialProvenance    `json:"credentials,omitempty" yaml:"credentials,omitempty"`

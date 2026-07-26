@@ -54,7 +54,7 @@
     "policy_coverage_status": "none",
     "repo": "demo-app",
     "review_burden": "critical",
-    "risk_zone": "production_data",
+    "risk_zone": "release",
     "tool_type": "ci_agent"
   }
 }

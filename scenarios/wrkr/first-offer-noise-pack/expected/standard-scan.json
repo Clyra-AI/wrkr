@@ -42,7 +42,8 @@
     "summary": {
       "total_paths": 5,
       "write_capable_paths": 5,
-      "production_target_backed_paths": 5,
+      "production_target_backed_paths": 0,
+      "production_impact_inferred_paths": 5,
       "govern_first_paths": 5
     },
     "path": {
@@ -57,11 +58,11 @@
     "eligible_count": 5,
     "message": "Review 5 govern-first candidate path(s) first.",
     "item_classes": [
-      "production_target_backed",
-      "production_target_backed",
-      "production_target_backed",
-      "production_target_backed",
-      "production_target_backed"
+      "production_impact_inferred",
+      "production_impact_inferred",
+      "production_impact_inferred",
+      "production_impact_inferred",
+      "production_impact_inferred"
     ]
   }
 }

@@ -127,7 +127,7 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 	securityVisibilityReference := "unavailable"
 	visibilityClaimsSupported := true
 	visibilityReferenceSeen := false
-	productionStatus := agginventory.ProductionTargetsStatusConfigured
+	productionStatus := agginventory.ProductionTargetsStatusCustomerConfigured
 	productionSum := 0
 	orgStats := map[string]*campaignOrgStats{}
 
@@ -180,14 +180,18 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 
 		status := normalizeCampaignProductionStatus(in.PrivilegeBudget)
 		switch status {
-		case agginventory.ProductionTargetsStatusConfigured:
+		case agginventory.ProductionTargetsStatusCustomerConfigured:
 			if in.PrivilegeBudget.ProductionWrite.Count != nil {
 				productionSum += *in.PrivilegeBudget.ProductionWrite.Count
 			}
 		case agginventory.ProductionTargetsStatusInvalid:
 			productionStatus = agginventory.ProductionTargetsStatusInvalid
-		default:
+		case agginventory.ProductionTargetsStatusBuiltinInferred:
 			if productionStatus != agginventory.ProductionTargetsStatusInvalid {
+				productionStatus = agginventory.ProductionTargetsStatusBuiltinInferred
+			}
+		default:
+			if productionStatus != agginventory.ProductionTargetsStatusInvalid && productionStatus != agginventory.ProductionTargetsStatusBuiltinInferred {
 				productionStatus = agginventory.ProductionTargetsStatusNotConfigured
 			}
 		}
@@ -211,7 +215,7 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 	sort.Slice(detectors, func(i, j int) bool { return detectors[i].ID < detectors[j].ID })
 
 	var productionWriteTools *int
-	if productionStatus == agginventory.ProductionTargetsStatusConfigured {
+	if productionStatus == agginventory.ProductionTargetsStatusCustomerConfigured {
 		value := productionSum
 		productionWriteTools = &value
 	}
@@ -286,11 +290,13 @@ func round2Campaign(value float64) float64 {
 func normalizeCampaignProductionStatus(budget agginventory.PrivilegeBudget) string {
 	status := strings.TrimSpace(budget.ProductionWrite.Status)
 	switch status {
-	case agginventory.ProductionTargetsStatusConfigured, agginventory.ProductionTargetsStatusNotConfigured, agginventory.ProductionTargetsStatusInvalid:
+	case agginventory.ProductionTargetsStatusCustomerConfigured, agginventory.ProductionTargetsStatusBuiltinInferred, agginventory.ProductionTargetsStatusNotConfigured, agginventory.ProductionTargetsStatusInvalid:
 		return status
+	case agginventory.ProductionTargetsStatusConfigured:
+		return agginventory.ProductionTargetsStatusBuiltinInferred
 	default:
 		if budget.ProductionWrite.Configured {
-			return agginventory.ProductionTargetsStatusConfigured
+			return agginventory.ProductionTargetsStatusBuiltinInferred
 		}
 		return agginventory.ProductionTargetsStatusNotConfigured
 	}

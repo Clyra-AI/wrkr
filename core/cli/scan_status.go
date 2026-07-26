@@ -386,6 +386,16 @@ func (t *scanStatusTracker) resumeHintLocked() string {
 			return ""
 		}
 	}
+	if t.status.SourcePrivacy == nil {
+		return ""
+	}
+	privacy := sourceprivacy.Normalize(*t.status.SourcePrivacy)
+	if privacy.RetentionMode != sourceprivacy.RetentionRetainForResume && privacy.RetentionMode != sourceprivacy.RetentionRetain {
+		return ""
+	}
+	if !privacy.MaterializedSourceRetained || privacy.CleanupStatus != sourceprivacy.CleanupRetained {
+		return ""
+	}
 	return "rerun the same org scan with --resume and the same --state path"
 }
 

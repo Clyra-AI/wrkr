@@ -1,7 +1,7 @@
 {
   "schema_id": "https://wrkr.dev/schemas/v1/report/action-contract-packet.schema.json",
   "schema_version": "1",
-  "packet_id": "pacpkt-e28f9685bc2eb197",
+  "packet_id": "pacpkt-0ebdaf43a4d44bf3",
   "template": "action-contract-packet",
   "section_order": [
     "identity",
@@ -17,11 +17,11 @@
     "next_step"
   ],
   "identity": {
-    "artifact_id": "paca-9a7f252bea36494e",
-    "contract_id": "pac-02a97f35f4a67aa4",
+    "artifact_id": "paca-e2e7e6219b8724da",
+    "contract_id": "pac-50542afe4a40d384",
     "contract_family_id": "pacf-4eb827fcc0c1ca88",
-    "contract_content_digest": "sha256:f0ed794c4e4b6a3b78d827a39b29cd240887c29afec1d56e3538c0d568a8db77",
-    "canonical_content_digest": "sha256:9a7f252bea36494e93d75ac98c664f32bc004f29690b25f57aca419f918acf02",
+    "contract_content_digest": "sha256:44598c0d850df0ffdbc3898ed2725593ebd61af5c704079e0d313ddc5f60af02",
+    "canonical_content_digest": "sha256:e2e7e6219b8724dac32e3afdc2a8aa1cc44c9d4407af980b0f21a33c9d971415",
     "contract_version": "3",
     "revision": 1,
     "share_profile": "internal",
@@ -446,8 +446,8 @@
       "requirement_id": "pacp-1400c1d64ff543aa",
       "kind": "policy_digest",
       "required_constraint": "policy_digest:required",
-      "observed_value": "sha256:f4e0b3457b1420f18ccd9d2eb818c50034e3809e97fa0da3ee27d00c2b74f03e",
-      "observed_result": "sha256:f4e0b3457b1420f18ccd9d2eb818c50034e3809e97fa0da3ee27d00c2b74f03e",
+      "observed_value": "sha256:bbd84375759e5aa3d44f0ed3582fd8d95cb1223633c3f9d52ae8ebce7b05d152",
+      "observed_result": "sha256:bbd84375759e5aa3d44f0ed3582fd8d95cb1223633c3f9d52ae8ebce7b05d152",
       "acceptable_producers": [
         "control_declaration",
         "gait_policy"
@@ -902,107 +902,107 @@
   "truncations": [
     {
       "field": "authority_requirements.pacr-0fd5587f1b76b96b.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-23f423c27e33022c.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-33bf1a5bf122d5eb.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-410f227306c79846.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-5a0910fd7439cf1b.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-76c6ec8873ba58c7.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-b4bd4488ef220fa3.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-e46b5cbc297e991b.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-eb17bcbffc40e5ca.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-100f0b7bdd4a16b2.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-1400c1d64ff543aa.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-243a37181fa02f22.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-26e62bda8d9235f9.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-3071f2236a6a2ceb.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-7af11b7b920417d8.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-86533bb3a16417b5.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-9233f8b1f30a7593.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-9acdc96792b4c2ff.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-9e68964dc3b437ef.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-a0bbc7d7e8bf9e98.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-ec93b0673f888fdf.evidence_refs",
-      "omitted_count": 40,
+      "omitted_count": 39,
       "reason": "item_cap"
     }
   ],

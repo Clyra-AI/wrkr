@@ -32,6 +32,79 @@ func TestScanUsesEnvGitHubTokenWhenFlagAndConfigUnset(t *testing.T) {
 	}
 }
 
+func TestAssessmentOrgScanRequiresAuthenticationByDefault(t *testing.T) {
+	t.Setenv("WRKR_GITHUB_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--profile", "assessment",
+		"--github-api", "https://api.github.com",
+		"--state", filepath.Join(t.TempDir(), "state.json"),
+		"--json",
+	}, &out, &errOut)
+	if code != exitDependencyMissing {
+		t.Fatalf("expected dependency-missing exit %d, got %d stderr=%s", exitDependencyMissing, code, errOut.String())
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &envelope); err != nil {
+		t.Fatalf("parse error payload: %v", err)
+	}
+	errorPayload := envelope["error"].(map[string]any)
+	if errorPayload["code"] != "dependency_missing" || errorPayload["exit_code"] != float64(exitDependencyMissing) {
+		t.Fatalf("unexpected dependency error payload: %v", errorPayload)
+	}
+	for _, want := range []string{"WRKR_GITHUB_TOKEN", "gh auth token", "--allow-public-only"} {
+		if !strings.Contains(errOut.String(), want) {
+			t.Fatalf("expected auth guidance %q, got %s", want, errOut.String())
+		}
+	}
+}
+
+func TestAssessmentOrgScanPublicOnlyOptInRecordsReducedCoverage(t *testing.T) {
+	t.Setenv("WRKR_GITHUB_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/backend"}]`)
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[]}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--profile", "assessment",
+		"--allow-public-only",
+		"--github-api", server.URL,
+		"--state", filepath.Join(t.TempDir(), "state.json"),
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	quality := payload["scan_quality"].(map[string]any)
+	hosted := quality["hosted_coverage"].(map[string]any)
+	if hosted["scope"] != "public_only" || hosted["completeness"] != "reduced" || hosted["authenticated"] != false {
+		t.Fatalf("expected explicit reduced public-only coverage, got %v", hosted)
+	}
+}
+
 func TestScanGitHubTokenPrecedenceFlagOverConfigAndEnv(t *testing.T) {
 	t.Setenv("WRKR_GITHUB_TOKEN", "env-token")
 	configPath := writeScanConfig(t, "config-token")

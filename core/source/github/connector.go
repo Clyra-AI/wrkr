@@ -1,6 +1,9 @@
 package github
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -51,6 +54,7 @@ type Connector struct {
 	onRetry             func(RetryEvent)
 	onCooldown          func(CooldownEvent)
 	cooldownErr         error
+	requestStats        source.AcquisitionTelemetry
 }
 
 // ConnectorOptions controls explicit development-only connector behavior.
@@ -135,6 +139,45 @@ func (c *Connector) SetAllowSourceMaterialization(allow bool) {
 		return
 	}
 	c.AllowSourceMaterialization = allow
+}
+
+func (c *Connector) AcquisitionTelemetry() source.AcquisitionTelemetry {
+	if c == nil {
+		return source.AcquisitionTelemetry{}
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := c.requestStats
+	out.Warnings = append([]string(nil), c.requestStats.Warnings...)
+	if c.AllowSourceMaterialization {
+		out.Mode = "archive"
+	} else {
+		out.Mode = "sparse_api"
+	}
+	return out
+}
+
+func (c *Connector) EnsureRequestBudget(repoCount int) error {
+	if c == nil || repoCount <= 0 {
+		return nil
+	}
+	perRepo := 50
+	if c.AllowSourceMaterialization {
+		perRepo = 2
+	}
+	estimate := repoCount*perRepo + 25
+	c.mu.Lock()
+	c.requestStats.EstimatedRequests = estimate
+	remaining := c.requestStats.RateLimitRemaining
+	limit := c.requestStats.RateLimitLimit
+	if limit > 0 && remaining < estimate {
+		c.requestStats.Warnings = append(c.requestStats.Warnings, fmt.Sprintf("estimated GitHub requests %d exceed remaining budget %d", estimate, remaining))
+	}
+	c.mu.Unlock()
+	if limit > 0 && remaining < estimate {
+		return fmt.Errorf("github request budget is insufficient before materialization: estimated=%d remaining=%d; wait for reset, scan pre-cloned repositories with --path, or reduce the org scope", estimate, remaining)
+	}
+	return nil
 }
 
 // DegradedError indicates connector circuit-breaker degradation.
@@ -344,6 +387,25 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 		return source.RepoManifest{}, fmt.Errorf("create materialized repo root: %w", err)
 	}
 
+	if c.AllowSourceMaterialization {
+		emptyRepo, archiveErr := c.materializeRepoArchive(ctx, fullName, defaultBranch, repoRoot, meta.Size != nil && *meta.Size == 0)
+		if archiveErr != nil {
+			return source.RepoManifest{}, archiveErr
+		}
+		contentStatus := source.RepoContentStatusAvailable
+		if emptyRepo {
+			contentStatus = source.RepoContentStatusEmpty
+		}
+		return source.RepoManifest{
+			Repo:              fullName,
+			Location:          "github://" + fullName,
+			ScanRoot:          filepath.ToSlash(repoRoot),
+			Source:            "github_repo_archive",
+			ContentStatus:     contentStatus,
+			OwnershipMetadata: repoOwnershipMetadata(meta),
+		}, nil
+	}
+
 	tree, emptyRepo, err := c.repoTree(ctx, fullName, defaultBranch)
 	if err != nil {
 		return source.RepoManifest{}, err
@@ -397,6 +459,7 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 type repoMeta struct {
 	FullName      string   `json:"full_name"`
 	DefaultBranch string   `json:"default_branch"`
+	Size          *int     `json:"size"`
 	Topics        []string `json:"topics"`
 	Teams         []string `json:"teams"`
 }
@@ -472,6 +535,129 @@ func (c *Connector) repoBlob(ctx context.Context, repo, sha string) (struct {
 		return payload, fmt.Errorf("parse repo blob response: %w", err)
 	}
 	return payload, nil
+}
+
+const (
+	maxArchiveResponseBytes = 100 << 20
+	maxArchiveFileBytes     = 10 << 20
+	maxArchiveExtractBytes  = 250 << 20
+	maxArchiveExpandedBytes = 2 << 30
+	maxArchiveFiles         = 50000
+	archiveRequestTimeout   = 5 * time.Minute
+)
+
+func (c *Connector) materializeRepoArchive(ctx context.Context, repo, ref, repoRoot string, knownEmpty bool) (bool, error) {
+	endpoint := c.BaseURL + "/repos/" + repo + "/tarball/" + url.PathEscape(ref)
+	body, err := c.doGETWithRetryClient(ctx, endpoint, maxArchiveResponseBytes, c.archiveHTTPClient())
+	if err != nil {
+		if isEmptyRepositoryTreeError(err) || (knownEmpty && isMissingRepositoryArchiveError(err)) {
+			return true, nil
+		}
+		return false, fmt.Errorf("load repository archive for %s@%s: %w", repo, ref, err)
+	}
+	gz, err := gzip.NewReader(bytes.NewReader(body))
+	if err != nil {
+		return false, fmt.Errorf("open repository archive for %s: %w", repo, err)
+	}
+	defer func() { _ = gz.Close() }()
+
+	reader := tar.NewReader(gz)
+	expandedBytes := int64(0)
+	materializedBytes := int64(0)
+	archiveEntries := 0
+	for {
+		header, nextErr := reader.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			return false, fmt.Errorf("read repository archive for %s: %w", repo, nextErr)
+		}
+		archiveEntries++
+		if archiveEntries > maxArchiveFiles {
+			return false, fmt.Errorf("repository archive for %s exceeds %d entries", repo, maxArchiveFiles)
+		}
+		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+			continue
+		}
+		if header.Size < 0 {
+			return false, fmt.Errorf("repository archive for %s contains an invalid negative-size entry", repo)
+		}
+		rel, relErr := archiveRelativePath(header.Name)
+		if relErr != nil {
+			return false, fmt.Errorf("repository archive for %s: %w", repo, relErr)
+		}
+		materialize := shouldMaterializeBlobWithSource(rel, true)
+		expandedBytes, materializedBytes, err = addArchiveEntryBytes(expandedBytes, materializedBytes, header.Size, materialize)
+		if err != nil {
+			return false, fmt.Errorf("repository archive for %s: %w", repo, err)
+		}
+		if !materialize {
+			continue
+		}
+		if header.Size > maxArchiveFileBytes {
+			return false, fmt.Errorf("repository archive file %s exceeds the %d-byte limit", rel, maxArchiveFileBytes)
+		}
+		dest, joinErr := safeJoin(repoRoot, rel)
+		if joinErr != nil {
+			return false, joinErr
+		}
+		if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
+			return false, fmt.Errorf("create materialized parent: %w", err)
+		}
+		file, openErr := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+		if openErr != nil {
+			return false, fmt.Errorf("create materialized file %s: %w", rel, openErr)
+		}
+		_, copyErr := io.CopyN(file, reader, header.Size)
+		closeErr := file.Close()
+		if copyErr != nil {
+			return false, fmt.Errorf("write materialized file %s: %w", rel, copyErr)
+		}
+		if closeErr != nil {
+			return false, fmt.Errorf("close materialized file %s: %w", rel, closeErr)
+		}
+	}
+	return archiveEntries == 0, nil
+}
+
+func addArchiveEntryBytes(expanded, materialized, entryBytes int64, materialize bool) (int64, int64, error) {
+	if entryBytes > maxArchiveExpandedBytes-expanded {
+		return expanded, materialized, fmt.Errorf("exceeds the %d-byte expanded archive limit", maxArchiveExpandedBytes)
+	}
+	expanded += entryBytes
+	if !materialize {
+		return expanded, materialized, nil
+	}
+	if entryBytes > maxArchiveExtractBytes-materialized {
+		return expanded, materialized, fmt.Errorf("exceeds the %d-byte materialized file limit", maxArchiveExtractBytes)
+	}
+	return expanded, materialized + entryBytes, nil
+}
+
+func archiveRelativePath(name string) (string, error) {
+	raw := strings.ReplaceAll(strings.TrimSpace(name), "\\", "/")
+	if raw == "" || strings.HasPrefix(raw, "/") || strings.ContainsRune(raw, '\x00') {
+		return "", fmt.Errorf("unsafe archive entry %q", name)
+	}
+	for _, part := range strings.Split(raw, "/") {
+		if part == "" || part == "." || part == ".." {
+			return "", fmt.Errorf("unsafe archive entry %q", name)
+		}
+	}
+	normalized := path.Clean(raw)
+	if normalized == "." || normalized == ".." || strings.HasPrefix(normalized, "../") {
+		return "", fmt.Errorf("unsafe archive entry %q", name)
+	}
+	parts := strings.Split(normalized, "/")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid archive entry %q", name)
+	}
+	rel := strings.Join(parts[1:], "/")
+	if rel == "" || strings.HasPrefix(rel, "/") || rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", fmt.Errorf("unsafe archive entry %q", name)
+	}
+	return rel, nil
 }
 
 func decodeBlob(content, encoding string) ([]byte, error) {
@@ -723,6 +909,14 @@ func safeJoin(root, rel string) (string, error) {
 }
 
 func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte, error) {
+	return c.doGETWithRetryLimit(ctx, endpoint, 0)
+}
+
+func (c *Connector) doGETWithRetryLimit(ctx context.Context, endpoint string, maxBytes int64) ([]byte, error) {
+	return c.doGETWithRetryClient(ctx, endpoint, maxBytes, c.HTTPClient)
+}
+
+func (c *Connector) doGETWithRetryClient(ctx context.Context, endpoint string, maxBytes int64, client HTTPClient) ([]byte, error) {
 	if degradeErr := c.checkDegraded(); degradeErr != nil {
 		c.emitCooldown(0, degradeErr)
 		return nil, degradeErr
@@ -743,18 +937,30 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 		}
 		req.Header.Set("Accept", "application/vnd.github+json")
 
-		resp, err := c.HTTPClient.Do(req)
+		resp, err := client.Do(req)
 		retryDelay := c.jitteredBackoff(attempt)
 		statusCode := 0
 		if err != nil {
-			lastErr = fmt.Errorf("request failed: %w", err)
+			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				lastErr = fmt.Errorf("request timed out before the scan deadline: %v", err)
+			} else {
+				lastErr = fmt.Errorf("request failed: %w", err)
+			}
 		} else {
-			body, readErr := io.ReadAll(resp.Body)
+			c.recordResponseHeaders(resp.Header)
+			reader := io.Reader(resp.Body)
+			if maxBytes > 0 {
+				reader = io.LimitReader(resp.Body, maxBytes+1)
+			}
+			body, readErr := io.ReadAll(reader)
 			_ = resp.Body.Close()
 			if readErr != nil {
 				return nil, fmt.Errorf("read response body: %w", readErr)
 			}
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				if maxBytes > 0 && int64(len(body)) > maxBytes {
+					return nil, fmt.Errorf("github response exceeds the %d-byte limit", maxBytes)
+				}
 				c.recordSuccess()
 				return body, nil
 			}
@@ -791,6 +997,41 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 	recordedErr := c.recordFailure(lastErr)
 	c.emitCooldown(0, recordedErr)
 	return nil, recordedErr
+}
+
+func (c *Connector) archiveHTTPClient() HTTPClient {
+	configured, ok := c.HTTPClient.(*http.Client)
+	if !ok {
+		return c.HTTPClient
+	}
+	base, err := githubendpoint.Parse(c.BaseURL, c.endpointOptions)
+	if err != nil {
+		return c.HTTPClient
+	}
+	clone := *configured
+	clone.Timeout = archiveRequestTimeout
+	clone.CheckRedirect = githubendpoint.ArchiveRedirectPolicy(base)
+	return &clone
+}
+
+func (c *Connector) recordResponseHeaders(header http.Header) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.requestStats.Requests++
+	if value, err := strconv.Atoi(strings.TrimSpace(header.Get("X-RateLimit-Limit"))); err == nil && value > 0 {
+		c.requestStats.RateLimitLimit = value
+	}
+	if value, err := strconv.Atoi(strings.TrimSpace(header.Get("X-RateLimit-Remaining"))); err == nil && value >= 0 {
+		c.requestStats.RateLimitRemaining = value
+	}
+	if raw := strings.TrimSpace(header.Get("X-RateLimit-Reset")); raw != "" {
+		if epoch, err := strconv.ParseInt(raw, 10, 64); err == nil && epoch > 0 {
+			c.requestStats.RateLimitReset = time.Unix(epoch, 0).UTC().Format(time.RFC3339)
+		}
+	}
 }
 
 func (c *Connector) now() time.Time {
@@ -1152,6 +1393,11 @@ func isEmptyRepositoryTreeError(err error) bool {
 	}
 	message := strings.ToLower(strings.TrimSpace(statusErr.Message))
 	return strings.Contains(message, "repository is empty") || strings.Contains(message, "git repository is empty")
+}
+
+func isMissingRepositoryArchiveError(err error) bool {
+	var statusErr *statusError
+	return errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusNotFound
 }
 
 func normalizeRepo(repo string) (string, error) {

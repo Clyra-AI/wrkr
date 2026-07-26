@@ -26,8 +26,8 @@ func TestDeliveryChainCorrelationScenario(t *testing.T) {
 	if first["delivery_chain_status"] != "pr_merge_deploy" {
 		t.Fatalf("expected delivery_chain_status=pr_merge_deploy, got %v", first["delivery_chain_status"])
 	}
-	if first["production_target_status"] != "configured" {
-		t.Fatalf("expected production_target_status=configured, got %v", first["production_target_status"])
+	if first["production_target_status"] != "customer_configured" {
+		t.Fatalf("expected production_target_status=customer_configured, got %v", first["production_target_status"])
 	}
 	if first["production_write"] != true {
 		t.Fatalf("expected production_write=true, got %v", first["production_write"])

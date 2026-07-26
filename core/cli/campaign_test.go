@@ -72,7 +72,8 @@ func TestCampaignAggregateJSON(t *testing.T) {
 				"exec_capable_tools":      1,
 				"production_write": map[string]any{
 					"configured": true,
-					"status":     "configured",
+					"status":     "customer_configured",
+					"source":     "customer_policy",
 					"count":      1,
 				},
 			},
@@ -87,7 +88,8 @@ func TestCampaignAggregateJSON(t *testing.T) {
 			"exec_capable_tools":      1,
 			"production_write": map[string]any{
 				"configured": true,
-				"status":     "configured",
+				"status":     "customer_configured",
+				"source":     "customer_policy",
 				"count":      1,
 			},
 		},
@@ -147,7 +149,7 @@ func TestCampaignAggregateJSON(t *testing.T) {
 	if metrics["security_visibility_reference"] != "state_snapshot" {
 		t.Fatalf("unexpected security_visibility_reference: %v", metrics["security_visibility_reference"])
 	}
-	if metrics["production_write_status"] != "configured" {
+	if metrics["production_write_status"] != "customer_configured" {
 		t.Fatalf("unexpected production_write_status: %v", metrics["production_write_status"])
 	}
 	if _, ok := campaign["segments"].(map[string]any); !ok {

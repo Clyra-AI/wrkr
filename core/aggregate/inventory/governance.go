@@ -315,7 +315,7 @@ func BuildGovernanceControls(input GovernanceControlInput) []GovernanceControlMa
 		))
 		controls = append(controls, controlStatus(
 			GovernanceControlProduction,
-			input.ProductionWrite || strings.TrimSpace(input.ProductionTargetStatus) == ProductionTargetsStatusConfigured,
+			input.ProductionWrite || strings.TrimSpace(input.ProductionTargetStatus) == ProductionTargetsStatusCustomerConfigured,
 			[]string{"production_target_status=" + fallback(input.ProductionTargetStatus, "unknown")},
 			[]string{"production_access_classification_missing"},
 		))

@@ -411,8 +411,10 @@ func TestStandingCredentialControlPathLeadsWithRemediation(t *testing.T) {
 		},
 	}
 
-	if got := actionFromActionPath("control", path); got != ActionRemediate {
-		t.Fatalf("expected standing credential path to lead with remediation, got %q", got)
+	for _, modelAction := range []string{"control", "approval", "proof", "inventory", ""} {
+		if got := actionFromActionPath(modelAction, path); got != ActionRemediate {
+			t.Fatalf("expected standing credential path to lead with remediation independently of model action %q, got %q", modelAction, got)
+		}
 	}
 }
 

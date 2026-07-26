@@ -17,6 +17,10 @@ type RepoMaterializer interface {
 	MaterializeRepo(ctx context.Context, repo string, materializedRoot string) (source.RepoManifest, error)
 }
 
+type RequestBudgeter interface {
+	EnsureRequestBudget(repoCount int) error
+}
+
 type ProgressReporter interface {
 	RepoDiscovery(org string, total int)
 	RepoMaterialize(org string, index, total int, repo string)
@@ -59,6 +63,11 @@ func AcquireMaterialized(
 	}
 	repoNames = uniqueSortedStrings(repoNames)
 	totalRepos := len(repoNames)
+	if budgeter, ok := lister.(RequestBudgeter); ok {
+		if budgetErr := budgeter.EnsureRequestBudget(totalRepos); budgetErr != nil {
+			return nil, nil, budgetErr
+		}
+	}
 	if opts.Progress != nil {
 		opts.Progress.RepoDiscovery(org, totalRepos)
 	}

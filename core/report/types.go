@@ -253,16 +253,17 @@ type Headline struct {
 }
 
 type AssessmentSummary struct {
-	GovernablePathCount        int                           `json:"governable_path_count"`
-	WriteCapablePathCount      int                           `json:"write_capable_path_count"`
-	ProductionBackedPathCount  int                           `json:"production_target_backed_path_count"`
-	TopPathToControlFirst      *risk.ActionPath              `json:"top_path_to_control_first,omitempty"`
-	TopExecutionIdentityBacked *risk.ActionPath              `json:"top_execution_identity_backed_path,omitempty"`
-	OwnerlessExposure          *risk.OwnerlessExposure       `json:"ownerless_exposure,omitempty"`
-	IdentityExposureSummary    *risk.IdentityExposureSummary `json:"identity_exposure_summary,omitempty"`
-	IdentityToReviewFirst      *risk.IdentityActionTarget    `json:"identity_to_review_first,omitempty"`
-	IdentityToRevokeFirst      *risk.IdentityActionTarget    `json:"identity_to_revoke_first,omitempty"`
-	ProofChainPath             string                        `json:"proof_chain_path,omitempty"`
+	GovernablePathCount         int                           `json:"governable_path_count"`
+	WriteCapablePathCount       int                           `json:"write_capable_path_count"`
+	ProductionBackedPathCount   int                           `json:"production_target_backed_path_count"`
+	ProductionInferredPathCount int                           `json:"production_impact_inferred_path_count"`
+	TopPathToControlFirst       *risk.ActionPath              `json:"top_path_to_control_first,omitempty"`
+	TopExecutionIdentityBacked  *risk.ActionPath              `json:"top_execution_identity_backed_path,omitempty"`
+	OwnerlessExposure           *risk.OwnerlessExposure       `json:"ownerless_exposure,omitempty"`
+	IdentityExposureSummary     *risk.IdentityExposureSummary `json:"identity_exposure_summary,omitempty"`
+	IdentityToReviewFirst       *risk.IdentityActionTarget    `json:"identity_to_review_first,omitempty"`
+	IdentityToRevokeFirst       *risk.IdentityActionTarget    `json:"identity_to_revoke_first,omitempty"`
+	ProofChainPath              string                        `json:"proof_chain_path,omitempty"`
 }
 
 type PublicSurfaceAssessment struct {
@@ -386,33 +387,35 @@ type Methodology struct {
 }
 
 type RiskItem struct {
-	Rank                   int      `json:"rank"`
-	CanonicalKey           string   `json:"canonical_key"`
-	Score                  float64  `json:"risk_score"`
-	FindingType            string   `json:"finding_type"`
-	Severity               string   `json:"severity"`
-	ToolType               string   `json:"tool_type"`
-	Org                    string   `json:"org"`
-	Repo                   string   `json:"repo"`
-	Location               string   `json:"location"`
-	PathID                 string   `json:"path_id,omitempty"`
-	GroupedPathCount       int      `json:"grouped_path_count,omitempty"`
-	GroupedPathIDs         []string `json:"grouped_path_ids,omitempty"`
-	InventoryRisk          string   `json:"inventory_risk,omitempty"`
-	AttackPathScore        float64  `json:"attack_path_score,omitempty"`
-	ControlPriority        string   `json:"control_priority,omitempty"`
-	RiskTier               string   `json:"risk_tier,omitempty"`
-	ControlState           string   `json:"control_state,omitempty"`
-	RiskZone               string   `json:"risk_zone,omitempty"`
-	ReviewBurden           string   `json:"review_burden,omitempty"`
-	ConfidenceLane         string   `json:"confidence_lane,omitempty"`
-	CredentialAccess       bool     `json:"credential_access,omitempty"`
-	ProductionTargetStatus string   `json:"production_target_status,omitempty"`
-	RecommendedAction      string   `json:"recommended_action,omitempty"`
-	WriteCapable           bool     `json:"write_capable,omitempty"`
-	ProductionWrite        bool     `json:"production_write,omitempty"`
-	Rationale              []string `json:"rationale"`
-	Remediation            string   `json:"remediation"`
+	Rank                     int      `json:"rank"`
+	CanonicalKey             string   `json:"canonical_key"`
+	Score                    float64  `json:"risk_score"`
+	FindingType              string   `json:"finding_type"`
+	Severity                 string   `json:"severity"`
+	ToolType                 string   `json:"tool_type"`
+	Org                      string   `json:"org"`
+	Repo                     string   `json:"repo"`
+	Location                 string   `json:"location"`
+	PathID                   string   `json:"path_id,omitempty"`
+	GroupedPathCount         int      `json:"grouped_path_count,omitempty"`
+	GroupedPathIDs           []string `json:"grouped_path_ids,omitempty"`
+	InventoryRisk            string   `json:"inventory_risk,omitempty"`
+	AttackPathScore          float64  `json:"attack_path_score,omitempty"`
+	ControlPriority          string   `json:"control_priority,omitempty"`
+	RiskTier                 string   `json:"risk_tier,omitempty"`
+	ControlState             string   `json:"control_state,omitempty"`
+	RiskZone                 string   `json:"risk_zone,omitempty"`
+	ReviewBurden             string   `json:"review_burden,omitempty"`
+	ConfidenceLane           string   `json:"confidence_lane,omitempty"`
+	CredentialAccess         bool     `json:"credential_access,omitempty"`
+	ProductionTargetStatus   string   `json:"production_target_status,omitempty"`
+	ProductionTargetSource   string   `json:"production_target_source,omitempty"`
+	ProductionImpactInferred bool     `json:"production_impact_inferred,omitempty"`
+	RecommendedAction        string   `json:"recommended_action,omitempty"`
+	WriteCapable             bool     `json:"write_capable,omitempty"`
+	ProductionWrite          bool     `json:"production_write,omitempty"`
+	Rationale                []string `json:"rationale"`
+	Remediation              string   `json:"remediation"`
 }
 
 type DeltaSummary struct {
@@ -502,6 +505,7 @@ type ActivationItem struct {
 	ItemClass                string  `json:"item_class,omitempty"`
 	WriteCapable             bool    `json:"write_capable,omitempty"`
 	ProductionWrite          bool    `json:"production_write,omitempty"`
+	ProductionImpactInferred bool    `json:"production_impact_inferred,omitempty"`
 	ApprovalClassification   string  `json:"approval_classification,omitempty"`
 	SecurityVisibilityStatus string  `json:"security_visibility_status,omitempty"`
 }

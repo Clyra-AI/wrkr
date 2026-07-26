@@ -23,6 +23,13 @@ const (
 	CoverageConfidenceComplete = "complete"
 	CoverageConfidenceReduced  = "reduced"
 	CoverageConfidenceUnknown  = "unknown"
+
+	HostedCoverageAuthenticatedOrg  = "authenticated_org"
+	HostedCoverageAuthenticatedRepo = "authenticated_repo"
+	HostedCoveragePublicOnly        = "public_only"
+	HostedCoverageNotApplicable     = "not_applicable"
+	HostedCoverageComplete          = "complete"
+	HostedCoverageReduced           = "reduced"
 )
 
 type Report struct {
@@ -34,6 +41,77 @@ type Report struct {
 	ParseErrors        []ParseIssue            `json:"parse_errors,omitempty"`
 	DetectorErrors     []detect.DetectorError  `json:"detector_errors,omitempty"`
 	AbsenceClaims      []AbsenceClaim          `json:"absence_claims,omitempty"`
+	HostedCoverage     *HostedCoverage         `json:"hosted_coverage,omitempty"`
+}
+
+type HostedCoverage struct {
+	Scope              string   `json:"scope"`
+	Authenticated      bool     `json:"authenticated"`
+	Completeness       string   `json:"completeness"`
+	RequestedRepos     int      `json:"requested_repos,omitempty"`
+	CompletedRepos     int      `json:"completed_repos,omitempty"`
+	FailedRepos        int      `json:"failed_repos,omitempty"`
+	AcquisitionMode    string   `json:"acquisition_mode,omitempty"`
+	Requests           int      `json:"requests,omitempty"`
+	EstimatedRequests  int      `json:"estimated_requests,omitempty"`
+	RateLimitLimit     int      `json:"rate_limit_limit,omitempty"`
+	RateLimitRemaining int      `json:"rate_limit_remaining,omitempty"`
+	RateLimitReset     string   `json:"rate_limit_reset,omitempty"`
+	Reasons            []string `json:"reasons,omitempty"`
+}
+
+type HostedCoverageInput struct {
+	HostedTarget       bool
+	OrgTarget          bool
+	Authenticated      bool
+	PublicOnlyOptIn    bool
+	RequestedRepos     int
+	CompletedRepos     int
+	FailedRepos        int
+	AcquisitionMode    string
+	Requests           int
+	EstimatedRequests  int
+	RateLimitLimit     int
+	RateLimitRemaining int
+	RateLimitReset     string
+}
+
+func BuildHostedCoverage(input HostedCoverageInput) *HostedCoverage {
+	if !input.HostedTarget {
+		return nil
+	}
+	coverage := &HostedCoverage{
+		Authenticated:      input.Authenticated,
+		RequestedRepos:     input.RequestedRepos,
+		CompletedRepos:     input.CompletedRepos,
+		FailedRepos:        input.FailedRepos,
+		AcquisitionMode:    strings.TrimSpace(input.AcquisitionMode),
+		Requests:           input.Requests,
+		EstimatedRequests:  input.EstimatedRequests,
+		RateLimitLimit:     input.RateLimitLimit,
+		RateLimitRemaining: input.RateLimitRemaining,
+		RateLimitReset:     strings.TrimSpace(input.RateLimitReset),
+		Completeness:       HostedCoverageComplete,
+	}
+	switch {
+	case !input.Authenticated:
+		coverage.Scope = HostedCoveragePublicOnly
+		coverage.Completeness = HostedCoverageReduced
+		coverage.Reasons = append(coverage.Reasons, "github_authentication:unavailable", "private_repository_coverage:unknown")
+		if input.PublicOnlyOptIn {
+			coverage.Reasons = append(coverage.Reasons, "public_only_coverage:explicitly_acknowledged")
+		}
+	case input.OrgTarget:
+		coverage.Scope = HostedCoverageAuthenticatedOrg
+	default:
+		coverage.Scope = HostedCoverageAuthenticatedRepo
+	}
+	if input.FailedRepos > 0 {
+		coverage.Completeness = HostedCoverageReduced
+		coverage.Reasons = append(coverage.Reasons, "repository_failures:present")
+	}
+	coverage.Reasons = mapKeysSorted(stringSliceSet(coverage.Reasons))
+	return coverage
 }
 
 type CompactCoverageSummary struct {
@@ -163,7 +241,7 @@ func BuildCompactCoverageSummary(report *Report) CompactCoverageSummary {
 	reducedDetectorCount = len(reducedDetectorKeys)
 	parseFailureCount := len(report.ParseErrors)
 	coverageConfidence := CoverageConfidenceComplete
-	if reducedDetectorCount > 0 || parseFailureCount > 0 || blockedDetectorCount > 0 {
+	if reducedDetectorCount > 0 || parseFailureCount > 0 || blockedDetectorCount > 0 || (report.HostedCoverage != nil && report.HostedCoverage.Completeness == HostedCoverageReduced) {
 		coverageConfidence = CoverageConfidenceReduced
 	}
 
@@ -265,6 +343,8 @@ func compactCoverageImpactStatement(report *Report, coverageConfidence string, b
 		return "Coverage metadata was unavailable; absence claims remain scoped to available evidence."
 	case blockedDetectorCount > 0:
 		return "One or more detector surfaces were blocked, so negative claims remain coverage-qualified."
+	case report.HostedCoverage != nil && report.HostedCoverage.Completeness == HostedCoverageReduced:
+		return "Hosted source coverage was reduced, so organization-wide completeness and negative claims are not supported."
 	case coverageConfidence == CoverageConfidenceReduced || parseFailureCount > 0 || len(report.DetectorErrors) > 0:
 		return "Some detector coverage was reduced or parse-limited, so negative claims remain scoped to scanned inputs."
 	case unsupportedDeclarationCount > 0:
@@ -272,6 +352,16 @@ func compactCoverageImpactStatement(report *Report, coverageConfidence string, b
 	default:
 		return "Coverage for scanned inputs was complete enough to support scoped negative claims."
 	}
+}
+
+func stringSliceSet(values []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			out[trimmed] = struct{}{}
+		}
+	}
+	return out
 }
 
 func mapKeysSorted(values map[string]struct{}) []string {
