@@ -582,7 +582,7 @@ func (c *Connector) materializeRepoArchive(ctx context.Context, repo, ref, repoR
 		if archiveEntries > maxArchiveFiles {
 			return false, fmt.Errorf("repository archive for %s exceeds %d entries", repo, maxArchiveFiles)
 		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+		if header.Typeflag != tar.TypeReg {
 			continue
 		}
 		if header.Size < 0 {
