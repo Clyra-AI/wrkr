@@ -650,6 +650,7 @@ func TestTypedWorkflowCredentialsKeepSubjectSpecificReasonsAndTargets(t *testing
 			)
 			if got == nil {
 				t.Fatal("expected credential provenance")
+				return
 			}
 			if got.TargetSystem != tc.targetSystem || got.LikelyScope != tc.likelyScope {
 				t.Fatalf("expected %s/%s target metadata, got %+v", tc.targetSystem, tc.likelyScope, got)
