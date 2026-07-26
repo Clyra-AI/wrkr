@@ -560,6 +560,11 @@ func (c *Connector) materializeRepoArchive(ctx context.Context, repo, ref, repoR
 		return false, fmt.Errorf("open repository archive for %s: %w", repo, err)
 	}
 	defer func() { _ = gz.Close() }()
+	rootFS, err := os.OpenRoot(repoRoot)
+	if err != nil {
+		return false, fmt.Errorf("open materialized repo root: %w", err)
+	}
+	defer func() { _ = rootFS.Close() }()
 
 	reader := tar.NewReader(gz)
 	expandedBytes := int64(0)
@@ -602,14 +607,10 @@ func (c *Connector) materializeRepoArchive(ctx context.Context, repo, ref, repoR
 		if header.Size > maxArchiveFileBytes {
 			return false, fmt.Errorf("repository archive file %s exceeds the %d-byte limit", rel, maxArchiveFileBytes)
 		}
-		dest, joinErr := safeJoin(repoRoot, localRel)
-		if joinErr != nil {
-			return false, joinErr
-		}
-		if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
+		if err := rootFS.MkdirAll(filepath.Dir(localRel), 0o750); err != nil {
 			return false, fmt.Errorf("create materialized parent: %w", err)
 		}
-		file, openErr := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+		file, openErr := rootFS.OpenFile(localRel, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 		if openErr != nil {
 			return false, fmt.Errorf("create materialized file %s: %w", rel, openErr)
 		}
