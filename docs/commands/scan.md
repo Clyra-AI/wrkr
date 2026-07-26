@@ -204,8 +204,8 @@ For a local fallback that consumes GitHub authentication only during cloning, pr
 
 ```bash
 mkdir -p ./.tmp/customer-repos
-gh repo list acme --limit 15 --json nameWithOwner --jq '.[].nameWithOwner' |
-  while read -r repo; do gh repo clone "$repo" "./.tmp/customer-repos/${repo#*/}" -- --depth=1; done
+gh api 'orgs/acme/repos?per_page=15&type=all' | jq -r '.[].full_name' |
+  while read -r repo; do gh repo clone "$repo" "./.tmp/customer-repos/${repo#*/}"; done
 wrkr scan --path ./.tmp/customer-repos --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.wrkr/scan-summary.md
 ```
 
