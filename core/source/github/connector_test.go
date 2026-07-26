@@ -495,6 +495,7 @@ func TestMaterializeRepoAllowsGenericSourceWhenExplicitlyEnabled(t *testing.T) {
 			w.Header().Set("Content-Type", "application/gzip")
 			_, _ = w.Write(testTarGz(t, map[string]string{
 				"acme-backend-sha/src/main.py":                    "from crewai import Agent\n",
+				"acme-backend-sha/src/config..backup.py":          "from crewai import Agent\n",
 				"acme-backend-sha/build/generated.py":             "generated\n",
 				"acme-backend-sha/node_modules/pkg/server.js":     "dependency\n",
 				"acme-backend-sha/vendor/example.com/pkg/tool.go": "dependency\n",
@@ -516,6 +517,9 @@ func TestMaterializeRepoAllowsGenericSourceWhenExplicitlyEnabled(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "src", "main.py")); err != nil {
 		t.Fatalf("expected explicit generic source materialization: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "src", "config..backup.py")); err != nil {
+		t.Fatalf("expected local filename containing adjacent dots to remain valid: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "build", "generated.py")); !os.IsNotExist(err) {
 		t.Fatalf("expected generated source path to remain skipped, stat err=%v", err)
