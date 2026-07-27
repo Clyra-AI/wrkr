@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- Updated `golang.org/x/net` to `v0.56.0` and `golang.org/x/text` to `v0.39.0` to remediate the High-severity `GO-2026-5942` and `GO-2026-5970` findings that blocked staged release artifact publication.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -38,6 +38,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.12.1] - 2026-07-27
+<!-- release-semver: patch -->
+
+### Security
+
+- Updated `golang.org/x/net` to `v0.56.0` and `golang.org/x/text` to `v0.39.0` to remediate the High-severity `GO-2026-5942` and `GO-2026-5970` findings that blocked staged release artifact publication.
 
 ## [v1.12.0] - 2026-07-26
 <!-- release-semver: minor -->

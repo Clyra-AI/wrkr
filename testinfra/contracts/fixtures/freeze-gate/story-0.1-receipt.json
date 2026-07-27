@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "38fc0fde6c5e6e4ddcc0130a367bdfaf33608f18395b9a0a5333892ac7915789",
+  "validated_content_sha256": "356f18abc1d071843cfb6d6de8b03c10137d6004d232920d15766e77ee0f48eb",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -40,7 +40,7 @@
     "action_contract_conformance_fixture_v1",
     "bounded_multi_stage_composed_action_contracts"
   ],
-  "validated_on": "2026-07-26",
+  "validated_on": "2026-07-27",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:4-repos",
