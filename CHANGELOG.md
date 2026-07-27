@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- Updated `golang.org/x/net` to `v0.56.0` and `golang.org/x/text` to `v0.39.0` to remediate the High-severity `GO-2026-5942` and `GO-2026-5970` findings that blocked staged release artifact publication.
 
 ## Changelog maintenance process
 
