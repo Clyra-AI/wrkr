@@ -8,14 +8,16 @@ require (
 	github.com/dop251/goja v0.0.0-20260219130522-0ba9a5494a59
 	github.com/gofrs/flock v0.13.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
-	golang.org/x/mod v0.35.0
-	golang.org/x/net v0.55.0
+	golang.org/x/mod v0.37.0
+	golang.org/x/net v0.56.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gowebpki/jcs v1.0.1 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.15.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 )
