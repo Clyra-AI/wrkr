@@ -8,41 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added authenticated assessment-org coverage contracts, explicit `--allow-public-only` reduced coverage, GitHub request-budget receipts, and bounded archive acquisition for broad hosted source scans.
-- [semver:patch] Added executable Go coverage gates for the 85% aggregate core/cmd target and 75% per-package target, with owner-assigned, expiring non-regression floors and fail-closed tests for missing, stale, expired, and regressed exceptions.
-- [semver:patch] Added a source-bound Sprint 0 freeze runner that executes allowlisted validation commands, records command output hashes and the current commit, and publishes a runtime receipt from PR, main, and release lanes.
-- [semver:minor] Added a deterministic `composed_action_path` artifact that identifies bounded multi-stage authority paths from existing action paths and workflow chains without claiming observed execution.
-- [semver:minor] Added report-only proposed Action Contract v2 output linked to composed action paths for downstream Gait/control workflows.
-- [semver:minor] Added explicit composition, proposed contract, workflow-chain, and resolution-key references to decision traces and evidence exports for stable Gait and Axym correlation.
-- [semver:minor] Added canonical composed action-path fixtures and contract tests covering sensitive egress, secret-to-network, deploy, release, standing credential, incomplete outcome, and controlled transition scenarios.
-- [semver:minor] Added delegated authority relationship projection for composed action paths so reports can identify narrowed, equal, broadened, unknown, and contradictory authority transitions.
-- [semver:minor] Added bounded equivalent-outcome signals for composed paths that can reach the same deploy, egress, privileged mutation, or release outcome with weaker controls.
-- [semver:minor] Added composition drift detection for introduced, changed, newly ungoverned, evidence-degraded, coverage-degraded, and alternate-route composed authority paths.
-- [semver:minor] Added proposed Action Contract version 3 with typed, evidence-backed authority requirements while retaining version 2 compatibility.
-- [semver:minor] Added typed readiness and effect preconditions to proposed Action Contract version 3, including producer, freshness, environment, credential, and effect constraints.
-- [semver:minor] Added structured confirmation, approval validity, separation-of-duties, reapproval, and compensation requirements to proposed Action Contract version 3.
-- [semver:minor] Added `wrkr export action-contracts` for standalone, RFC 8785 JCS-digested proposed Action Contract artifacts with deterministic selection, redaction, and proof references.
-- [semver:minor] Added immutable proposed Action Contract revision chains and evidence-backed Gait activation, rejection, execution, effect, and Axym verification references.
-- [semver:minor] Added an opt-in JSON and Markdown Action Contract packet for buyer review of authority, checks, effects, approvals, compensation, gaps, and downstream evidence.
-- [semver:minor] Added bounded three-to-five-stage cross-system composed Action Contracts with explicit trust-boundary evidence, stable identities, and possible-versus-observed reachability states.
-- [semver:minor] Added scoped containment evidence for stop requests, covered-action denials, capability and descendant invalidation, external revocation acknowledgements, containment receipts, and unresolved boundaries.
+- (none yet)
 
 ### Changed
 
-- [semver:patch] Production-write claims now require a valid customer `--production-targets` file; built-in target packs remain labeled `builtin_inferred` context without numeric production-write claims.
-- [semver:patch] Capped primary executive rollups at five groups by default and ten maximum while retaining full groups and suppression receipts in JSON. The regenerated customer-redacted sample fell from 358 lines / 39,696 bytes to 328 lines / 35,461 bytes (-30 lines / -4,235 bytes); coverage receipts are `TestRenderMarkdownCapsExecutiveRollupAtDecisionMemoBudget` and `TestSiteAssetsMatchGenerator`.
-- [semver:patch] Applied assessment profile scope consistently to MCP rows, candidates, diagnostics, and absence aggregation, and limited resume hints to interrupted scans with retained materialized roots.
-- [semver:patch] Split the nightly race lane so ordinary packages retain the 20-minute deterministic budget while the enterprise-sized acceptance package runs separately with a 40-minute ceiling, preventing the endpoint-dense fixture from exhausting the package timeout under race instrumentation.
-- [semver:patch] Bounded first-value command responses while preserving canonical state and evidence artifacts: on `internal/enterprisepressure.VariantBaseline:96-repos`, scan JSON fell from 1,067,262 to 893,867 bytes (-173,395; -16.2%) and evidence JSON fell from 3,182,360 to 537,039 bytes (-2,645,321; -83.1%). The canonical state and customer-redacted BOM measured 8,090,113 and 1,144,221 bytes within their 16 MiB and 2 MiB budgets. Coverage and redaction receipts are `TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted`, `TestBuildEvidenceJSONPayloadBoundsBOMAndPreservesPrimaryPath`, and the 96-repo enterprise-pressure fixture.
-- [semver:patch] Advanced the Factory profile pointer to the revision aligned on Go `1.26.5` and made the root pin checker enforce `factory/profiles/wrkr.yaml` in protected automation.
-- Documented the Sprint 0 public-surface freeze gate that composition work must satisfy before exposing new scan/report/schema fields.
-- [semver:minor] Projected existing evidence state, freshness, policy coverage, and Gait coverage onto composed action-path stages so reports distinguish static reachability from runtime-proven control.
-- [semver:minor] Updated Agent Action BOM reporting to lead with the highest-risk composed authority path, current evidence posture, control gap, and proposed Action Contract.
-- [semver:minor] Applied canonical control recommendations across composed action paths with transition-level rationale and most-restrictive rollups.
-- Replaced illustrative Action Contract handoff projections with real-pipeline, exact-byte conformance fixtures and versioned downstream consumer receipts.
-- Clarified buyer-facing reports with explicit `confirmed CI path`, `inferred relationship`, and `agent surface only` labels, and made dense appendix and executive-rollup fields easier to scan. The regenerated customer-redacted sample fell from 40,745 to 38,556 bytes (-2,189 bytes; -5.4%), while its typed-evidence control-path graph grew by 108 bytes; coverage receipts are `TestActionPathTopRisksGroupWorkflowRowsAndHonorTop`, `TestBuyerArtifactQABlocksPrimaryInternalTokensAndRepeatedEvidenceGaps`, `TestValidateShareableArtifactsChecksJSONValuesNotSchemaKeys`, and `TestScenarioBuyerActionRegistryHardening`.
-- [semver:patch] Assessment profiles now remove scenario, fixture, sample, test, generated, and vendored findings before risk, scan-quality, MCP, backlog, posture, and compliance analysis while retaining the unfiltered findings in saved scan state.
-- [semver:patch] `summary.top_risks` now groups repeated rows for the same repo/workflow and obeys the requested `--top` count; detailed action paths remain available in structured report fields.
+- (none yet)
 
 ### Deprecated
 
@@ -54,27 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Made broad GitHub archive acquisition tolerate empty repositories and large excluded dependency trees while retaining compressed, expanded, entry-count, selected-file, redirect, and timeout bounds.
-- [semver:patch] Prevented passive WebMCP detector implementations from becoming candidate MCP evidence during broad source scans while preserving active route and registration discovery.
-- [semver:patch] Kept scenario consumers on canonical saved-state findings when bounded scan command responses omit raw arrays, and refreshed the precision-calibration branch-protection receipt to match its verified imported control evidence.
-- [semver:patch] Aligned external-control sidecar validation with documented evidence classes and target-only correlation, and kept grouped top-risk identity, action, rationale, and remediation metadata on the highest-scoring path.
-- [semver:patch] Raised weaker equivalent-outcome routes to the deterministic peer control floor so approval-evasion alternatives cannot retain a less restrictive proposed Action Contract.
-- [semver:patch] Hardened redacted Action Contract artifact export so saved contract selectors are applied before redaction, report presentation caps do not suppress exported contracts, and output collisions are preflighted before any artifact file is written.
-- Made the local CodeQL runner resource-aware on high-memory hosts so the full security-and-quality suite can complete without relaxing query coverage.
-- [semver:patch] Prevented workflow inputs such as `cache-dependency-path`, `artifact-path`, `restore-keys`, and `persist-credentials` from becoming credential subjects or GitHub PAT findings; covered by `TestAnalyzeDoesNotPromoteOrdinaryActionInputsToCredentials` and `TestAssessmentScanKeepsFixturesRawWithoutPromotingFalseCredentials`.
-- [semver:patch] Kept write-capability booleans, action classes, deploy/merge flags, mutable endpoint semantics, and buyer summary counts on one canonical invariant.
-- [semver:patch] Kept blocked standing-credential paths on remediation-first guidance across action paths, control backlog items, and lifecycle queues instead of downgrading them to approval or evidence-only actions.
-- [semver:patch] Treated GitHub's empty-repository tree response as a successful typed `content_status=empty` source result instead of a partial scan failure.
-- [semver:patch] Validated shareable JSON residuals against string values rather than schema keys and excluded generic false credential subjects; covered by `TestValidateShareableArtifactsChecksJSONValuesNotSchemaKeys`.
-- [semver:patch] Separated workflow secret storage references from credential authority: GitHub's built-in token remains JIT, `id-token: write` is modeled as OIDC workload authority, and role ARNs, usernames, and notification recipients remain raw audit evidence without becoming standing credentials. The 23-repo Clyra-AI dogfood scan completed 644/644 detector executions with zero source failures; newly visible OIDC workflows increased action paths from 66 to 71 while standing paths fell from 23 to 16 and standing-credential blocks fell from 21 to 12. Coverage includes `TestAnalyzeSeparatesSecretStorageFromCredentialAuthority`, `TestSecretsDetectorUsesStructuredWorkflowCredentialSemantics`, and `TestAssessmentScanKeepsFixturesRawWithoutPromotingFalseCredentials`.
-- [semver:patch] Scoped workflow credential and authority attribution by repository and location so identically named workflows cannot inherit sibling-repository credentials, and classified COSIGN and PyPI subjects against their signing and package-registry targets.
-- [semver:patch] Canonicalized CI workflow action paths and required explicit graph joins or shared artifacts before emitting attack paths, preventing duplicate `ci_agent`/`compiled_action` rows and same-repository correlation-only attack chains.
-- [semver:patch] Made executive-rollup remediation language credential-authority-aware so JIT and workload groups no longer receive standing-credential replacement guidance; covered by `TestExecutiveClosureRecommendationMatchesCredentialAuthority`.
-- [semver:patch] Canonicalized mutable endpoint semantics once per action-path projection and removed redundant first-run lifecycle reprojection so endpoint-dense reports remain within the cross-platform smoke-test budget; covered by `TestProjectActionPathCanonicalizesMutableEndpointSemantics` and `TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection`.
+- (none yet)
 
 ### Security
 
-- [semver:patch] Moved managed-artifact recovery journals out of caller-controlled repositories into the private user cache, bound them to the canonical state path, rejected symlinked or over-permissive journals, identity-checked the opened file, and made legacy repository-local journals fail closed with `unsafe_operation_blocked` (exit `8`) instead of replaying attacker-supplied overwrite/delete instructions.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -84,6 +38,71 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.12.0] - 2026-07-26
+<!-- release-semver: minor -->
+
+### Added
+
+- Added authenticated assessment-org coverage contracts, explicit `--allow-public-only` reduced coverage, GitHub request-budget receipts, and bounded archive acquisition for broad hosted source scans.
+- Added executable Go coverage gates for the 85% aggregate core/cmd target and 75% per-package target, with owner-assigned, expiring non-regression floors and fail-closed tests for missing, stale, expired, and regressed exceptions.
+- Added a source-bound Sprint 0 freeze runner that executes allowlisted validation commands, records command output hashes and the current commit, and publishes a runtime receipt from PR, main, and release lanes.
+- Added a deterministic `composed_action_path` artifact that identifies bounded multi-stage authority paths from existing action paths and workflow chains without claiming observed execution.
+- Added report-only proposed Action Contract v2 output linked to composed action paths for downstream Gait/control workflows.
+- Added explicit composition, proposed contract, workflow-chain, and resolution-key references to decision traces and evidence exports for stable Gait and Axym correlation.
+- Added canonical composed action-path fixtures and contract tests covering sensitive egress, secret-to-network, deploy, release, standing credential, incomplete outcome, and controlled transition scenarios.
+- Added delegated authority relationship projection for composed action paths so reports can identify narrowed, equal, broadened, unknown, and contradictory authority transitions.
+- Added bounded equivalent-outcome signals for composed paths that can reach the same deploy, egress, privileged mutation, or release outcome with weaker controls.
+- Added composition drift detection for introduced, changed, newly ungoverned, evidence-degraded, coverage-degraded, and alternate-route composed authority paths.
+- Added proposed Action Contract version 3 with typed, evidence-backed authority requirements while retaining version 2 compatibility.
+- Added typed readiness and effect preconditions to proposed Action Contract version 3, including producer, freshness, environment, credential, and effect constraints.
+- Added structured confirmation, approval validity, separation-of-duties, reapproval, and compensation requirements to proposed Action Contract version 3.
+- Added `wrkr export action-contracts` for standalone, RFC 8785 JCS-digested proposed Action Contract artifacts with deterministic selection, redaction, and proof references.
+- Added immutable proposed Action Contract revision chains and evidence-backed Gait activation, rejection, execution, effect, and Axym verification references.
+- Added an opt-in JSON and Markdown Action Contract packet for buyer review of authority, checks, effects, approvals, compensation, gaps, and downstream evidence.
+- Added bounded three-to-five-stage cross-system composed Action Contracts with explicit trust-boundary evidence, stable identities, and possible-versus-observed reachability states.
+- Added scoped containment evidence for stop requests, covered-action denials, capability and descendant invalidation, external revocation acknowledgements, containment receipts, and unresolved boundaries.
+
+### Changed
+
+- Production-write claims now require a valid customer `--production-targets` file; built-in target packs remain labeled `builtin_inferred` context without numeric production-write claims.
+- Capped primary executive rollups at five groups by default and ten maximum while retaining full groups and suppression receipts in JSON. The regenerated customer-redacted sample fell from 358 lines / 39,696 bytes to 328 lines / 35,461 bytes (-30 lines / -4,235 bytes); coverage receipts are `TestRenderMarkdownCapsExecutiveRollupAtDecisionMemoBudget` and `TestSiteAssetsMatchGenerator`.
+- Applied assessment profile scope consistently to MCP rows, candidates, diagnostics, and absence aggregation, and limited resume hints to interrupted scans with retained materialized roots.
+- Split the nightly race lane so ordinary packages retain the 20-minute deterministic budget while the enterprise-sized acceptance package runs separately with a 40-minute ceiling, preventing the endpoint-dense fixture from exhausting the package timeout under race instrumentation.
+- Bounded first-value command responses while preserving canonical state and evidence artifacts: on `internal/enterprisepressure.VariantBaseline:96-repos`, scan JSON fell from 1,067,262 to 893,867 bytes (-173,395; -16.2%) and evidence JSON fell from 3,182,360 to 537,039 bytes (-2,645,321; -83.1%). The canonical state and customer-redacted BOM measured 8,090,113 and 1,144,221 bytes within their 16 MiB and 2 MiB budgets. Coverage and redaction receipts are `TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted`, `TestBuildEvidenceJSONPayloadBoundsBOMAndPreservesPrimaryPath`, and the 96-repo enterprise-pressure fixture.
+- Advanced the Factory profile pointer to the revision aligned on Go `1.26.5` and made the root pin checker enforce `factory/profiles/wrkr.yaml` in protected automation.
+- Documented the Sprint 0 public-surface freeze gate that composition work must satisfy before exposing new scan/report/schema fields.
+- Projected existing evidence state, freshness, policy coverage, and Gait coverage onto composed action-path stages so reports distinguish static reachability from runtime-proven control.
+- Updated Agent Action BOM reporting to lead with the highest-risk composed authority path, current evidence posture, control gap, and proposed Action Contract.
+- Applied canonical control recommendations across composed action paths with transition-level rationale and most-restrictive rollups.
+- Replaced illustrative Action Contract handoff projections with real-pipeline, exact-byte conformance fixtures and versioned downstream consumer receipts.
+- Clarified buyer-facing reports with explicit `confirmed CI path`, `inferred relationship`, and `agent surface only` labels, and made dense appendix and executive-rollup fields easier to scan. The regenerated customer-redacted sample fell from 40,745 to 38,556 bytes (-2,189 bytes; -5.4%), while its typed-evidence control-path graph grew by 108 bytes; coverage receipts are `TestActionPathTopRisksGroupWorkflowRowsAndHonorTop`, `TestBuyerArtifactQABlocksPrimaryInternalTokensAndRepeatedEvidenceGaps`, `TestValidateShareableArtifactsChecksJSONValuesNotSchemaKeys`, and `TestScenarioBuyerActionRegistryHardening`.
+- Assessment profiles now remove scenario, fixture, sample, test, generated, and vendored findings before risk, scan-quality, MCP, backlog, posture, and compliance analysis while retaining the unfiltered findings in saved scan state.
+- `summary.top_risks` now groups repeated rows for the same repo/workflow and obeys the requested `--top` count; detailed action paths remain available in structured report fields.
+
+### Fixed
+
+- Made broad GitHub archive acquisition tolerate empty repositories and large excluded dependency trees while retaining compressed, expanded, entry-count, selected-file, redirect, and timeout bounds.
+- Prevented passive WebMCP detector implementations from becoming candidate MCP evidence during broad source scans while preserving active route and registration discovery.
+- Kept scenario consumers on canonical saved-state findings when bounded scan command responses omit raw arrays, and refreshed the precision-calibration branch-protection receipt to match its verified imported control evidence.
+- Aligned external-control sidecar validation with documented evidence classes and target-only correlation, and kept grouped top-risk identity, action, rationale, and remediation metadata on the highest-scoring path.
+- Raised weaker equivalent-outcome routes to the deterministic peer control floor so approval-evasion alternatives cannot retain a less restrictive proposed Action Contract.
+- Hardened redacted Action Contract artifact export so saved contract selectors are applied before redaction, report presentation caps do not suppress exported contracts, and output collisions are preflighted before any artifact file is written.
+- Made the local CodeQL runner resource-aware on high-memory hosts so the full security-and-quality suite can complete without relaxing query coverage.
+- Prevented workflow inputs such as `cache-dependency-path`, `artifact-path`, `restore-keys`, and `persist-credentials` from becoming credential subjects or GitHub PAT findings; covered by `TestAnalyzeDoesNotPromoteOrdinaryActionInputsToCredentials` and `TestAssessmentScanKeepsFixturesRawWithoutPromotingFalseCredentials`.
+- Kept write-capability booleans, action classes, deploy/merge flags, mutable endpoint semantics, and buyer summary counts on one canonical invariant.
+- Kept blocked standing-credential paths on remediation-first guidance across action paths, control backlog items, and lifecycle queues instead of downgrading them to approval or evidence-only actions.
+- Treated GitHub's empty-repository tree response as a successful typed `content_status=empty` source result instead of a partial scan failure.
+- Validated shareable JSON residuals against string values rather than schema keys and excluded generic false credential subjects; covered by `TestValidateShareableArtifactsChecksJSONValuesNotSchemaKeys`.
+- Separated workflow secret storage references from credential authority: GitHub's built-in token remains JIT, `id-token: write` is modeled as OIDC workload authority, and role ARNs, usernames, and notification recipients remain raw audit evidence without becoming standing credentials. The 23-repo Clyra-AI dogfood scan completed 644/644 detector executions with zero source failures; newly visible OIDC workflows increased action paths from 66 to 71 while standing paths fell from 23 to 16 and standing-credential blocks fell from 21 to 12. Coverage includes `TestAnalyzeSeparatesSecretStorageFromCredentialAuthority`, `TestSecretsDetectorUsesStructuredWorkflowCredentialSemantics`, and `TestAssessmentScanKeepsFixturesRawWithoutPromotingFalseCredentials`.
+- Scoped workflow credential and authority attribution by repository and location so identically named workflows cannot inherit sibling-repository credentials, and classified COSIGN and PyPI subjects against their signing and package-registry targets.
+- Canonicalized CI workflow action paths and required explicit graph joins or shared artifacts before emitting attack paths, preventing duplicate `ci_agent`/`compiled_action` rows and same-repository correlation-only attack chains.
+- Made executive-rollup remediation language credential-authority-aware so JIT and workload groups no longer receive standing-credential replacement guidance; covered by `TestExecutiveClosureRecommendationMatchesCredentialAuthority`.
+- Canonicalized mutable endpoint semantics once per action-path projection and removed redundant first-run lifecycle reprojection so endpoint-dense reports remain within the cross-platform smoke-test budget; covered by `TestProjectActionPathCanonicalizesMutableEndpointSemantics` and `TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection`.
+
+### Security
+
+- Moved managed-artifact recovery journals out of caller-controlled repositories into the private user cache, bound them to the canonical state path, rejected symlinked or over-permissive journals, identity-checked the opened file, and made legacy repository-local journals fail closed with `unsafe_operation_blocked` (exit `8`) instead of replaying attacker-supplied overwrite/delete instructions.
 
 ## [v1.11.2] - 2026-07-10
 <!-- release-semver: patch -->
