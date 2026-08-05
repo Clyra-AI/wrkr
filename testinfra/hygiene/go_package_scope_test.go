@@ -66,7 +66,6 @@ func TestWorkflowGoTestsUseFirstPartyPackageList(t *testing.T) {
 	repoRoot := mustFindRepoRoot(t)
 	checkedPaths := []string{
 		".github/workflows/pr.yml",
-		".github/workflows/release.yml",
 		"scripts/run_v1_acceptance.sh",
 		"scripts/test_uat_local.sh",
 		"Makefile",
@@ -79,6 +78,10 @@ func TestWorkflowGoTestsUseFirstPartyPackageList(t *testing.T) {
 		if !strings.Contains(payload, "first_party_go_packages.sh") && rel != "Makefile" {
 			t.Fatalf("%s must consume scripts/first_party_go_packages.sh for Go package scope", rel)
 		}
+	}
+	releaseWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/release.yml"))
+	if strings.Contains(releaseWorkflow, "go test ") {
+		t.Fatal("release workflow must package the exact green main source instead of rerunning Go tests")
 	}
 	makefile := mustReadFile(t, filepath.Join(repoRoot, "Makefile"))
 	if !strings.Contains(makefile, "PKG_LIST := scripts/first_party_go_packages.sh") {

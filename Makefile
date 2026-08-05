@@ -137,7 +137,7 @@ test-uat-local:
 test-release-smoke:
 	@scripts/test_uat_local.sh --skip-global-gates
 
-prepush-full: prepush lint test test-coverage test-freeze-gate test-integration test-e2e test-scenarios codeql
+prepush-full: fmt lint-fast build test-coverage test-freeze-gate test-integration test-e2e test-contracts test-scenarios codeql
 
 codeql:
 	@scripts/run_codeql.sh

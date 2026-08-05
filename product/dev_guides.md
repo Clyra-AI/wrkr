@@ -299,47 +299,47 @@ Tests are organized into tiers by scope, speed, and when they run.
 
 - **What**: isolated component tests.
 - **How**: `go test $(scripts/first_party_go_packages.sh)` (Go), `pytest` (Python).
-- **When**: every PR, every push, pre-push hook.
+- **When**: product-affecting PRs, full local validation, and scheduled secondary-platform validation.
 - **Flags**: default (cached, parallel).
 
 ### Tier 2 — Integration
 
 - **What**: cross-component deterministic tests. Direct API usage, no CLI.
 - **How**: `go test ./internal/integration -count=1`.
-- **When**: every PR, every push to main.
+- **When**: product-affecting PRs and nightly validation.
 - **Patterns**: fixture helpers, golden JSON assertions, deterministic concurrency validation.
 
 ### Tier 3 — E2E
 
 - **What**: CLI end-to-end tests. Builds binary, invokes via `exec.Command`, validates JSON output and exit codes.
 - **How**: `go test ./internal/e2e -count=1`.
-- **When**: push to main.
+- **When**: product-affecting PRs; main keeps one focused CLI merge-confirmation smoke.
 - **Flags**: `-count=1` (no cache, deterministic).
 
 ### Tier 4 — Acceptance
 
 - **What**: version-gated acceptance scripts validating blessed workflows end-to-end.
 - **How**: shell scripts (`scripts/test_*_acceptance.sh`) that run CLI commands and validate output.
-- **When**: push to main, conditional on adoption-critical path changes (detected via dorny/paths-filter).
+- **When**: acceptance tests run on product-affecting PRs; the complete scorecard runs nightly and during local release preflight.
 - **Pattern**: quickstart flow validation, adapter scenario testing, conformance checks, scorecard generation.
 
 ### Tier 5 — Hardening
 
 - **What**: atomic write integrity, lock contention, stale lock recovery, network retry classification, error envelope contracts, concurrent determinism.
 - **How**: shell script orchestrating targeted `go test -run <pattern> -count=1` invocations.
-- **When**: nightly (cross-platform), release gates.
+- **When**: nightly and local release preflight.
 
 ### Tier 6 — Chaos
 
 - **What**: fault injection and resilience validation. Exporter stability, service boundary failures, payload limits, session resilience, trace uniqueness.
 - **How**: dedicated shell scripts (`scripts/test_chaos_*.sh`) with `-count=3` or `-count=5` for stress.
-- **When**: nightly, release gates.
+- **When**: nightly.
 
 ### Tier 7 — Performance
 
 - **What**: benchmark regression detection, command latency budgets (p50/p95/p99), resource budgets, context budgets.
 - **How**: `go test -bench <regex> -benchmem -count=5` with `GOMAXPROCS=1`. Median aggregation. Comparison against baseline with max regression factor.
-- **When**: nightly, release gates.
+- **When**: nightly and local release preflight.
 - **Determinism**: single-threaded execution (GOMAXPROCS=1), 5 samples, median selection.
 
 ### Tier 8 — Soak
@@ -352,7 +352,7 @@ Tests are organized into tiers by scope, speed, and when they run.
 
 - **What**: deterministic artifact bytes, stable exit-code contracts, JSON shape contracts, schema compatibility guards, producer-kit roundtrips, legacy compatibility.
 - **How**: shell scripts validating byte-stable outputs, exit codes, required JSON fields, and schema field/enum stability.
-- **When**: every push to main.
+- **When**: product-affecting PRs and full local validation.
 
 ### Tier 10 — UAT
 
@@ -580,16 +580,18 @@ These minimums are for v1 launch. Scenario count grows with product surface — 
 ### PR Pipeline (required, fast feedback)
 
 - Require at least one fast lane on every `pull_request`; this lane is merge-blocking.
-- Fast lane should run deterministic lint + unit + contract checks and complete quickly.
-- Include at least one non-primary platform smoke lane for portability confidence.
-- Use path-based change detection to gate expensive scanners, but keep baseline lint/test checks always on.
+- Product-affecting changes run deterministic lint, one coverage-backed first-party test pass, contract validation, scenario validation, freeze evidence, and focused security checks.
+- Keep required check names stable while allowing expensive jobs to complete as skipped successes when their governed paths did not change.
+- Run the Windows smoke lane for runtime, CLI, filesystem, script, and workflow changes; use the weekly cross-platform workflow for macOS depth.
+- Docs-only and changelog-only PRs must not allocate product test, CodeQL, or Windows runners unless their governed paths changed.
 - Every PR workflow must define `concurrency` with `cancel-in-progress: true`.
 
 ### Main Pipeline (protected branch push)
 
-- Run the full deterministic matrix after merge to the protected branch.
-- Include full test suites, contract suites, and acceptance suites required by the release policy.
-- Keep heavy suites path-gated where safe, but never gate foundational contract or determinism checks.
+- Treat the green latest-head PR as the authoritative correctness gate.
+- For product changes, confirm the merged source on Ubuntu with lint, build, version JSON, and one representative scan.
+- Let the dedicated docs workflow own docs validation and deployment rather than repeating docs-site builds in main CI.
+- Do not repeat coverage, acceptance, freeze, or secondary-platform suites on every protected-branch push.
 
 ### Nightly Pipelines
 
@@ -604,8 +606,8 @@ These minimums are for v1 launch. Scenario count grows with product surface — 
 
 Sequence:
 
-1. Run release-gated acceptance and contract suites.
-2. Build reproducible release artifacts for supported targets.
+1. Verify that the tagged SHA is reachable from `main` and has a successful `main` workflow for that exact SHA.
+2. Build reproducible release artifacts for supported targets without rerunning source validation.
 3. Generate and verify checksums.
 4. Generate SBOM.
 5. Run vulnerability scan against produced artifacts/SBOM.
@@ -613,6 +615,7 @@ Sequence:
 7. Generate provenance attestation.
 8. Verify checksum/signature/provenance in-pipeline before publication.
 9. Publish artifacts and release notes only after all gates pass.
+10. Run published install-path UAT against the released tag and Homebrew formula.
 
 ### Workflow Contract Validation
 

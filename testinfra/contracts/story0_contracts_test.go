@@ -56,6 +56,7 @@ func TestNoFloatingLatestInBuildConfigs(t *testing.T) {
 		".github/workflows/pr.yml",
 		".github/workflows/main.yml",
 		".github/workflows/nightly.yml",
+		".github/workflows/cross-platform.yml",
 		".github/workflows/release.yml",
 	}
 	for _, rel := range files {
@@ -181,6 +182,7 @@ func TestWorkflowConcurrencyConfigured(t *testing.T) {
 		".github/workflows/pr.yml",
 		".github/workflows/main.yml",
 		".github/workflows/nightly.yml",
+		".github/workflows/cross-platform.yml",
 		".github/workflows/release.yml",
 	}
 	for _, rel := range required {
@@ -210,8 +212,10 @@ func TestPRWorkflowPathFilterContract(t *testing.T) {
 	text := string(content)
 	for _, fragment := range []string{
 		"dorny/paths-filter@v4.0.1",
-		"workflow_or_policy:",
-		"Skip deep scanners for non-code changes",
+		"security:",
+		"scan_contract:",
+		"windows:",
+		"Record lightweight-only validation",
 	} {
 		if !strings.Contains(text, fragment) {
 			t.Fatalf("pr workflow missing required path-filter fragment %q", fragment)
@@ -242,6 +246,70 @@ func TestWorkflowTriggerContracts(t *testing.T) {
 	nightlyWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/nightly.yml"))
 	if !strings.Contains(nightlyWorkflow, "schedule:") {
 		t.Fatal("nightly workflow must include schedule trigger")
+	}
+
+	crossPlatformWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/cross-platform.yml"))
+	if !strings.Contains(crossPlatformWorkflow, "schedule:") {
+		t.Fatal("cross-platform workflow must include schedule trigger")
+	}
+}
+
+func TestWorkflowValidationOwnershipAvoidsDuplicateRunnerLanes(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	prWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/pr.yml"))
+	for _, required := range []string{
+		"make test-coverage",
+		"make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean",
+		"scripts/validate_contracts.sh",
+		"go test ./internal/scenarios -count=1 -tags=scenario",
+	} {
+		if !strings.Contains(prWorkflow, required) {
+			t.Fatalf("PR workflow missing authoritative validation %q", required)
+		}
+	}
+
+	mainWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/main.yml"))
+	for _, required := range []string{
+		"os: [ubuntu-latest]",
+		"Run merge confirmation",
+		".tmp/wrkr version --json",
+		".tmp/wrkr scan --path scenarios/wrkr/scan-diff-no-noise/input/local-repos",
+	} {
+		if !strings.Contains(mainWorkflow, required) {
+			t.Fatalf("main workflow missing thin merge confirmation %q", required)
+		}
+	}
+	for _, duplicate := range []string{"make test-coverage", "run_v1_acceptance.sh", "docs-site-build", "macos-latest", "windows-latest"} {
+		if strings.Contains(mainWorkflow, duplicate) {
+			t.Fatalf("main workflow reintroduced duplicated lane %q", duplicate)
+		}
+	}
+
+	releaseWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/release.yml"))
+	for _, required := range []string{
+		"Verify tagged source is green on main",
+		"actions: read",
+		"main-successful-runs.json",
+		"Build staged release artifacts",
+		"Run published install-path parity (README/docs commands)",
+	} {
+		if !strings.Contains(releaseWorkflow, required) {
+			t.Fatalf("release workflow missing source or artifact gate %q", required)
+		}
+	}
+	for _, duplicate := range []string{"go test ", "make test-coverage", "run_v1_acceptance.sh", "docs-site-build", "uat-prepublish-smoke"} {
+		if strings.Contains(releaseWorkflow, duplicate) {
+			t.Fatalf("release workflow reintroduced pre-package validation %q", duplicate)
+		}
+	}
+
+	crossPlatformWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/cross-platform.yml"))
+	for _, required := range []string{"schedule:", "macos-latest", "windows-latest", "make test-fast", "make build"} {
+		if !strings.Contains(crossPlatformWorkflow, required) {
+			t.Fatalf("weekly cross-platform workflow missing %q", required)
+		}
 	}
 }
 
