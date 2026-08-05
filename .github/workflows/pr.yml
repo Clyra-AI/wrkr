@@ -17,9 +17,89 @@ jobs:
   wave-sequence:
     name: wave-sequence
     runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.changes.outputs.core }}
+      dependencies: ${{ steps.changes.outputs.dependencies }}
+      docs: ${{ steps.changes.outputs.docs }}
+      go: ${{ steps.changes.outputs.go }}
+      python: ${{ steps.changes.outputs.python }}
+      scan_contract: ${{ steps.changes.outputs.scan_contract }}
+      security: ${{ steps.changes.outputs.security }}
+      windows: ${{ steps.changes.outputs.windows }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v4.0.1
+        with:
+          filters: |
+            core:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - 'cmd/**'
+              - 'core/**'
+              - 'internal/**'
+              - 'testinfra/**'
+              - 'scenarios/**'
+              - 'scripts/**'
+              - '.github/workflows/**'
+              - '.github/required-checks.json'
+            dependencies:
+              - 'go.mod'
+              - 'go.sum'
+            docs:
+              - 'README.md'
+              - 'docs/**'
+              - 'docs-site/**'
+              - 'product/dev_guides.md'
+              - 'product/wrkr.md'
+              - 'core/cli/**'
+              - 'scripts/check_docs_cli_parity.sh'
+              - 'scripts/check_docs_storyline.sh'
+              - 'scripts/check_docs_consistency.sh'
+              - 'scripts/check_docs_site_validation.py'
+              - 'scripts/run_docs_smoke.sh'
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+            python:
+              - 'scripts/**/*.py'
+            scan_contract:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - 'cmd/**'
+              - 'core/**'
+              - 'internal/**'
+              - 'testinfra/**'
+              - 'scenarios/**'
+              - '.github/workflows/**'
+            security:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - 'scripts/run_codeql.sh'
+              - '.github/workflows/**'
+            windows:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'Makefile'
+              - 'cmd/**'
+              - 'core/**'
+              - 'internal/**'
+              - 'testinfra/**'
+              - 'scenarios/**'
+              - 'scripts/**/*.sh'
+              - '.github/workflows/**'
 
       - name: Setup Python
         uses: actions/setup-python@v6.2.0
@@ -34,6 +114,8 @@ jobs:
   codeql-security:
     name: codeql-security
     runs-on: ubuntu-latest
+    needs: wave-sequence
+    if: needs.wave-sequence.outputs.security == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -62,65 +144,36 @@ jobs:
   fast-lane:
     name: fast-lane
     runs-on: ubuntu-latest
+    needs: wave-sequence
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Detect changed paths
-        id: changes
-        uses: dorny/paths-filter@v4.0.1
-        with:
-          filters: |
-            go:
-              - '**/*.go'
-              - 'go.mod'
-              - 'go.sum'
-              - 'cmd/**'
-              - 'core/**'
-              - 'internal/**'
-              - 'testinfra/**'
-            docs:
-              - 'README.md'
-              - 'docs/**'
-              - 'docs-site/**'
-              - 'product/wrkr.md'
-            python:
-              - 'scripts/**/*.py'
-            workflow_or_policy:
-              - '.github/workflows/**'
-              - '.github/required-checks.json'
-              - 'scripts/**/*.sh'
-
       - name: Setup Go
+        if: needs.wave-sequence.outputs.core == 'true' || needs.wave-sequence.outputs.docs == 'true'
         uses: actions/setup-go@v6.3.0
         with:
           go-version-file: go.mod
           check-latest: false
 
       - name: Setup Python
+        if: needs.wave-sequence.outputs.core == 'true' || needs.wave-sequence.outputs.docs == 'true' || needs.wave-sequence.outputs.python == 'true'
         uses: actions/setup-python@v6.2.0
         with:
           python-version: '3.13'
 
       - name: Setup Node
+        if: needs.wave-sequence.outputs.docs == 'true'
         uses: actions/setup-node@v6.3.0
         with:
           node-version: '22'
 
       - name: Install Python scanners
+        if: needs.wave-sequence.outputs.python == 'true'
         run: python -m pip install ruff==0.11.8 mypy==1.14.1 bandit==1.8.3
 
-      - name: Detect Python script files
-        id: pyfiles
-        shell: bash
-        run: |
-          if find scripts -type f \( -name '*.py' -o -name '*.pyi' \) -print -quit | grep -q .; then
-            echo "has_python=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_python=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Fast lint and tests
+      - name: Core validation
+        if: needs.wave-sequence.outputs.core == 'true'
         env:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
@@ -130,22 +183,22 @@ jobs:
             export WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1
           fi
           make lint-fast
-          make test-fast
           make test-coverage
-          make test-contracts
           make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean
+          scripts/validate_contracts.sh
           scripts/validate_scenarios.sh
+          go test ./internal/scenarios -count=1 -tags=scenario
           scripts/run_agent_benchmarks.sh --output .tmp/agent-benchmarks-pr.json
 
       - name: Upload agent benchmark report
-        if: always()
+        if: always() && needs.wave-sequence.outputs.core == 'true'
         uses: actions/upload-artifact@v7.0.0
         with:
           name: agent-benchmark-pr
           path: .tmp/agent-benchmarks-pr.json
 
       - name: Upload freeze-gate runtime receipt
-        if: always()
+        if: always() && needs.wave-sequence.outputs.core == 'true'
         uses: actions/upload-artifact@v7.0.0
         with:
           name: freeze-gate-runtime-receipt-pr
@@ -153,13 +206,13 @@ jobs:
           if-no-files-found: error
 
       - name: Docs parity and smoke subset
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.docs == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.go == 'true' || needs.wave-sequence.outputs.docs == 'true'
         run: |
           make test-docs-consistency
           make test-docs-storyline
 
       - name: Docs site quality gates
-        if: steps.changes.outputs.docs == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.docs == 'true'
         run: |
           make docs-site-install
           make docs-site-audit-prod
@@ -168,55 +221,59 @@ jobs:
           make docs-site-check
 
       - name: Run ruff
-        if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'
+        if: needs.wave-sequence.outputs.python == 'true'
         run: ruff check scripts
 
       - name: Run mypy
-        if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'
+        if: needs.wave-sequence.outputs.python == 'true'
         run: mypy --ignore-missing-imports scripts
 
       - name: Run bandit
-        if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'
+        if: needs.wave-sequence.outputs.python == 'true'
         run: bandit -q -r scripts
 
       - name: Install gosec
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.go == 'true'
         run: go install github.com/securego/gosec/v2/cmd/gosec@v2.23.0
 
       - name: Run gosec
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.go == 'true'
         run: |
-          "$(go env GOPATH)/bin/gosec" -concurrency=1 $(scripts/first_party_go_packages.sh)
+          mapfile -t packages < <(scripts/first_party_go_packages.sh)
+          "$(go env GOPATH)/bin/gosec" -concurrency=1 "${packages[@]}"
 
       - name: Install golangci-lint
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.go == 'true'
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1
 
       - name: Run golangci-lint
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.go == 'true'
         run: |
-          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m $(scripts/first_party_go_packages.sh)
+          mapfile -t packages < <(scripts/first_party_go_packages.sh)
+          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m "${packages[@]}"
 
       - name: Install govulncheck
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.dependencies == 'true'
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
       - name: Build binary for vulnerability scan
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.dependencies == 'true'
         run: go build -o .tmp/wrkr ./cmd/wrkr
 
       - name: Run govulncheck
-        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        if: needs.wave-sequence.outputs.dependencies == 'true'
         run: |
           "$(go env GOPATH)/bin/govulncheck" -mode=binary .tmp/wrkr
 
-      - name: Skip deep scanners for non-code changes
-        if: steps.changes.outputs.go != 'true' && steps.changes.outputs.python != 'true' && steps.changes.outputs.workflow_or_policy != 'true'
-        run: echo "no code, workflow, or policy changes; deep scanners skipped"
+      - name: Record lightweight-only validation
+        if: needs.wave-sequence.outputs.core != 'true' && needs.wave-sequence.outputs.docs != 'true' && needs.wave-sequence.outputs.python != 'true'
+        run: echo "no product, documentation, or script changes; heavy validation skipped"
 
   scan-contract:
     name: scan-contract
     runs-on: ubuntu-latest
+    needs: wave-sequence
+    if: needs.wave-sequence.outputs.scan_contract == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -237,6 +294,8 @@ jobs:
   windows-smoke:
     name: windows-smoke
     runs-on: windows-latest
+    needs: wave-sequence
+    if: needs.wave-sequence.outputs.windows == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -252,4 +311,5 @@ jobs:
         run: |
           mkdir -p .tmp
           go build -o .tmp/wrkr ./cmd/wrkr
-          go test $(scripts/first_party_go_packages.sh) -count=1 -timeout=20m
+          mapfile -t packages < <(scripts/first_party_go_packages.sh)
+          go test "${packages[@]}" -count=1 -timeout=20m

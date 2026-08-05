@@ -155,16 +155,20 @@ func TestCoverageGatesAreProtectedInAutomation(t *testing.T) {
 		"scripts/check_go_coverage.py",
 		"scripts/check_go_package_coverage.py",
 		".github/coverage-exceptions.json",
-		"prepush-full: prepush lint test test-coverage",
+		"prepush-full: fmt lint-fast build test-coverage",
 	} {
 		if !strings.Contains(makefile, needle) {
 			t.Fatalf("Makefile coverage contract missing %q", needle)
 		}
 	}
-	for _, workflow := range []string{"pr.yml", "main.yml", "release.yml"} {
+	prWorkflow := mustReadFile(t, filepath.Join(root, ".github/workflows/pr.yml"))
+	if !strings.Contains(prWorkflow, "make test-coverage") {
+		t.Fatal("pr.yml missing authoritative numeric coverage gate")
+	}
+	for _, workflow := range []string{"main.yml", "release.yml"} {
 		content := mustReadFile(t, filepath.Join(root, ".github/workflows", workflow))
-		if !strings.Contains(content, "make test-coverage") {
-			t.Fatalf("%s missing protected numeric coverage gate", workflow)
+		if strings.Contains(content, "make test-coverage") {
+			t.Fatalf("%s must consume the green PR/main source contract instead of rerunning coverage", workflow)
 		}
 	}
 }

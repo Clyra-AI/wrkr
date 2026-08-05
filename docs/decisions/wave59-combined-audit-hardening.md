@@ -19,7 +19,7 @@ The same audit found a stale Go version in the Factory profile pointer. The repo
 Wrkr adopts these controls in one patch wave:
 
 - Transaction recovery journals move outside repositories into the operating system's private user cache. Journals are keyed and content-bound to the canonical state path, constrained to regular owner-private files, identity-checked while opened, and validated for unique canonical artifact paths captured under the state lease before recovery. Legacy repository-local journals are never replayed and fail closed with exit `8`.
-- `make test-coverage` enforces an 85% aggregate core target and 75% per-package target in pull request, main, release, and full pre-push lanes. Current gaps are recorded as expiring, owner-assigned non-regression floors rather than silently waived.
+- `make test-coverage` enforces an 85% aggregate core target and 75% per-package target in pull-request and full pre-push lanes. Main and release consume the exact green source result instead of rerunning coverage. Current gaps are recorded as expiring, owner-assigned non-regression floors rather than silently waived.
 - The freeze gate validates a digest of its declared source scope, directly executes allowlisted `go test` commands plus the exact-byte Action Contract fixture check, records output hashes and exit codes, and publishes a runtime receipt. Protected CI lanes require a clean worktree.
 - Scan and evidence command-response previews use smaller deterministic caps while canonical state, customer-redacted BOM, and full report-evidence artifacts retain the governed detail paths.
 - Toolchain pin validation includes `factory/profiles/wrkr.yaml`; the Factory submodule pointer advances to the profile revision carrying Go `1.26.5`.

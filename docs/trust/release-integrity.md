@@ -7,8 +7,8 @@ description: "Release hardening checks, reproducibility expectations, and integr
 
 ## Release checks
 
-- Deterministic test gates in release workflow.
-- Contract and scenario validation before artifact generation.
+- Product PRs own deterministic tests, numeric coverage, contract/scenario validation, and freeze-gate evidence.
+- Tag builds fail closed unless the tagged SHA is reachable from `main` and the exact SHA has a successful `main` workflow.
 - Node24-ready action refs on the release path for all remediable workflow helpers, enforced by `make lint-fast`.
 - Public docs-site Markdown is treated as untrusted input; raw HTML, unsafe attributes, and unsafe link schemes are escaped or blocked before static HTML publish.
 - Docs-site production dependency advisories are release-trust inputs. High and critical advisories fail closed, and moderate advisories require an exact checked-in exception when no patched stable upstream dependency is available.
@@ -71,15 +71,17 @@ If a release-path helper still lacks a published Node24-ready upstream release, 
 
 ## Publish sequence
 
-For tag builds, treat release publication as the final gated step:
+For tag builds, treat release publication as the final gated step. Source validation is not rerun against an equivalent checkout; the workflow first proves it is packaging the exact green `main` SHA:
 
-1. Build candidate artifacts into `dist/` without publishing them.
-2. Verify checksums.
-3. Generate an SBOM.
-4. Run Grype against the staged artifacts.
-5. Sign the checksum manifest.
-6. Generate and verify provenance attestations.
-7. Publish GitHub release assets and Homebrew tap updates from the verified staged set.
+1. Verify tagged-source ancestry and successful `main` CI for the exact SHA.
+2. Build candidate artifacts into `dist/` without publishing them.
+3. Verify checksums.
+4. Generate an SBOM.
+5. Run Grype against the staged artifacts.
+6. Sign the checksum manifest.
+7. Generate and verify provenance attestations.
+8. Publish GitHub release assets and Homebrew tap updates from the verified staged set.
+9. Run published install-path UAT.
 
 ## Install-path UAT (release-candidate)
 
@@ -91,7 +93,7 @@ Treat `README.md`, this page, and `docs/install/minimal-dependencies.md` as the 
 # Full local gate set + source/release/homebrew-path checks
 scripts/test_uat_local.sh
 
-# Fast smoke lane used by release CI job
+# Fast local diagnostic without the global validation gates
 scripts/test_uat_local.sh --skip-global-gates
 
 # Validate exact public install commands (brew + pinned go install) for a published tag
@@ -128,7 +130,7 @@ When using `wrkr verify --chain --json` as a release/promotion gate, inspect `ch
 
 ### Which checks should pass before trusting a Wrkr release?
 
-Deterministic test gates, contract validation, Node24 runtime policy checks, and integrity outputs (checksums/provenance) should all pass before promotion.
+The exact tagged SHA must have green PR/main source validation, followed by successful artifact checksums, vulnerability scanning, signing, provenance verification, publication, and install-path UAT.
 
 ### How do I verify artifact integrity after download?
 

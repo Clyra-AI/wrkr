@@ -132,16 +132,20 @@ func TestCompositionFreezeGateRuntimeReceiptIsRequiredByCI(t *testing.T) {
 			t.Fatalf("Makefile must require freeze-gate runtime evidence %q", required)
 		}
 	}
-	for _, workflow := range []string{"pr.yml", "main.yml", "release.yml"} {
+	prWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github", "workflows", "pr.yml"))
+	for _, required := range []string{
+		"make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean",
+		"freeze-gate-runtime-receipt.json",
+		"if-no-files-found: error",
+	} {
+		if !strings.Contains(prWorkflow, required) {
+			t.Fatalf("pr.yml must preserve current-head freeze-gate evidence %q", required)
+		}
+	}
+	for _, workflow := range []string{"main.yml", "release.yml"} {
 		content := mustReadFile(t, filepath.Join(repoRoot, ".github", "workflows", workflow))
-		for _, required := range []string{
-			"make test-freeze-gate FREEZE_GATE_REQUIRE_CLEAN=--require-clean",
-			"freeze-gate-runtime-receipt.json",
-			"if-no-files-found: error",
-		} {
-			if !strings.Contains(content, required) {
-				t.Fatalf("%s must preserve current-head freeze-gate evidence %q", workflow, required)
-			}
+		if strings.Contains(content, "make test-freeze-gate") {
+			t.Fatalf("%s must not duplicate the authoritative PR freeze gate", workflow)
 		}
 	}
 }
