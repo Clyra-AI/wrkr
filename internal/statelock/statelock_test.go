@@ -3,6 +3,7 @@ package statelock
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ func TestAcquireBlocksOtherProcessLeaseUntilRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Acquire(first) error = %v", err)
 	}
+	metadataPath := first.metadataPath
 	defer func() { _ = first.Release() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -28,6 +30,9 @@ func TestAcquireBlocksOtherProcessLeaseUntilRelease(t *testing.T) {
 		t.Fatalf("Release() error = %v", err)
 	}
 	first = nil
+	if _, err := os.Stat(metadataPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("owner metadata remains after Release: %v", err)
+	}
 	third, err := Acquire(context.Background(), statePath)
 	if err != nil {
 		t.Fatalf("Acquire(after release) error = %v", err)
@@ -45,7 +50,7 @@ func TestBusyErrorIncludesStateAndOwnerMetadata(t *testing.T) {
 	}
 	defer func() { _ = lease.Release() }()
 
-	metadata, err := readOwnerMetadata(lease.lockPath)
+	metadata, err := readOwnerMetadata(lease.metadataPath)
 	if err != nil {
 		t.Fatalf("readOwnerMetadata() error = %v", err)
 	}
@@ -53,7 +58,7 @@ func TestBusyErrorIncludesStateAndOwnerMetadata(t *testing.T) {
 		t.Fatalf("unexpected owner metadata: %+v", metadata)
 	}
 
-	busy := busyError(statePath, lease.lockPath)
+	busy := busyError(statePath, lease.metadataPath)
 	if !errors.Is(busy, ErrBusy) {
 		t.Fatalf("busyError() = %v, want ErrBusy", busy)
 	}

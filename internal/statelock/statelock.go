@@ -16,6 +16,7 @@ import (
 
 const (
 	fileName       = ".wrkr-managed.lock"
+	metadataName   = ".wrkr-managed.lock.owner.json"
 	defaultTimeout = 10 * time.Minute
 	retryDelay     = 25 * time.Millisecond
 )
@@ -24,8 +25,9 @@ var ErrBusy = errors.New("managed artifact state is busy")
 
 // Lease is an exclusive, cross-process lock for a managed artifact directory.
 type Lease struct {
-	lock     *flock.Flock
-	lockPath string
+	lock         *flock.Flock
+	lockPath     string
+	metadataPath string
 }
 
 type ownerMetadata struct {
@@ -53,6 +55,7 @@ func Acquire(ctx context.Context, statePath string) (*Lease, error) {
 	defer cancel()
 
 	lockPath := filepath.Join(dir, fileName)
+	metadataPath := filepath.Join(dir, metadataName)
 	lock := flock.New(lockPath)
 	locked, err := lock.TryLockContext(lockCtx, retryDelay)
 	if err != nil {
@@ -60,7 +63,7 @@ func Acquire(ctx context.Context, statePath string) (*Lease, error) {
 			if ctx.Err() != nil {
 				return nil, fmt.Errorf("acquire managed artifact lock: %w", ctx.Err())
 			}
-			return nil, busyError(statePath, lockPath)
+			return nil, busyError(statePath, metadataPath)
 		}
 		return nil, fmt.Errorf("acquire managed artifact lock: %w", err)
 	}
@@ -68,9 +71,13 @@ func Acquire(ctx context.Context, statePath string) (*Lease, error) {
 		if ctx.Err() != nil {
 			return nil, fmt.Errorf("acquire managed artifact lock: %w", ctx.Err())
 		}
-		return nil, busyError(statePath, lockPath)
+		return nil, busyError(statePath, metadataPath)
 	}
-	lease := &Lease{lock: lock, lockPath: lockPath}
+	lease := &Lease{
+		lock:         lock,
+		lockPath:     lockPath,
+		metadataPath: metadataPath,
+	}
 	if err := lease.writeOwnerMetadata(); err != nil {
 		_ = lease.Release()
 		return nil, err
@@ -82,19 +89,23 @@ func (l *Lease) Release() error {
 	if l == nil || l.lock == nil {
 		return nil
 	}
+	metadataErr := l.removeOwnerMetadata()
 	err := l.lock.Unlock()
 	l.lock = nil
 	if err != nil {
 		return fmt.Errorf("release managed artifact lock: %w", err)
 	}
+	if metadataErr != nil {
+		return metadataErr
+	}
 	return nil
 }
 
 func (l *Lease) writeOwnerMetadata() error {
-	if l == nil || strings.TrimSpace(l.lockPath) == "" {
+	if l == nil || strings.TrimSpace(l.metadataPath) == "" {
 		return nil
 	}
-	file, err := os.OpenFile(l.lockPath, os.O_WRONLY|os.O_TRUNC, 0)
+	file, err := os.OpenFile(l.metadataPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("write managed artifact lock metadata: %w", err)
 	}
@@ -109,10 +120,20 @@ func (l *Lease) writeOwnerMetadata() error {
 	return nil
 }
 
-func busyError(statePath, lockPath string) error {
+func (l *Lease) removeOwnerMetadata() error {
+	if l == nil || strings.TrimSpace(l.metadataPath) == "" {
+		return nil
+	}
+	if err := os.Remove(l.metadataPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove managed artifact lock metadata: %w", err)
+	}
+	return nil
+}
+
+func busyError(statePath, metadataPath string) error {
 	stateLabel := filepath.Clean(strings.TrimSpace(statePath))
 	message := fmt.Sprintf("state %s is locked by another wrkr scan; wait for it to finish or use a separate --state path", stateLabel)
-	if metadata, err := readOwnerMetadata(lockPath); err == nil && metadata.PID > 0 {
+	if metadata, err := readOwnerMetadata(metadataPath); err == nil && metadata.PID > 0 {
 		message += fmt.Sprintf(" (lock metadata pid=%d started_at=%s)", metadata.PID, metadata.StartedAt)
 	}
 	return fmt.Errorf("%w: %s", ErrBusy, message)
