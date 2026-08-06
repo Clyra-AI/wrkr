@@ -47,3 +47,19 @@ func BenchmarkBuildComposedActionPathsMultiStageBounded(b *testing.B) {
 		_, _ = BuildComposedActionPaths(paths, chains)
 	}
 }
+
+func BenchmarkBuildComposedActionPathsDenseCandidateCap(b *testing.B) {
+	paths := make([]ActionPath, 0, 384)
+	for index := 0; index < 192; index++ {
+		paths = append(paths,
+			compositionTestPath(fmt.Sprintf("apc-read-%03d", index), fmt.Sprintf("rk-read-%03d", index), []string{"read"}, TargetClassCustomerDataAdjacent),
+			compositionTestPath(fmt.Sprintf("apc-egress-%03d", index), fmt.Sprintf("rk-egress-%03d", index), []string{"egress"}, TargetClassUnknown),
+		)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for index := 0; index < b.N; index++ {
+		_, _ = BuildComposedActionPaths(paths, nil)
+	}
+}

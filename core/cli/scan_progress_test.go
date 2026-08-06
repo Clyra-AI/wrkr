@@ -581,12 +581,16 @@ func TestScanProgressReportsAnalysisSubphases(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"event=phase_substep phase=analysis subphase=inventory step=1 step_total=6",
-		"event=phase_substep phase=analysis subphase=action_paths step=2 step_total=6",
-		"event=phase_substep phase=analysis subphase=control_graph step=3 step_total=6",
-		"event=phase_substep phase=analysis subphase=workflow_chains step=4 step_total=6",
-		"event=phase_substep phase=analysis subphase=backlog step=5 step_total=6",
-		"event=phase_substep phase=analysis subphase=state_finalization step=6 step_total=6",
+		"event=phase_substep phase=analysis subphase=inventory step=1 step_total=10",
+		"event=phase_substep phase=analysis subphase=action_paths step=2 step_total=10",
+		"event=phase_substep phase=analysis subphase=control_graph step=3 step_total=10",
+		"event=phase_substep phase=analysis subphase=workflow_chains step=4 step_total=10",
+		"event=phase_substep phase=analysis subphase=action_lineage step=5 step_total=10",
+		"event=phase_substep phase=analysis subphase=review_lifecycle step=6 step_total=10",
+		"event=phase_substep phase=analysis subphase=composition step=7 step_total=10",
+		"event=phase_substep phase=analysis subphase=lifecycle_queue step=8 step_total=10",
+		"event=phase_substep phase=analysis subphase=backlog step=9 step_total=10",
+		"event=phase_substep phase=analysis subphase=state_finalization step=10 step_total=10",
 		"event=phase_substep phase=artifact_commit subphase=artifact_write step=1 step_total=1",
 	} {
 		if !strings.Contains(errOut.String(), want) {

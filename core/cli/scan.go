@@ -434,7 +434,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := statusTracker.Phase("analysis_start"); err != nil {
 		return emitScanFailure(err)
 	}
-	progress.PhaseSubstep("analysis", "inventory", 1, 6)
+	progress.PhaseSubstep("analysis", "inventory", 1, 10)
 
 	previousSnapshot, loadPreviousErr := loadPreviousSnapshot(statePath, strings.TrimSpace(*baselinePath))
 	if loadPreviousErr != nil {
@@ -578,7 +578,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 	agginventory.ApplyCanonicalStores(&inventoryOut)
-	progress.PhaseSubstep("analysis", "action_paths", 2, 6)
+	progress.PhaseSubstep("analysis", "action_paths", 2, 10)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
 	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, analysisFindings)
 	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
@@ -623,23 +623,55 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	artifactFindings := summarizeArtifactFindings(findings, scanMode)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, &scanQuality)
-	progress.PhaseSubstep("analysis", "control_graph", 3, 6)
-	riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
-	progress.PhaseSubstep("analysis", "workflow_chains", 4, 6)
-	riskReport.WorkflowChains = risk.BuildWorkflowChains(riskReport.ActionPaths, riskReport.ControlPathGraph)
-	riskReport.ActionPaths = risk.DecorateWorkflowChainRefs(riskReport.ActionPaths, riskReport.WorkflowChains)
-	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
-	riskReport.ActionPaths = risk.ProjectReviewLifecycleTransitions(riskReport.ActionPaths, previousSnapshotActionPaths(previousSnapshot))
-	riskReport.ComposedActionPaths, riskReport.ComposedActionPathToControlFirst = risk.BuildComposedActionPaths(riskReport.ActionPaths, riskReport.WorkflowChains)
-	riskReport.ActionPaths = risk.DecorateActionPathCompositionRefs(riskReport.ActionPaths, riskReport.ComposedActionPaths)
+	progress.PhaseSubstep("analysis", "control_graph", 3, 10)
+	controlGraph, graphErr := risk.BuildControlPathGraphContext(ctx, riskReport.ActionPaths)
+	if graphErr != nil {
+		return emitScanFailure(graphErr)
+	}
+	riskReport.ControlPathGraph = controlGraph
+	progress.PhaseSubstep("analysis", "workflow_chains", 4, 10)
+	workflowChains, workflowErr := risk.BuildWorkflowChainsContext(ctx, riskReport.ActionPaths, riskReport.ControlPathGraph)
+	if workflowErr != nil {
+		return emitScanFailure(workflowErr)
+	}
+	riskReport.WorkflowChains = workflowChains
+	progress.PhaseSubstep("analysis", "action_lineage", 5, 10)
+	pathsWithWorkflowRefs, workflowRefErr := risk.DecorateWorkflowChainRefsContext(ctx, riskReport.ActionPaths, riskReport.WorkflowChains)
+	if workflowRefErr != nil {
+		return emitScanFailure(workflowRefErr)
+	}
+	pathsWithLineage, lineageErr := risk.DecorateActionLineageContext(ctx, pathsWithWorkflowRefs, riskReport.ControlPathGraph)
+	if lineageErr != nil {
+		return emitScanFailure(lineageErr)
+	}
+	riskReport.ActionPaths = pathsWithLineage
+	progress.PhaseSubstep("analysis", "review_lifecycle", 6, 10)
+	pathsWithReviewLifecycle, reviewLifecycleErr := risk.ProjectReviewLifecycleTransitionsContext(ctx, riskReport.ActionPaths, previousSnapshotActionPaths(previousSnapshot))
+	if reviewLifecycleErr != nil {
+		return emitScanFailure(reviewLifecycleErr)
+	}
+	riskReport.ActionPaths = pathsWithReviewLifecycle
+	progress.PhaseSubstep("analysis", "composition", 7, 10)
+	compositions, compositionChoice, compositionErr := risk.BuildComposedActionPathsContext(ctx, riskReport.ActionPaths, riskReport.WorkflowChains)
+	if compositionErr != nil {
+		return emitScanFailure(compositionErr)
+	}
+	riskReport.ComposedActionPaths = compositions
+	riskReport.ComposedActionPathToControlFirst = compositionChoice
+	pathsWithCompositionRefs, compositionRefErr := risk.DecorateActionPathCompositionRefsContext(ctx, riskReport.ActionPaths, riskReport.ComposedActionPaths)
+	if compositionRefErr != nil {
+		return emitScanFailure(compositionRefErr)
+	}
+	riskReport.ActionPaths = pathsWithCompositionRefs
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
+	progress.PhaseSubstep("analysis", "lifecycle_queue", 8, 10)
 	lifecycleGaps := lifecycle.DetectGaps(lifecycle.GapInput{
 		Identities:  nextManifest.Identities,
 		Inventory:   &inventoryOut,
 		Transitions: transitions,
 	})
 	inventoryOut.LifecycleQueue = lifecycle.BuildQueue(lifecycleGaps)
-	progress.PhaseSubstep("analysis", "backlog", 5, 6)
+	progress.PhaseSubstep("analysis", "backlog", 9, 10)
 	controlBacklog := controlbacklog.Build(controlbacklog.Input{
 		Mode:             scanMode,
 		GeneratedAt:      now,
@@ -672,7 +704,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
-	progress.PhaseSubstep("analysis", "state_finalization", 6, 6)
+	progress.PhaseSubstep("analysis", "state_finalization", 10, 10)
 
 	snapshot := state.Snapshot{
 		Version:                    state.SnapshotVersion,

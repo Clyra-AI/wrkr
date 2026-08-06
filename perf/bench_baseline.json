@@ -18,6 +18,12 @@
       "unit": "ns/op",
       "median": 250000000,
       "max_regression_factor": 1.5
+    },
+    {
+      "name": "BenchmarkBuildComposedActionPathsDenseCandidateCap",
+      "unit": "ns/op",
+      "median": 260000000,
+      "max_regression_factor": 1.5
     }
   ]
 }

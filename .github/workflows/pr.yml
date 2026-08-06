@@ -46,6 +46,9 @@ jobs:
               - 'testinfra/**'
               - 'scenarios/**'
               - 'scripts/**'
+              - 'schemas/**'
+              - '.goreleaser.yaml'
+              - '.github/coverage-exceptions.json'
               - '.github/workflows/**'
               - '.github/required-checks.json'
             dependencies:
@@ -80,6 +83,9 @@ jobs:
               - 'internal/**'
               - 'testinfra/**'
               - 'scenarios/**'
+              - 'schemas/**'
+              - '.goreleaser.yaml'
+              - '.github/coverage-exceptions.json'
               - '.github/workflows/**'
             security:
               - '**/*.go'

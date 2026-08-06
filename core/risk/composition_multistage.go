@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"context"
 	"sort"
 	"strconv"
 	"strings"
@@ -55,11 +56,58 @@ type multiStageCompositionBuildState struct {
 	truncations         []CompositionTruncation
 }
 
+func (s *multiStageCompositionBuildState) recordTruncatedCandidate(candidate string) {
+	if s == nil || len(s.truncatedCandidates) >= maxComposedActionPathTruncatedCandidates {
+		return
+	}
+	s.truncatedCandidates = append(s.truncatedCandidates, candidate)
+}
+
 func buildMultiStageComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.WorkflowChainArtifact) []ComposedActionPath {
+	compositions, _ := buildMultiStageComposedActionPathsContext(context.Background(), paths, workflowChains)
+	return compositions
+}
+
+func buildMultiStageComposedActionPathsContext(ctx context.Context, paths []ActionPath, workflowChains *agentresolver.WorkflowChainArtifact) ([]ComposedActionPath, error) {
 	if len(paths) < minMultiStageCompositionDepth {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	chainRefsByPath := agentresolver.WorkflowChainRefsByPath(workflowChains)
+	correlationRefsByMember := map[string][]string{}
+	strongRefMembers := map[string]map[string]struct{}{}
+	hasEvidenceBackedJoin := false
+	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		memberKey := compositionMemberKey(path)
+		refs := multiStageCorrelationRefs(path, chainRefsByPath)
+		correlationRefsByMember[memberKey] = dedupeSortedStrings(append(correlationRefsByMember[memberKey], refs...))
+		for _, ref := range refs {
+			if !strongMultiStageCorrelationRef(ref) {
+				continue
+			}
+			members := strongRefMembers[ref]
+			if members == nil {
+				members = map[string]struct{}{}
+				strongRefMembers[ref] = members
+			}
+			members[memberKey] = struct{}{}
+			if len(members) > 1 {
+				hasEvidenceBackedJoin = true
+			}
+		}
+	}
+	if !hasEvidenceBackedJoin {
+		return nil, nil
+	}
+
 	ordered := append([]ActionPath(nil), paths...)
 	sort.Slice(ordered, func(i, j int) bool {
 		leftClass := multiStageSystemClass(ordered[i])
@@ -73,25 +121,24 @@ func buildMultiStageComposedActionPaths(paths []ActionPath, workflowChains *agen
 		return strings.TrimSpace(ordered[i].PathID) < strings.TrimSpace(ordered[j].PathID)
 	})
 
-	correlationRefsByMember := map[string][]string{}
-	for _, path := range ordered {
-		memberKey := compositionMemberKey(path)
-		correlationRefsByMember[memberKey] = dedupeSortedStrings(append(
-			correlationRefsByMember[memberKey],
-			multiStageCorrelationRefs(path, chainRefsByPath)...,
-		))
-	}
-
 	byID := map[string]ComposedActionPath{}
 	for _, spec := range multiStageCompositionPatternSpecs() {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		state := &multiStageCompositionBuildState{}
 		for _, source := range ordered {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			sourceClass := multiStageSystemClass(source)
 			if !IsActionPathEligible(source) || !spec.sourceOK(source) || !stringInSet(sourceClass, spec.sourceSystems) || !knownMultiStageTrustBoundary(source, sourceClass) {
 				continue
 			}
 			visited := map[string]struct{}{compositionMemberKey(source): {}}
-			walkMultiStageComposition(spec, ordered, correlationRefsByMember, []ActionPath{source}, nil, visited, byID, state)
+			if err := walkMultiStageComposition(ctx, spec, ordered, correlationRefsByMember, []ActionPath{source}, nil, visited, byID, state); err != nil {
+				return nil, err
+			}
 			if state.candidateCount >= maxMultiStageCompositionCandidatesPerPattern || state.emittedCount >= maxMultiStageCompositionPathsPerPattern {
 				break
 			}
@@ -101,6 +148,9 @@ func buildMultiStageComposedActionPaths(paths []ActionPath, workflowChains *agen
 
 	out := make([]ComposedActionPath, 0, len(byID))
 	for _, composition := range byID {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		out = append(out, composition)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -109,10 +159,11 @@ func buildMultiStageComposedActionPaths(paths []ActionPath, workflowChains *agen
 		}
 		return out[i].CompositionID < out[j].CompositionID
 	})
-	return out
+	return out, nil
 }
 
 func walkMultiStageComposition(
+	ctx context.Context,
 	spec multiStageCompositionPatternSpec,
 	candidates []ActionPath,
 	correlationRefsByMember map[string][]string,
@@ -121,9 +172,12 @@ func walkMultiStageComposition(
 	visited map[string]struct{},
 	byID map[string]ComposedActionPath,
 	state *multiStageCompositionBuildState,
-) {
+) error {
 	if state == nil || state.candidateCount >= maxMultiStageCompositionCandidatesPerPattern || state.emittedCount >= maxMultiStageCompositionPathsPerPattern {
-		return
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	last := current[len(current)-1]
 	lastMember := compositionMemberKey(last)
@@ -136,6 +190,9 @@ func walkMultiStageComposition(
 	}
 	next := make([]nextCandidate, 0)
 	for _, candidate := range candidates {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		memberKey := compositionMemberKey(candidate)
 		if _, seen := visited[memberKey]; seen || !IsActionPathEligible(candidate) {
 			continue
@@ -166,7 +223,7 @@ func walkMultiStageComposition(
 	if len(next) > maxMultiStageCompositionNeighborsPerStage {
 		omitted := next[maxMultiStageCompositionNeighborsPerStage:]
 		for _, candidate := range omitted {
-			state.truncatedCandidates = append(state.truncatedCandidates, compositionCandidateKey(candidate.path))
+			state.recordTruncatedCandidate(compositionCandidateKey(candidate.path))
 		}
 		state.truncations = append(state.truncations, CompositionTruncation{
 			PatternID:          spec.id,
@@ -179,6 +236,9 @@ func walkMultiStageComposition(
 	}
 
 	for _, candidate := range next {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if state.candidateCount >= maxMultiStageCompositionCandidatesPerPattern {
 			state.truncations = append(state.truncations, CompositionTruncation{
 				PatternID:          spec.id,
@@ -187,7 +247,7 @@ func walkMultiStageComposition(
 				ObservedCandidates: state.candidateCount + 1,
 				OmittedCandidates:  1,
 			})
-			return
+			return nil
 		}
 		state.candidateCount++
 		route := append(append([]ActionPath(nil), current...), candidate.path)
@@ -211,7 +271,7 @@ func walkMultiStageComposition(
 					ObservedCandidates: state.emittedCount + 1,
 					OmittedCandidates:  1,
 				})
-				return
+				return nil
 			}
 			composition := buildMultiStageComposedActionPath(spec, route, routeEdgeRefs)
 			if strings.TrimSpace(composition.CompositionID) != "" {
@@ -238,9 +298,12 @@ func walkMultiStageComposition(
 		}
 		memberKey := compositionMemberKey(candidate.path)
 		visited[memberKey] = struct{}{}
-		walkMultiStageComposition(spec, candidates, correlationRefsByMember, route, routeEdgeRefs, visited, byID, state)
+		if err := walkMultiStageComposition(ctx, spec, candidates, correlationRefsByMember, route, routeEdgeRefs, visited, byID, state); err != nil {
+			return err
+		}
 		delete(visited, memberKey)
 	}
+	return nil
 }
 
 func buildMultiStageComposedActionPath(spec multiStageCompositionPatternSpec, paths []ActionPath, edgeCorrelationRefs [][]string) ComposedActionPath {

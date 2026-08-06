@@ -320,6 +320,19 @@ func TestControlPathGraphCompositionEvidenceRefsRemainDeterministic(t *testing.T
 	}
 }
 
+func TestUniqueSortedStringsCopiesAlreadyNormalizedInput(t *testing.T) {
+	input := make([]string, 2, 4)
+	copy(input, []string{"attack_path:a", "attack_path:b"})
+
+	got := uniqueSortedStrings(input)
+	got[0] = "changed"
+	got = append(got, "attack_path:c")
+
+	if want := []string{"attack_path:a", "attack_path:b"}; !reflect.DeepEqual(input, want) {
+		t.Fatalf("uniqueSortedStrings mutated input = %v, want %v", input, want)
+	}
+}
+
 func TestControlPathGraphLinksIdentityCredentialToolWorkflowTargetAction(t *testing.T) {
 	t.Parallel()
 

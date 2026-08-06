@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -836,11 +837,23 @@ func BuildActionPathChoice(paths []ActionPath) *ActionPathToControlFirst {
 }
 
 func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
+	graph, _ := BuildControlPathGraphContext(context.Background(), paths)
+	return graph
+}
+
+// BuildControlPathGraphContext builds a bounded control graph and honors scan cancellation.
+func BuildControlPathGraphContext(ctx context.Context, paths []ActionPath) (*aggattack.ControlPathGraph, error) {
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	inputs := make([]aggattack.ControlPathInput, 0, len(paths))
 	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		inputs = append(inputs, aggattack.ControlPathInput{
 			PathID:                      strings.TrimSpace(path.PathID),
 			AgentID:                     strings.TrimSpace(path.AgentID),
@@ -886,11 +899,11 @@ func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 			RuntimeEvidenceState:        strings.TrimSpace(path.RuntimeEvidenceState),
 			TargetEvidenceState:         strings.TrimSpace(path.TargetEvidenceState),
 			EvidenceCompletenessLabel:   evidenceCompletenessProjectionLabel(path.EvidenceCompleteness),
-			AttackPathRefs:              dedupeSortedStrings(path.AttackPathRefs),
-			SourceFindingKeys:           dedupeSortedStrings(path.SourceFindingKeys),
+			AttackPathRefs:              boundedOutputEvidenceRefs(path.AttackPathRefs),
+			SourceFindingKeys:           boundedOutputEvidenceRefs(path.SourceFindingKeys),
 		})
 	}
-	return aggattack.BuildControlPathGraph(inputs)
+	return aggattack.BuildControlPathGraphContext(ctx, inputs)
 }
 
 func evidenceCompletenessProjectionLabel(in *EvidenceCompleteness) string {

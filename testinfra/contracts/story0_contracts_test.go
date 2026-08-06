@@ -221,6 +221,29 @@ func TestPRWorkflowPathFilterContract(t *testing.T) {
 			t.Fatalf("pr workflow missing required path-filter fragment %q", fragment)
 		}
 	}
+	for _, filter := range []struct {
+		name string
+		next string
+	}{
+		{name: "core", next: "dependencies"},
+		{name: "scan_contract", next: "security"},
+	} {
+		start := strings.Index(text, "            "+filter.name+":\n")
+		end := strings.Index(text, "            "+filter.next+":\n")
+		if start < 0 || end <= start {
+			t.Fatalf("could not locate %s path filter", filter.name)
+		}
+		section := text[start:end]
+		for _, input := range []string{
+			"- 'schemas/**'",
+			"- '.goreleaser.yaml'",
+			"- '.github/coverage-exceptions.json'",
+		} {
+			if !strings.Contains(section, input) {
+				t.Fatalf("%s path filter must include %q", filter.name, input)
+			}
+		}
+	}
 }
 
 func TestWorkflowTriggerContracts(t *testing.T) {
