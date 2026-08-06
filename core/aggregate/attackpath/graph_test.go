@@ -327,6 +327,9 @@ func TestUniqueSortedStringsCopiesAlreadyNormalizedInput(t *testing.T) {
 	got := uniqueSortedStrings(input)
 	got[0] = "changed"
 	got = append(got, "attack_path:c")
+	if want := "attack_path:c"; got[2] != want {
+		t.Fatalf("uniqueSortedStrings append = %q, want %q", got[2], want)
+	}
 
 	if want := []string{"attack_path:a", "attack_path:b"}; !reflect.DeepEqual(input, want) {
 		t.Fatalf("uniqueSortedStrings mutated input = %v, want %v", input, want)

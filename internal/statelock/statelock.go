@@ -109,13 +109,16 @@ func (l *Lease) writeOwnerMetadata() error {
 	if err != nil {
 		return fmt.Errorf("write managed artifact lock metadata: %w", err)
 	}
-	defer file.Close()
 	metadata := ownerMetadata{
 		PID:       os.Getpid(),
 		StartedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 	if err := json.NewEncoder(file).Encode(metadata); err != nil {
+		_ = file.Close()
 		return fmt.Errorf("write managed artifact lock metadata: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("close managed artifact lock metadata: %w", err)
 	}
 	return nil
 }

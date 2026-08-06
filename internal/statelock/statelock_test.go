@@ -68,3 +68,30 @@ func TestBusyErrorIncludesStateAndOwnerMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestLeaseMetadataHelpersHandleAbsentOrMalformedMetadata(t *testing.T) {
+	var nilLease *Lease
+	if err := nilLease.writeOwnerMetadata(); err != nil {
+		t.Fatalf("nil writeOwnerMetadata() error = %v", err)
+	}
+	if err := nilLease.removeOwnerMetadata(); err != nil {
+		t.Fatalf("nil removeOwnerMetadata() error = %v", err)
+	}
+	if err := (&Lease{}).writeOwnerMetadata(); err != nil {
+		t.Fatalf("empty writeOwnerMetadata() error = %v", err)
+	}
+	if err := (&Lease{}).removeOwnerMetadata(); err != nil {
+		t.Fatalf("empty removeOwnerMetadata() error = %v", err)
+	}
+
+	metadataPath := filepath.Join(t.TempDir(), "owner.json")
+	if _, err := readOwnerMetadata(metadataPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("readOwnerMetadata(missing) error = %v, want not exist", err)
+	}
+	if err := os.WriteFile(metadataPath, []byte("not json"), 0o600); err != nil {
+		t.Fatalf("write malformed owner metadata: %v", err)
+	}
+	if _, err := readOwnerMetadata(metadataPath); err == nil {
+		t.Fatal("readOwnerMetadata(malformed) error = nil, want error")
+	}
+}

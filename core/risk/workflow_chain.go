@@ -103,11 +103,6 @@ type workflowChainGraphRefs struct {
 	EdgeIDs []string
 }
 
-func workflowChainGraphRefsByPath(graph *aggattack.ControlPathGraph) map[string]workflowChainGraphRefs {
-	refs, _ := workflowChainGraphRefsByPathContext(context.Background(), graph)
-	return refs
-}
-
 func workflowChainGraphRefsByPathContext(ctx context.Context, graph *aggattack.ControlPathGraph) (map[string]workflowChainGraphRefs, error) {
 	byPath := map[string]workflowChainGraphRefs{}
 	if graph == nil {
