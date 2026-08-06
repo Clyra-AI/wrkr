@@ -1,6 +1,7 @@
 package attackpath
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -610,8 +611,20 @@ type ControlPathEdge struct {
 }
 
 func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
+	graph, _ := BuildControlPathGraphContext(context.Background(), paths)
+	return graph
+}
+
+// BuildControlPathGraphContext builds the deterministic graph while honoring scan cancellation.
+func BuildControlPathGraphContext(ctx context.Context, paths []ControlPathInput) (*ControlPathGraph, error) {
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	ordered := append([]ControlPathInput(nil), paths...)
@@ -633,6 +646,9 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 	readinessCounts := map[string]int{}
 	evidenceCounts := map[string]int{}
 	for _, path := range ordered {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		pathNodes, pathEdges := buildControlPath(path)
 		nodes = append(nodes, pathNodes...)
 		edges = append(edges, pathEdges...)
@@ -672,6 +688,9 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 		return edges[i].EdgeID < edges[j].EdgeID
 	})
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	graph := &ControlPathGraph{
 		Version: ControlPathGraphVersion,
 		Summary: ControlPathGraphSummary{
@@ -686,7 +705,7 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 		Nodes: nodes,
 		Edges: edges,
 	}
-	return StripCanonicalProjectionDetails(BackfillCanonicalProjectionRefs(graph))
+	return StripCanonicalProjectionDetails(BackfillCanonicalProjectionRefs(graph)), nil
 }
 
 func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEdge) {
@@ -1339,6 +1358,11 @@ func uniqueSortedStrings(values []string) []string {
 	if len(values) == 0 {
 		return nil
 	}
+	if alreadyUniqueSortedStrings(values) {
+		// The graph is an output snapshot. Keep its references independent from
+		// caller-owned input slices even when normalization work can be skipped.
+		return append([]string(nil), values...)
+	}
 	seen := map[string]struct{}{}
 	out := make([]string, 0, len(values))
 	for _, value := range values {
@@ -1357,6 +1381,20 @@ func uniqueSortedStrings(values []string) []string {
 		return nil
 	}
 	return out
+}
+
+func alreadyUniqueSortedStrings(values []string) bool {
+	previous := ""
+	for index, value := range values {
+		if value == "" || strings.TrimSpace(value) != value {
+			return false
+		}
+		if index > 0 && previous >= value {
+			return false
+		}
+		previous = value
+	}
+	return true
 }
 
 func firstNonEmpty(values ...string) string {

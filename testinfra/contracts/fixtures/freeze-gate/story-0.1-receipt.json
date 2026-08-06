@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "dda38f99504504ab9876a778f229064cf78e05d822a7fce2e24e7b2f08841dcd",
+  "validated_content_sha256": "4e4e6e06a872d12fc275c79d5cdf7c40f2e4e1d36090b7ae4673d3f54b5ea3fc",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -40,7 +40,7 @@
     "action_contract_conformance_fixture_v1",
     "bounded_multi_stage_composed_action_contracts"
   ],
-  "validated_on": "2026-08-05",
+  "validated_on": "2026-08-06",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:4-repos",
@@ -60,6 +60,7 @@
     "core/risk.TestBuildComposedActionPathsMultiStageSupportsThreeToFiveStages",
     "core/risk.TestBuildComposedActionPathsMultiStageRejectsUnknownTrustBoundaryAndWeakRefs",
     "core/risk.TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget",
+    "core/risk.TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation",
     "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability",
     "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget",
     "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
@@ -229,6 +230,20 @@
         "core/report.multiStageReportPath:20-paths"
       ],
       "evidence": "Saved state, evidence JSON, endpoint-dense state, and the multi-stage Action Contract packet remain under committed byte budgets."
+    },
+    {
+      "name": "composition_generation_bounds",
+      "status": "pass",
+      "commands": [
+        "go test ./core/risk -run 'TestBuildComposedActionPaths(BoundsDuplicateCandidateEvaluation|BoundsSuppressedCandidateEvidence|MultiStageDefaultProjectionSizeAndNoiseBudget)$' -count=1"
+      ],
+      "fixture_names": [
+        "core/risk.TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation",
+        "core/risk.TestBuildComposedActionPathsBoundsSuppressedCandidateEvidence",
+        "core/risk.high-fanout-multi-stage:38-paths",
+        "core/risk.BenchmarkBuildComposedActionPathsDenseCandidateCap"
+      ],
+      "evidence": "Pairwise and duplicate candidate generation has deterministic evaluation and output-reference caps, with explicit truncation receipts."
     },
     {
       "name": "redaction",

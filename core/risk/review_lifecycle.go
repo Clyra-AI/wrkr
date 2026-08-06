@@ -1,19 +1,32 @@
 package risk
 
 import (
+	"context"
 	"sort"
 	"strings"
 )
 
 func ProjectReviewLifecycleTransitions(current []ActionPath, previous []ActionPath) []ActionPath {
+	projected, _ := ProjectReviewLifecycleTransitionsContext(context.Background(), current, previous)
+	return projected
+}
+
+// ProjectReviewLifecycleTransitionsContext projects review state while honoring cancellation.
+func ProjectReviewLifecycleTransitionsContext(ctx context.Context, current []ActionPath, previous []ActionPath) ([]ActionPath, error) {
 	if len(current) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	previousByPathID := map[string]ActionPath{}
 	previousByResolutionKey := map[string]ActionPath{}
 	previousByRepoLocation := map[string]ActionPath{}
 	for _, raw := range previous {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		path := ProjectActionPath(raw)
 		if pathID := strings.TrimSpace(path.PathID); pathID != "" {
 			previousByPathID[pathID] = path
@@ -28,6 +41,9 @@ func ProjectReviewLifecycleTransitions(current []ActionPath, previous []ActionPa
 
 	out := make([]ActionPath, 0, len(current))
 	for _, raw := range current {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		path := ProjectActionPath(raw)
 		if previousPath, ok := matchPreviousReviewLifecyclePath(path, previousByPathID, previousByResolutionKey, previousByRepoLocation); ok {
 			path = applyReviewLifecycleTransition(path, previousPath)
@@ -40,7 +56,10 @@ func ProjectReviewLifecycleTransitions(current []ActionPath, previous []ActionPa
 	sort.Slice(out, func(i, j int) bool {
 		return compareActionPaths(out[i], out[j])
 	})
-	return out
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func applyCurrentReviewLifecycleProjection(path ActionPath) ActionPath {

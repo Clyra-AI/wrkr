@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
@@ -45,17 +46,32 @@ func CloneActionLineage(in *ActionLineage) *ActionLineage {
 }
 
 func DecorateActionLineage(paths []ActionPath, graph *aggattack.ControlPathGraph) []ActionPath {
+	decorated, _ := DecorateActionLineageContext(context.Background(), paths, graph)
+	return decorated
+}
+
+// DecorateActionLineageContext projects lineage while allowing a scan timeout to stop the work.
+func DecorateActionLineageContext(ctx context.Context, paths []ActionPath, graph *aggattack.ControlPathGraph) ([]ActionPath, error) {
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
 	}
-	index := newControlPathLineageIndex(graph)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	index, err := newControlPathLineageIndexContext(ctx, graph)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]ActionPath, 0, len(paths))
 	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		copyPath := path
 		copyPath.ActionLineage = buildActionLineage(path, index)
 		out = append(out, copyPath)
 	}
-	return out
+	return out, nil
 }
 
 type controlPathLineageIndex struct {
@@ -64,14 +80,25 @@ type controlPathLineageIndex struct {
 }
 
 func newControlPathLineageIndex(graph *aggattack.ControlPathGraph) controlPathLineageIndex {
+	index, _ := newControlPathLineageIndexContext(context.Background(), graph)
+	return index
+}
+
+func newControlPathLineageIndexContext(ctx context.Context, graph *aggattack.ControlPathGraph) (controlPathLineageIndex, error) {
 	index := controlPathLineageIndex{
 		nodesByPath: map[string][]aggattack.ControlPathNode{},
 		edgesByPath: map[string][]aggattack.ControlPathEdge{},
 	}
 	if graph == nil {
-		return index
+		return index, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	for _, node := range graph.Nodes {
+		if err := ctx.Err(); err != nil {
+			return controlPathLineageIndex{}, err
+		}
 		pathID := strings.TrimSpace(node.PathID)
 		if pathID == "" {
 			continue
@@ -79,13 +106,16 @@ func newControlPathLineageIndex(graph *aggattack.ControlPathGraph) controlPathLi
 		index.nodesByPath[pathID] = append(index.nodesByPath[pathID], node)
 	}
 	for _, edge := range graph.Edges {
+		if err := ctx.Err(); err != nil {
+			return controlPathLineageIndex{}, err
+		}
 		pathID := strings.TrimSpace(edge.PathID)
 		if pathID == "" {
 			continue
 		}
 		index.edgesByPath[pathID] = append(index.edgesByPath[pathID], edge)
 	}
-	return index
+	return index, nil
 }
 
 func buildActionLineage(path ActionPath, index controlPathLineageIndex) *ActionLineage {

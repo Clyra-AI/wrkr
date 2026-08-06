@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"context"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
@@ -10,13 +11,28 @@ import (
 )
 
 func BuildWorkflowChains(paths []ActionPath, graph *aggattack.ControlPathGraph) *agentresolver.WorkflowChainArtifact {
+	artifact, _ := BuildWorkflowChainsContext(context.Background(), paths, graph)
+	return artifact
+}
+
+// BuildWorkflowChainsContext builds bounded workflow-chain evidence while honoring scan cancellation.
+func BuildWorkflowChainsContext(ctx context.Context, paths []ActionPath, graph *aggattack.ControlPathGraph) (*agentresolver.WorkflowChainArtifact, error) {
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	graphRefsByPath := workflowChainGraphRefsByPath(graph)
+	graphRefsByPath, err := workflowChainGraphRefsByPathContext(ctx, graph)
+	if err != nil {
+		return nil, err
+	}
 	inputs := make([]agentresolver.WorkflowChainInput, 0, len(paths))
 	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		refs := graphRefsByPath[strings.TrimSpace(path.PathID)]
 		inputs = append(inputs, agentresolver.WorkflowChainInput{
 			PathID:                    strings.TrimSpace(path.PathID),
@@ -49,26 +65,37 @@ func BuildWorkflowChains(paths []ActionPath, graph *aggattack.ControlPathGraph) 
 			EvidenceCompletenessLabel: evidenceCompletenessProjectionLabel(path.EvidenceCompleteness),
 			GraphNodeRefs:             refs.NodeIDs,
 			GraphEdgeRefs:             refs.EdgeIDs,
-			ProofRefs:                 dedupeSortedStrings(path.PolicyEvidenceRefs),
+			ProofRefs:                 boundedOutputEvidenceRefs(path.PolicyEvidenceRefs),
 			EvidenceRefs:              workflowChainEvidenceRefs(path),
-			SourceFindingKeys:         dedupeSortedStrings(path.SourceFindingKeys),
+			SourceFindingKeys:         boundedOutputEvidenceRefs(path.SourceFindingKeys),
 		})
 	}
-	return agentresolver.BuildWorkflowChains(inputs)
+	return agentresolver.BuildWorkflowChainsContext(ctx, inputs)
 }
 
 func DecorateWorkflowChainRefs(paths []ActionPath, artifact *agentresolver.WorkflowChainArtifact) []ActionPath {
+	decorated, _ := DecorateWorkflowChainRefsContext(context.Background(), paths, artifact)
+	return decorated
+}
+
+func DecorateWorkflowChainRefsContext(ctx context.Context, paths []ActionPath, artifact *agentresolver.WorkflowChainArtifact) ([]ActionPath, error) {
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	refsByPath := agentresolver.WorkflowChainRefsByPath(artifact)
 	out := make([]ActionPath, 0, len(paths))
 	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		copyPath := path
 		copyPath.WorkflowChainRefs = dedupeSortedStrings(refsByPath[strings.TrimSpace(path.PathID)])
 		out = append(out, copyPath)
 	}
-	return out
+	return out, nil
 }
 
 type workflowChainGraphRefs struct {
@@ -77,29 +104,51 @@ type workflowChainGraphRefs struct {
 }
 
 func workflowChainGraphRefsByPath(graph *aggattack.ControlPathGraph) map[string]workflowChainGraphRefs {
+	refs, _ := workflowChainGraphRefsByPathContext(context.Background(), graph)
+	return refs
+}
+
+func workflowChainGraphRefsByPathContext(ctx context.Context, graph *aggattack.ControlPathGraph) (map[string]workflowChainGraphRefs, error) {
 	byPath := map[string]workflowChainGraphRefs{}
 	if graph == nil {
-		return byPath
+		return byPath, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	for _, node := range graph.Nodes {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		pathID := strings.TrimSpace(node.PathID)
 		if pathID == "" {
 			continue
 		}
 		current := byPath[pathID]
-		current.NodeIDs = dedupeSortedStrings(append(current.NodeIDs, strings.TrimSpace(node.NodeID)))
+		current.NodeIDs = append(current.NodeIDs, strings.TrimSpace(node.NodeID))
 		byPath[pathID] = current
 	}
 	for _, edge := range graph.Edges {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		pathID := strings.TrimSpace(edge.PathID)
 		if pathID == "" {
 			continue
 		}
 		current := byPath[pathID]
-		current.EdgeIDs = dedupeSortedStrings(append(current.EdgeIDs, strings.TrimSpace(edge.EdgeID)))
+		current.EdgeIDs = append(current.EdgeIDs, strings.TrimSpace(edge.EdgeID))
 		byPath[pathID] = current
 	}
-	return byPath
+	for pathID, refs := range byPath {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		refs.NodeIDs = dedupeSortedStrings(refs.NodeIDs)
+		refs.EdgeIDs = dedupeSortedStrings(refs.EdgeIDs)
+		byPath[pathID] = refs
+	}
+	return byPath, nil
 }
 
 func workflowChainEvidenceRefs(path ActionPath) []string {
@@ -109,5 +158,5 @@ func workflowChainEvidenceRefs(path ActionPath) []string {
 	if path.IntroducedBy != nil {
 		values = append(values, attribution.EvidenceRefs(path.IntroducedBy)...)
 	}
-	return dedupeSortedStrings(values)
+	return boundedOutputEvidenceRefs(values)
 }

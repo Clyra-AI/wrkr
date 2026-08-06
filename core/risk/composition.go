@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
@@ -70,8 +71,10 @@ const (
 	CompositionMaterialityLow      = "low"
 	CompositionMaterialityMaterial = "material"
 
-	maxComposedActionPathCandidates = 128
-	maxEquivalentOutcomeRefs        = 8
+	maxComposedActionPathCandidates           = 128
+	maxComposedActionPathCandidateEvaluations = maxComposedActionPathCandidates * 8
+	maxComposedActionPathTruncatedCandidates  = 16
+	maxEquivalentOutcomeRefs                  = 8
 )
 
 type CompositionPattern struct {
@@ -238,38 +241,100 @@ type compositionPatternSpec struct {
 	sinkOK      func(ActionPath) bool
 }
 
+type compositionTruncationState struct {
+	Candidates         []string
+	ObservedCandidates int
+	OmittedCandidates  int
+	Limit              int
+}
+
+type compositionCandidate struct {
+	path                      ActionPath
+	memberKey                 string
+	scope                     string
+	targetIdentityClass       string
+	orgRepo                   string
+	targetClass               string
+	environment               string
+	hasExplicitTargetIdentity bool
+}
+
 func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.WorkflowChainArtifact) ([]ComposedActionPath, *ComposedActionPathToControlFirst) {
+	compositions, choice, _ := BuildComposedActionPathsContext(context.Background(), paths, workflowChains)
+	return compositions, choice
+}
+
+// BuildComposedActionPathsContext builds bounded composition evidence while honoring scan cancellation.
+func BuildComposedActionPathsContext(ctx context.Context, paths []ActionPath, workflowChains *agentresolver.WorkflowChainArtifact) ([]ComposedActionPath, *ComposedActionPathToControlFirst, error) {
 	if len(paths) == 0 {
-		return nil, nil
+		return nil, nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
 	}
 	projected := ProjectActionPaths(paths)
+	candidateMetadata := make([]compositionCandidate, len(projected))
+	for index := range projected {
+		candidateMetadata[index] = newCompositionCandidate(projected[index])
+	}
 	chainRefsByPath := agentresolver.WorkflowChainRefsByPath(workflowChains)
 	specs := compositionPatternSpecs()
 	compositionsByKey := map[string]ComposedActionPath{}
-	truncated := map[string][]string{}
+	truncated := map[string]*compositionTruncationState{}
 
 	for _, spec := range specs {
-		sources := filterCompositionCandidates(projected, spec.sourceOK)
-		sinks := filterCompositionCandidates(projected, spec.sinkOK)
+		sources := filterCompositionCandidates(projected, candidateMetadata, spec.sourceOK)
+		sinks := filterCompositionCandidates(projected, candidateMetadata, spec.sinkOK)
 		count := 0
-		for _, source := range sources {
-			for _, sink := range sinks {
-				if !compositionCandidatesCompatible(source, sink) {
+		evaluated := 0
+		truncatedPattern := false
+		for sourceIndex, source := range sources {
+			for sinkIndex, sink := range sinks {
+				if err := ctx.Err(); err != nil {
+					return nil, nil, err
+				}
+				if !compositionCandidatesCompatibleCandidate(source, sink) {
 					continue
 				}
-				composition := buildComposedActionPath(spec, source, sink, chainRefsByPath)
-				if _, seen := compositionsByKey[composition.CompositionID]; !seen {
-					count++
-					if count > maxComposedActionPathCandidates {
-						truncated[spec.id] = append(truncated[spec.id], compositionCandidateKey(source)+"->"+compositionCandidateKey(sink))
-						continue
-					}
+				if evaluated >= maxComposedActionPathCandidateEvaluations {
+					state := truncationStateForPattern(truncated, spec.id, maxComposedActionPathCandidateEvaluations)
+					state.recordBatch(source.memberKey+"->"+sink.memberKey, evaluated, remainingCompatibleCompositionCandidates(sources, sinks, sourceIndex, sinkIndex))
+					truncatedPattern = true
+					break
 				}
-				compositionsByKey[composition.CompositionID] = mergeComposedActionPath(compositionsByKey[composition.CompositionID], composition)
+				evaluated++
+				compositionID := compositionCandidateIDForCandidates(spec, source, sink)
+				current, seen := compositionsByKey[compositionID]
+				if !seen && count >= maxComposedActionPathCandidates {
+					state := truncationStateForPattern(truncated, spec.id, maxComposedActionPathCandidates)
+					state.recordBatch(source.memberKey+"->"+sink.memberKey, evaluated-1, remainingCompatibleCompositionCandidates(sources, sinks, sourceIndex, sinkIndex))
+					truncatedPattern = true
+					break
+				}
+				composition := buildComposedActionPath(spec, source.path, sink.path, chainRefsByPath)
+				if seen {
+					compositionsByKey[compositionID] = mergeComposedActionPathWithoutContract(current, composition)
+					continue
+				}
+				count++
+				compositionsByKey[compositionID] = composition
+			}
+			if truncatedPattern {
+				break
 			}
 		}
 	}
-	for _, composition := range buildMultiStageComposedActionPaths(projected, workflowChains) {
+	multiStage, err := buildMultiStageComposedActionPathsContext(ctx, projected, workflowChains)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, composition := range multiStage {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		if strings.TrimSpace(composition.CompositionID) == "" {
 			continue
 		}
@@ -277,14 +342,18 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 	}
 
 	if len(compositionsByKey) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	compositions := make([]ComposedActionPath, 0, len(compositionsByKey))
 	for _, composition := range compositionsByKey {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		composition.TruncatedCandidates = dedupeSortedStrings(composition.TruncatedCandidates)
 		composition.Truncations = normalizeCompositionTruncations(composition.Truncations)
 		compositions = append(compositions, composition)
 	}
+	refreshCompositionContracts(compositions)
 	annotateMultiStageAlternateRoutes(compositions)
 	annotateEquivalentOutcomeSignals(compositions)
 	sort.Slice(compositions, func(i, j int) bool {
@@ -295,16 +364,27 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 	return compositions, &ComposedActionPathToControlFirst{
 		Summary: summary,
 		Path:    compositions[0],
-	}
+	}, nil
 }
 
 func DecorateActionPathCompositionRefs(paths []ActionPath, compositions []ComposedActionPath) []ActionPath {
+	decorated, _ := DecorateActionPathCompositionRefsContext(context.Background(), paths, compositions)
+	return decorated
+}
+
+func DecorateActionPathCompositionRefsContext(ctx context.Context, paths []ActionPath, compositions []ComposedActionPath) ([]ActionPath, error) {
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	refsByPath := map[string][]string{}
 	contractRefsByPath := map[string][]string{}
 	for _, composition := range compositions {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		for _, pathID := range composition.PathIDs {
 			trimmed := strings.TrimSpace(pathID)
 			if trimmed == "" {
@@ -316,12 +396,15 @@ func DecorateActionPathCompositionRefs(paths []ActionPath, compositions []Compos
 	}
 	out := make([]ActionPath, 0, len(paths))
 	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		copyPath := path
 		copyPath.CompositionIDs = dedupeSortedStrings(append(copyPath.CompositionIDs, refsByPath[strings.TrimSpace(path.PathID)]...))
 		copyPath.ProposedActionContractRefs = dedupeSortedStrings(append(copyPath.ProposedActionContractRefs, contractRefsByPath[strings.TrimSpace(path.PathID)]...))
 		out = append(out, copyPath)
 	}
-	return out
+	return out, nil
 }
 
 func SummarizeComposedActionPaths(paths []ComposedActionPath) ComposedActionPathSummary {
@@ -411,14 +494,14 @@ func compositionPatternSpecs() []compositionPatternSpec {
 	}
 }
 
-func filterCompositionCandidates(paths []ActionPath, predicate func(ActionPath) bool) []ActionPath {
-	out := []ActionPath{}
-	for _, path := range paths {
+func filterCompositionCandidates(paths []ActionPath, candidates []compositionCandidate, predicate func(ActionPath) bool) []compositionCandidate {
+	out := []compositionCandidate{}
+	for index, path := range paths {
 		if !IsActionPathEligible(path) {
 			continue
 		}
 		if predicate(path) {
-			out = append(out, path)
+			out = append(out, candidates[index])
 		}
 	}
 	return out
@@ -429,6 +512,59 @@ func compositionCandidatesCompatible(source, sink ActionPath) bool {
 		return false
 	}
 	return strings.TrimSpace(source.Repo) == strings.TrimSpace(sink.Repo)
+}
+
+func compositionCandidatesCompatibleCandidate(source, sink compositionCandidate) bool {
+	return source.scope == sink.scope
+}
+
+func remainingCompatibleCompositionCandidates(sources, sinks []compositionCandidate, sourceIndex, sinkIndex int) int {
+	if sourceIndex < 0 || sourceIndex >= len(sources) || sinkIndex < 0 || sinkIndex >= len(sinks) {
+		return 0
+	}
+	remaining := 0
+	for index := sinkIndex; index < len(sinks); index++ {
+		if compositionCandidatesCompatibleCandidate(sources[sourceIndex], sinks[index]) {
+			remaining++
+		}
+	}
+	sinksByScope := map[string]int{}
+	for _, sink := range sinks {
+		sinksByScope[sink.scope]++
+	}
+	for index := sourceIndex + 1; index < len(sources); index++ {
+		remaining += sinksByScope[sources[index].scope]
+	}
+	return remaining
+}
+
+func truncationStateForPattern(truncated map[string]*compositionTruncationState, patternID string, limit int) *compositionTruncationState {
+	key := strings.TrimSpace(patternID)
+	state := truncated[key]
+	if state == nil {
+		state = &compositionTruncationState{Limit: limit}
+		truncated[key] = state
+	}
+	return state
+}
+
+func newCompositionCandidate(path ActionPath) compositionCandidate {
+	candidate := compositionCandidate{
+		path:                      path,
+		memberKey:                 compositionMemberKey(path),
+		scope:                     strings.TrimSpace(path.Org) + "\x1f" + strings.TrimSpace(path.Repo),
+		targetIdentityClass:       strings.TrimSpace(path.TargetClass),
+		orgRepo:                   strings.TrimSpace(path.Org) + "/" + strings.TrimSpace(path.Repo),
+		targetClass:               normalizeTargetClass(path.TargetClass),
+		hasExplicitTargetIdentity: len(path.MatchedProductionTargets) > 0 || strings.TrimSpace(path.EndpointRefGroupID) != "" || len(path.MutableEndpointSemantics) > 0,
+	}
+	switch {
+	case path.ProductionWrite || candidate.targetClass == TargetClassProductionImpacting || len(path.MatchedProductionTargets) > 0:
+		candidate.environment = "production"
+	case strings.TrimSpace(path.RiskZone) == RiskZoneRelease || strings.Contains(strings.ToLower(path.Location), "release"):
+		candidate.environment = "release"
+	}
+	return candidate
 }
 
 func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPath, chainRefsByPath map[string][]string) ComposedActionPath {
@@ -488,14 +624,165 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 	applyCompositionDelegationRelationships(&composition, paths)
 	applyCompositionRecommendedControl(&composition, paths)
 	hydrateCompositionTransitions(&composition)
-	composition.ProposedActionContract = BuildProposedActionContract(composition)
-	if composition.ProposedActionContract != nil {
-		composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
-	}
 	return composition
 }
 
-func attachTruncatedCandidates(compositions []ComposedActionPath, truncated map[string][]string) {
+func compositionCandidateID(spec compositionPatternSpec, source, sink ActionPath) string {
+	return compositionCandidateIDForCandidates(spec, newCompositionCandidate(source), newCompositionCandidate(sink))
+}
+
+func compositionCandidateIDForCandidates(spec compositionPatternSpec, source, sink compositionCandidate) string {
+	sourceRole := strings.TrimSpace(spec.sourceRole)
+	sinkRole := strings.TrimSpace(spec.sinkRole)
+	if compositionStageRoleRank(sourceRole) >= compositionStageRoleRank(sinkRole) {
+		return compositionCandidateIDGeneric(spec, source.path, sink.path)
+	}
+
+	targetIdentity := compositionCandidateTargetIdentity(source, sink)
+	targetClass := compositionCandidateTargetClass(source, sink)
+	environment := compositionCandidateEnvironment(spec, source, sink)
+	outcomeKey := "asset=" + targetIdentity + "|environment=" + environment + "|outcome=" + strings.TrimSpace(spec.outcome) + "|target_class=" + targetClass
+
+	// Normal composition patterns order distinct source and sink roles. Build the
+	// same identity bytes as compositionID without allocating stage maps or slices
+	// for candidates that will be suppressed by the per-pattern cap.
+	var raw strings.Builder
+	sourceMember := source.memberKey
+	sinkMember := sink.memberKey
+	raw.Grow(len(spec.id) + len(sourceRole) + len(sinkRole) + len(sourceMember) + len(sinkMember) + len(targetIdentity) + len(outcomeKey) + 80)
+	raw.WriteString("pattern=")
+	raw.WriteString(strings.TrimSpace(spec.id))
+	raw.WriteString("\x1frole=")
+	raw.WriteString(sourceRole)
+	raw.WriteString(";member=")
+	raw.WriteString(sourceMember)
+	raw.WriteString("\x1frole=")
+	raw.WriteString(sinkRole)
+	raw.WriteString(";member=")
+	raw.WriteString(sinkMember)
+	raw.WriteString("\x1ftarget=")
+	raw.WriteString(targetIdentity)
+	raw.WriteString("\x1foutcome=")
+	raw.WriteString(outcomeKey)
+	return "cap-" + stableCompositionHash(raw.String())
+}
+
+func compositionCandidateIDGeneric(spec compositionPatternSpec, source, sink ActionPath) string {
+	stages := dedupeCompositionStages([]CompositionStage{
+		compositionCandidateStage(spec.sourceRole, source),
+		compositionCandidateStage(spec.sinkRole, sink),
+	})
+	paths := []ActionPath{source, sink}
+	targetIdentity := compositionTargetIdentity(spec, paths)
+	targetClass := compositionTargetClass(paths)
+	outcomeKey := strings.Join(dedupeSortedStrings([]string{
+		"asset=" + targetIdentity,
+		"target_class=" + targetClass,
+		"outcome=" + spec.outcome,
+		"environment=" + compositionEnvironment(spec, paths),
+	}), "|")
+	return compositionID(spec.id, stages, targetIdentity, outcomeKey)
+}
+
+func compositionCandidateTargetIdentity(source, sink compositionCandidate) string {
+	if source.hasExplicitTargetIdentity || sink.hasExplicitTargetIdentity {
+		return compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{source.path, sink.path})
+	}
+	return compositionCandidateFallbackTargetIdentity(source.targetIdentityClass, source.orgRepo, sink.targetIdentityClass, sink.orgRepo)
+}
+
+func compositionCandidateFallbackTargetIdentity(sourceTargetClass, sourceOrgRepo, sinkTargetClass, sinkOrgRepo string) string {
+	values := [4]string{
+		sourceTargetClass,
+		sourceOrgRepo,
+		sinkTargetClass,
+		sinkOrgRepo,
+	}
+	count := 0
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		values[count] = value
+		count++
+	}
+	for index := 1; index < count; index++ {
+		for previous := index; previous > 0 && values[previous] < values[previous-1]; previous-- {
+			values[previous], values[previous-1] = values[previous-1], values[previous]
+		}
+	}
+	length := 0
+	unique := 0
+	for index := 0; index < count; index++ {
+		if index > 0 && values[index] == values[index-1] {
+			continue
+		}
+		length += len(values[index])
+		if unique > 0 {
+			length++
+		}
+		unique++
+	}
+	var out strings.Builder
+	out.Grow(length)
+	for index := 0; index < count; index++ {
+		if index > 0 && values[index] == values[index-1] {
+			continue
+		}
+		if out.Len() > 0 {
+			out.WriteByte('+')
+		}
+		out.WriteString(values[index])
+	}
+	return out.String()
+}
+
+func compositionCandidateTargetClass(source, sink compositionCandidate) string {
+	targetClass := chooseTargetClass(source.targetClass, sink.targetClass)
+	if strings.TrimSpace(targetClass) == "" {
+		return TargetClassUnknown
+	}
+	return targetClass
+}
+
+func compositionCandidateEnvironment(spec compositionPatternSpec, source, sink compositionCandidate) string {
+	if source.environment != "" {
+		return source.environment
+	}
+	if sink.environment != "" {
+		return sink.environment
+	}
+	switch strings.TrimSpace(spec.outcome) {
+	case "data_egress", "network_egress":
+		return "external"
+	default:
+		return "unknown"
+	}
+}
+
+func compositionCandidateStage(role string, path ActionPath) CompositionStage {
+	stage := CompositionStage{
+		Role:          strings.TrimSpace(role),
+		ResolutionKey: compositionMemberKey(path),
+		TargetClass:   strings.TrimSpace(path.TargetClass),
+		EvidenceState: pathConservativeEvidenceState(path),
+	}
+	stage.StageID = compositionStageID(stage.Role, stage.ResolutionKey, stage.TargetClass, stage.EvidenceState)
+	return stage
+}
+
+func (s *compositionTruncationState) recordBatch(candidate string, observed, omitted int) {
+	if s == nil || omitted <= 0 {
+		return
+	}
+	s.OmittedCandidates += omitted
+	s.ObservedCandidates += observed + omitted
+	if len(s.Candidates) < maxComposedActionPathTruncatedCandidates {
+		s.Candidates = append(s.Candidates, candidate)
+	}
+}
+
+func attachTruncatedCandidates(compositions []ComposedActionPath, truncated map[string]*compositionTruncationState) {
 	if len(compositions) == 0 || len(truncated) == 0 {
 		return
 	}
@@ -509,12 +796,19 @@ func attachTruncatedCandidates(compositions []ComposedActionPath, truncated map[
 			firstByPattern[patternID] = idx
 		}
 	}
-	for patternID, candidates := range truncated {
+	for patternID, state := range truncated {
 		idx, ok := firstByPattern[strings.TrimSpace(patternID)]
-		if !ok || len(candidates) == 0 {
+		if !ok || state == nil || state.OmittedCandidates == 0 {
 			continue
 		}
-		compositions[idx].TruncatedCandidates = dedupeSortedStrings(append(compositions[idx].TruncatedCandidates, candidates...))
+		compositions[idx].TruncatedCandidates = dedupeSortedStrings(append(compositions[idx].TruncatedCandidates, state.Candidates...))
+		compositions[idx].Truncations = normalizeCompositionTruncations(append(compositions[idx].Truncations, CompositionTruncation{
+			PatternID:          strings.TrimSpace(patternID),
+			Reason:             CompositionTruncationCandidateCap,
+			Limit:              state.Limit,
+			ObservedCandidates: state.ObservedCandidates,
+			OmittedCandidates:  state.OmittedCandidates,
+		}))
 	}
 }
 
@@ -566,6 +860,11 @@ func dedupeCompositionStages(stages []CompositionStage) []CompositionStage {
 	}
 	out := make([]CompositionStage, 0, len(byKey))
 	for _, stage := range byKey {
+		stage.ActionClasses = boundedOutputEvidenceRefs(stage.ActionClasses)
+		stage.EvidenceRefs = boundedOutputEvidenceRefs(stage.EvidenceRefs)
+		stage.ProofRefs = boundedOutputEvidenceRefs(stage.ProofRefs)
+		stage.SourceDecisionRefs = boundedOutputEvidenceRefs(stage.SourceDecisionRefs)
+		stage.ReasonCodes = boundedOutputEvidenceRefs(stage.ReasonCodes)
 		out = append(out, stage)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -1052,7 +1351,7 @@ func stringSetDeltaLabels(prefix string, parent, child []string) []string {
 			out = append(out, prefix+":removed:"+value)
 		}
 	}
-	return dedupeSortedStrings(out)
+	return boundedOutputEvidenceRefs(out)
 }
 
 func stringSet(values []string) map[string]struct{} {
@@ -1215,17 +1514,28 @@ func compositionTransitionDelegationKeys(transition CompositionTransition, stage
 }
 
 func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActionPath {
+	return mergeComposedActionPathWithContract(current, incoming, true)
+}
+
+func mergeComposedActionPathWithoutContract(current, incoming ComposedActionPath) ComposedActionPath {
+	return mergeComposedActionPathWithContract(current, incoming, false)
+}
+
+func mergeComposedActionPathWithContract(current, incoming ComposedActionPath, buildContract bool) ComposedActionPath {
 	if strings.TrimSpace(current.CompositionID) == "" {
+		if buildContract {
+			refreshCompositionContract(&incoming)
+		}
 		return incoming
 	}
 	merged := current
-	merged.PathIDs = dedupeSortedStrings(append(merged.PathIDs, incoming.PathIDs...))
-	merged.WorkflowChainRefs = dedupeSortedStrings(append(merged.WorkflowChainRefs, incoming.WorkflowChainRefs...))
-	merged.EvidenceRefs = dedupeSortedStrings(append(merged.EvidenceRefs, incoming.EvidenceRefs...))
-	merged.ProofRefs = dedupeSortedStrings(append(merged.ProofRefs, incoming.ProofRefs...))
-	merged.SourceDecisionRefs = dedupeSortedStrings(append(merged.SourceDecisionRefs, incoming.SourceDecisionRefs...))
-	merged.TruncatedCandidates = dedupeSortedStrings(append(merged.TruncatedCandidates, incoming.TruncatedCandidates...))
-	merged.ProposedActionContractRefs = dedupeSortedStrings(append(merged.ProposedActionContractRefs, incoming.ProposedActionContractRefs...))
+	merged.PathIDs = boundedOutputEvidenceRefs(append(merged.PathIDs, incoming.PathIDs...))
+	merged.WorkflowChainRefs = boundedOutputEvidenceRefs(append(merged.WorkflowChainRefs, incoming.WorkflowChainRefs...))
+	merged.EvidenceRefs = boundedOutputEvidenceRefs(append(merged.EvidenceRefs, incoming.EvidenceRefs...))
+	merged.ProofRefs = boundedOutputEvidenceRefs(append(merged.ProofRefs, incoming.ProofRefs...))
+	merged.SourceDecisionRefs = boundedOutputEvidenceRefs(append(merged.SourceDecisionRefs, incoming.SourceDecisionRefs...))
+	merged.TruncatedCandidates = boundedOutputEvidenceRefs(append(merged.TruncatedCandidates, incoming.TruncatedCandidates...))
+	merged.ProposedActionContractRefs = boundedOutputEvidenceRefs(append(merged.ProposedActionContractRefs, incoming.ProposedActionContractRefs...))
 	merged.Stages = dedupeCompositionStages(append(append([]CompositionStage(nil), merged.Stages...), incoming.Stages...))
 	merged.Transitions = buildCompositionTransitions(merged.CompositionID, merged.Stages)
 	mergeCompositionTransitionDelegation(&merged,
@@ -1242,21 +1552,36 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.RuntimeEvidenceAbsenceStatus = compositionRuntimeAbsence(merged.RuntimeEvidenceAbsenceStatus, incoming.RuntimeEvidenceAbsenceStatus)
 	merged.RiskTier = compositionRiskTierFromValues(merged.RiskTier, incoming.RiskTier)
 	merged.RecommendedControl = compositionRecommendedControlFromValues(merged.RecommendedControl, incoming.RecommendedControl)
-	merged.RecommendedControlReasons = dedupeSortedStrings(append(merged.RecommendedControlReasons, incoming.RecommendedControlReasons...))
-	merged.EscalatingTransitionRefs = dedupeSortedStrings(append(merged.EscalatingTransitionRefs, incoming.EscalatingTransitionRefs...))
+	merged.RecommendedControlReasons = boundedOutputEvidenceRefs(append(merged.RecommendedControlReasons, incoming.RecommendedControlReasons...))
+	merged.EscalatingTransitionRefs = boundedOutputEvidenceRefs(append(merged.EscalatingTransitionRefs, incoming.EscalatingTransitionRefs...))
 	if strings.TrimSpace(merged.MostRestrictiveSource) == "" {
 		merged.MostRestrictiveSource = strings.TrimSpace(incoming.MostRestrictiveSource)
 	}
 	merged.ClaimState = compositionClaimState(merged.EvidenceState, merged.PolicyCoverageStatus, merged.FreshnessState, merged.GaitCoverage, merged.Stages, nil)
 	hydrateCompositionTransitions(&merged)
 	refreshCompositionEscalatingTransitionRefs(&merged)
-	merged.ProposedActionContract = BuildProposedActionContract(merged)
-	if merged.ProposedActionContract != nil {
-		merged.ProposedActionContractRefs = []string{merged.ProposedActionContract.ContractID}
-	} else {
-		merged.ProposedActionContractRefs = nil
+	if buildContract {
+		refreshCompositionContract(&merged)
 	}
 	return merged
+}
+
+func refreshCompositionContracts(compositions []ComposedActionPath) {
+	for index := range compositions {
+		refreshCompositionContract(&compositions[index])
+	}
+}
+
+func refreshCompositionContract(composition *ComposedActionPath) {
+	if composition == nil {
+		return
+	}
+	composition.ProposedActionContract = BuildProposedActionContract(*composition)
+	if composition.ProposedActionContract != nil {
+		composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
+		return
+	}
+	composition.ProposedActionContractRefs = nil
 }
 
 func hydrateCompositionTransitions(composition *ComposedActionPath) {
@@ -1713,7 +2038,7 @@ func compositionStageRoles(stages []CompositionStage) []string {
 	for _, stage := range stages {
 		out = append(out, strings.TrimSpace(stage.Role))
 	}
-	return dedupeSortedStrings(out)
+	return boundedOutputEvidenceRefs(out)
 }
 
 func compositionMemberKey(path ActionPath) string {
@@ -1740,7 +2065,7 @@ func compositionPathIDs(paths []ActionPath) []string {
 	for _, path := range paths {
 		out = append(out, strings.TrimSpace(path.PathID))
 	}
-	return dedupeSortedStrings(out)
+	return boundedOutputEvidenceRefs(out)
 }
 
 func compositionWorkflowRefs(paths []ActionPath, refsByPath map[string][]string) []string {
@@ -1854,7 +2179,7 @@ func compositionEvidenceRefs(paths []ActionPath) []string {
 			out = append(out, "credential:shared")
 		}
 	}
-	return dedupeSortedStrings(out)
+	return boundedOutputEvidenceRefs(out)
 }
 
 func compositionProofRefs(paths []ActionPath) []string {
@@ -1863,7 +2188,7 @@ func compositionProofRefs(paths []ActionPath) []string {
 		out = append(out, path.DecisionTraceRefs...)
 		out = append(out, path.WorkflowChainRefs...)
 	}
-	return dedupeSortedStrings(out)
+	return boundedOutputEvidenceRefs(out)
 }
 
 func compositionSourceDecisionRefs(paths []ActionPath) []string {
@@ -1873,7 +2198,7 @@ func compositionSourceDecisionRefs(paths []ActionPath) []string {
 			out = append(out, decisionEvidenceRefs(decision)...)
 		}
 	}
-	return dedupeSortedStrings(out)
+	return boundedOutputEvidenceRefs(out)
 }
 
 func compositionContradictions(paths []ActionPath) []evidencepolicy.Contradiction {

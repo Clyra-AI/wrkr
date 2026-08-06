@@ -1,6 +1,7 @@
 package agentresolver
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -106,8 +107,20 @@ type WorkflowChainInput struct {
 }
 
 func BuildWorkflowChains(inputs []WorkflowChainInput) *WorkflowChainArtifact {
+	artifact, _ := BuildWorkflowChainsContext(context.Background(), inputs)
+	return artifact
+}
+
+// BuildWorkflowChainsContext builds the deterministic workflow-chain artifact while honoring cancellation.
+func BuildWorkflowChainsContext(ctx context.Context, inputs []WorkflowChainInput) (*WorkflowChainArtifact, error) {
 	if len(inputs) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	ordered := append([]WorkflowChainInput(nil), inputs...)
@@ -126,6 +139,9 @@ func BuildWorkflowChains(inputs []WorkflowChainInput) *WorkflowChainArtifact {
 
 	byID := map[string]*WorkflowChain{}
 	for _, input := range ordered {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		chain := buildWorkflowChain(input)
 		if current, ok := byID[chain.ChainID]; ok {
 			current.PathIDs = uniqueSortedStrings(append(current.PathIDs, chain.PathIDs...))
@@ -154,17 +170,23 @@ func BuildWorkflowChains(inputs []WorkflowChainInput) *WorkflowChainArtifact {
 
 	chains := make([]WorkflowChain, 0, len(byID))
 	for _, chain := range byID {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		chains = append(chains, cloneWorkflowChain(*chain))
 	}
 	sort.Slice(chains, func(i, j int) bool {
 		return chains[i].ChainID < chains[j].ChainID
 	})
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return &WorkflowChainArtifact{
 		Version: WorkflowChainVersion,
 		Summary: summarizeWorkflowChains(chains),
 		Chains:  chains,
-	}
+	}, nil
 }
 
 func WorkflowChainRefsByPath(artifact *WorkflowChainArtifact) map[string][]string {

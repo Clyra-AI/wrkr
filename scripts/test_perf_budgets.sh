@@ -20,7 +20,7 @@ fi
 bench_output="$(mktemp)"
 trap 'rm -f "$bench_output"' EXIT
 
-GOMAXPROCS=1 go test -run '^$' -bench 'Benchmark(ScoreComputeDeterministic|RiskScoreDeterministic|BuildComposedActionPathsMultiStageBounded)$' -benchmem -count=5 ./core/score ./core/risk | tee "$bench_output"
+GOMAXPROCS=1 go test -run '^$' -bench 'Benchmark(ScoreComputeDeterministic|RiskScoreDeterministic|BuildComposedActionPathsMultiStageBounded|BuildComposedActionPathsDenseCandidateCap)$' -benchmem -count=5 ./core/score ./core/risk | tee "$bench_output"
 
 python3 - "$bench_output" <<'PY'
 import json

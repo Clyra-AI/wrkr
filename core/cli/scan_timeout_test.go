@@ -128,7 +128,6 @@ func TestScanTimeoutAfterStateWriteRollsBackManagedArtifacts(t *testing.T) {
 		}
 		return nil
 	})
-	defer restore()
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
@@ -148,6 +147,19 @@ func TestScanTimeoutAfterStateWriteRollsBackManagedArtifacts(t *testing.T) {
 	assertErrorCode(t, errOut.Bytes(), "scan_timeout")
 	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
 		t.Fatalf("expected timed out scan state to roll back, stat err=%v", err)
+	}
+
+	restore()
+	var retryOut bytes.Buffer
+	var retryErr bytes.Buffer
+	retryCode := Run([]string{
+		"scan",
+		"--path", reposPath,
+		"--state", statePath,
+		"--json",
+	}, &retryOut, &retryErr)
+	if retryCode != exitSuccess {
+		t.Fatalf("expected retry to acquire released state lease, got %d stderr=%s", retryCode, retryErr.String())
 	}
 }
 

@@ -1,6 +1,9 @@
 package risk
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -58,6 +61,120 @@ func TestBuildComposedActionPathsSensitiveReadToEgress(t *testing.T) {
 	}
 	if choice == nil || choice.Summary.TotalCompositions == 0 {
 		t.Fatalf("expected control-first composition choice, got %+v", choice)
+	}
+}
+
+func TestBuildComposedActionPathsContextStopsBeforeAnalysis(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, _, err := BuildComposedActionPathsContext(ctx, []ActionPath{
+		compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent),
+		compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown),
+	}, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled composition build, got %v", err)
+	}
+}
+
+func TestBuildComposedActionPathsBoundsSuppressedCandidateEvidence(t *testing.T) {
+	paths := make([]ActionPath, 0, 40)
+	for index := 0; index < 20; index++ {
+		paths = append(paths,
+			compositionTestPath(fmt.Sprintf("apc-read-%02d", index), fmt.Sprintf("rk-read-%02d", index), []string{"read"}, TargetClassCustomerDataAdjacent),
+			compositionTestPath(fmt.Sprintf("apc-egress-%02d", index), fmt.Sprintf("rk-egress-%02d", index), []string{"egress"}, TargetClassUnknown),
+		)
+	}
+
+	compositions, _ := BuildComposedActionPaths(paths, nil)
+	if len(compositions) != maxComposedActionPathCandidates {
+		t.Fatalf("expected %d retained compositions, got %d", maxComposedActionPathCandidates, len(compositions))
+	}
+	composition := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
+	if composition == nil {
+		t.Fatalf("expected %s composition", CompositionPatternSensitiveReadToEgress)
+	}
+	if len(composition.TruncatedCandidates) > maxComposedActionPathTruncatedCandidates {
+		t.Fatalf("truncated candidate examples = %d, want <= %d", len(composition.TruncatedCandidates), maxComposedActionPathTruncatedCandidates)
+	}
+	var receipt *CompositionTruncation
+	for index := range composition.Truncations {
+		candidate := composition.Truncations[index]
+		if candidate.Reason == CompositionTruncationCandidateCap && candidate.Limit == maxComposedActionPathCandidates {
+			receipt = &candidate
+			break
+		}
+	}
+	if receipt == nil {
+		t.Fatalf("expected candidate cap receipt, got %+v", composition.Truncations)
+	}
+	if receipt.ObservedCandidates <= maxComposedActionPathCandidates || receipt.OmittedCandidates != receipt.ObservedCandidates-maxComposedActionPathCandidates {
+		t.Fatalf("unexpected suppression receipt %+v", receipt)
+	}
+}
+
+func TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation(t *testing.T) {
+	paths := make([]ActionPath, 0, maxComposedActionPathCandidateEvaluations+2)
+	for index := 0; index < maxComposedActionPathCandidateEvaluations+1; index++ {
+		source := compositionTestPath(fmt.Sprintf("apc-read-%04d", index), "rk-read-shared", []string{"read"}, TargetClassCustomerDataAdjacent)
+		source.Repo = "checkout"
+		paths = append(paths, source)
+	}
+	sink := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+	sink.Repo = "checkout"
+	paths = append(paths, sink)
+
+	compositions, _ := BuildComposedActionPaths(paths, nil)
+	composition := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
+	if composition == nil {
+		t.Fatalf("expected %s composition", CompositionPatternSensitiveReadToEgress)
+	}
+	var receipt *CompositionTruncation
+	for index := range composition.Truncations {
+		candidate := composition.Truncations[index]
+		if candidate.Reason == CompositionTruncationCandidateCap && candidate.Limit == maxComposedActionPathCandidateEvaluations {
+			receipt = &candidate
+			break
+		}
+	}
+	if receipt == nil || receipt.OmittedCandidates == 0 {
+		t.Fatalf("expected duplicate candidate evaluation receipt, got %+v", composition.Truncations)
+	}
+	if receipt.ObservedCandidates != maxComposedActionPathCandidateEvaluations+receipt.OmittedCandidates {
+		t.Fatalf("observed candidates = %d, want evaluated %d plus omitted %d", receipt.ObservedCandidates, maxComposedActionPathCandidateEvaluations, receipt.OmittedCandidates)
+	}
+	if len(composition.PathIDs) > maxOutputEvidenceRefs {
+		t.Fatalf("path ids = %d, want <= %d", len(composition.PathIDs), maxOutputEvidenceRefs)
+	}
+}
+
+func TestCompositionCandidateIDMatchesMaterializedComposition(t *testing.T) {
+	spec := compositionPatternSpecs()[0]
+	for name, paths := range map[string][]ActionPath{
+		"fallback target identity": {
+			compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent),
+			compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown),
+		},
+		"endpoint target identity": {
+			func() ActionPath {
+				path := compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent)
+				path.EndpointRefGroupID = "group-customers"
+				return path
+			}(),
+			func() ActionPath {
+				path := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+				path.MutableEndpointSemantics = []agginventory.MutableEndpointSemantic{{Surface: "openapi", Operation: "POST /v1/export"}}
+				return path
+			}(),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := compositionCandidateID(spec, paths[0], paths[1])
+			want := buildComposedActionPath(spec, paths[0], paths[1], nil).CompositionID
+			if got != want {
+				t.Fatalf("candidate identity = %q, want %q", got, want)
+			}
+		})
 	}
 }
 
