@@ -79,11 +79,6 @@ type controlPathLineageIndex struct {
 	edgesByPath map[string][]aggattack.ControlPathEdge
 }
 
-func newControlPathLineageIndex(graph *aggattack.ControlPathGraph) controlPathLineageIndex {
-	index, _ := newControlPathLineageIndexContext(context.Background(), graph)
-	return index
-}
-
 func newControlPathLineageIndexContext(ctx context.Context, graph *aggattack.ControlPathGraph) (controlPathLineageIndex, error) {
 	index := controlPathLineageIndex{
 		nodesByPath: map[string][]aggattack.ControlPathNode{},

@@ -167,11 +167,12 @@ type CompositionTruncation struct {
 }
 
 type ComposedActionPath struct {
-	CompositionID                     string                         `json:"composition_id"`
-	PatternID                         string                         `json:"pattern_id"`
-	Pattern                           CompositionPattern             `json:"pattern"`
-	ResolutionKey                     string                         `json:"resolution_key,omitempty"`
-	PathIDs                           []string                       `json:"path_ids,omitempty"`
+	CompositionID                     string             `json:"composition_id"`
+	PatternID                         string             `json:"pattern_id"`
+	Pattern                           CompositionPattern `json:"pattern"`
+	ResolutionKey                     string             `json:"resolution_key,omitempty"`
+	PathIDs                           []string           `json:"path_ids,omitempty"`
+	memberPathIDs                     []string
 	WorkflowChainRefs                 []string                       `json:"workflow_chain_refs,omitempty"`
 	Stages                            []CompositionStage             `json:"stages"`
 	Transitions                       []CompositionTransition        `json:"transitions,omitempty"`
@@ -385,7 +386,7 @@ func DecorateActionPathCompositionRefsContext(ctx context.Context, paths []Actio
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		for _, pathID := range composition.PathIDs {
+		for _, pathID := range compositionMemberPathIDs(composition) {
 			trimmed := strings.TrimSpace(pathID)
 			if trimmed == "" {
 				continue
@@ -507,13 +508,6 @@ func filterCompositionCandidates(paths []ActionPath, candidates []compositionCan
 	return out
 }
 
-func compositionCandidatesCompatible(source, sink ActionPath) bool {
-	if strings.TrimSpace(source.Org) != strings.TrimSpace(sink.Org) {
-		return false
-	}
-	return strings.TrimSpace(source.Repo) == strings.TrimSpace(sink.Repo)
-}
-
 func compositionCandidatesCompatibleCandidate(source, sink compositionCandidate) bool {
 	return source.scope == sink.scope
 }
@@ -597,6 +591,7 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 		Pattern:                      CompositionPattern{PatternID: spec.id, Description: spec.description, StageRoles: compositionStageRoles(stages), OutcomeClass: spec.outcome},
 		ResolutionKey:                compositionResolutionKey(paths),
 		PathIDs:                      compositionPathIDs(paths),
+		memberPathIDs:                compositionMembershipPathIDs(paths),
 		WorkflowChainRefs:            workflowRefs,
 		Stages:                       stages,
 		Transitions:                  transitions,
@@ -1509,6 +1504,7 @@ func mergeComposedActionPathWithContract(current, incoming ComposedActionPath, b
 	}
 	merged := current
 	merged.PathIDs = boundedOutputEvidenceRefs(append(merged.PathIDs, incoming.PathIDs...))
+	merged.memberPathIDs = dedupeSortedStrings(append(compositionMemberPathIDs(current), compositionMemberPathIDs(incoming)...))
 	merged.WorkflowChainRefs = boundedOutputEvidenceRefs(append(merged.WorkflowChainRefs, incoming.WorkflowChainRefs...))
 	merged.EvidenceRefs = boundedOutputEvidenceRefs(append(merged.EvidenceRefs, incoming.EvidenceRefs...))
 	merged.ProofRefs = boundedOutputEvidenceRefs(append(merged.ProofRefs, incoming.ProofRefs...))
@@ -2040,11 +2036,23 @@ func compositionCandidateKey(path ActionPath) string {
 }
 
 func compositionPathIDs(paths []ActionPath) []string {
+	return boundedOutputEvidenceRefs(compositionMembershipPathIDs(paths))
+}
+
+func compositionMembershipPathIDs(paths []ActionPath) []string {
 	out := []string{}
 	for _, path := range paths {
 		out = append(out, strings.TrimSpace(path.PathID))
 	}
-	return boundedOutputEvidenceRefs(out)
+	return dedupeSortedStrings(out)
+}
+
+func compositionMemberPathIDs(composition ComposedActionPath) []string {
+	if len(composition.memberPathIDs) > 0 {
+		return composition.memberPathIDs
+	}
+	// Compositions restored from persisted state predate the internal index.
+	return composition.PathIDs
 }
 
 func compositionWorkflowRefs(paths []ActionPath, refsByPath map[string][]string) []string {

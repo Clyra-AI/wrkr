@@ -125,6 +125,7 @@ func TestBuildComposedActionPathsBoundsSuppressedCandidateEvidence(t *testing.T)
 	composition := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
 	if composition == nil {
 		t.Fatalf("expected %s composition", CompositionPatternSensitiveReadToEgress)
+		return
 	}
 	if len(composition.TruncatedCandidates) > maxComposedActionPathTruncatedCandidates {
 		t.Fatalf("truncated candidate examples = %d, want <= %d", len(composition.TruncatedCandidates), maxComposedActionPathTruncatedCandidates)
@@ -139,6 +140,7 @@ func TestBuildComposedActionPathsBoundsSuppressedCandidateEvidence(t *testing.T)
 	}
 	if receipt == nil {
 		t.Fatalf("expected candidate cap receipt, got %+v", composition.Truncations)
+		return
 	}
 	if receipt.ObservedCandidates <= maxComposedActionPathCandidates || receipt.OmittedCandidates != receipt.ObservedCandidates-maxComposedActionPathCandidates {
 		t.Fatalf("unexpected suppression receipt %+v", receipt)
@@ -160,6 +162,7 @@ func TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation(t *testing.T
 	composition := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
 	if composition == nil {
 		t.Fatalf("expected %s composition", CompositionPatternSensitiveReadToEgress)
+		return
 	}
 	var receipt *CompositionTruncation
 	for index := range composition.Truncations {
@@ -171,6 +174,7 @@ func TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation(t *testing.T
 	}
 	if receipt == nil || receipt.OmittedCandidates == 0 {
 		t.Fatalf("expected duplicate candidate evaluation receipt, got %+v", composition.Truncations)
+		return
 	}
 	if receipt.ObservedCandidates != maxComposedActionPathCandidateEvaluations+receipt.OmittedCandidates {
 		t.Fatalf("observed candidates = %d, want evaluated %d plus omitted %d", receipt.ObservedCandidates, maxComposedActionPathCandidateEvaluations, receipt.OmittedCandidates)
@@ -489,6 +493,45 @@ func TestDecorateActionPathCompositionRefs(t *testing.T) {
 	for _, path := range decorated {
 		if len(path.CompositionIDs) == 0 {
 			t.Fatalf("expected composition refs on %s: %+v", path.PathID, decorated)
+		}
+	}
+}
+
+func TestDecorateActionPathCompositionRefsRetainsUnboundedMembership(t *testing.T) {
+	paths := make([]ActionPath, 0, maxOutputEvidenceRefs+2)
+	for index := 0; index <= maxOutputEvidenceRefs; index++ {
+		source := compositionTestPath(fmt.Sprintf("apc-read-%03d", index), "rk-read-shared", []string{"read"}, TargetClassCustomerDataAdjacent)
+		source.Repo = "checkout"
+		paths = append(paths, source)
+	}
+	sink := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+	sink.Repo = "checkout"
+	paths = append(paths, sink)
+
+	compositions, _ := BuildComposedActionPaths(paths, nil)
+	var composition *ComposedActionPath
+	for index := range compositions {
+		candidate := &compositions[index]
+		if len(candidate.memberPathIDs) > maxOutputEvidenceRefs {
+			composition = candidate
+			break
+		}
+	}
+	if composition == nil {
+		t.Fatalf("expected a collapsed composition with unbounded internal membership, got %+v", compositions)
+		return
+	}
+	if len(composition.PathIDs) != maxOutputEvidenceRefs {
+		t.Fatalf("serialized path ids = %d, want cap %d", len(composition.PathIDs), maxOutputEvidenceRefs)
+	}
+
+	decorated := DecorateActionPathCompositionRefs(paths, compositions)
+	for _, path := range decorated {
+		if !containsAnyPathClass(path.CompositionIDs, composition.CompositionID) {
+			t.Fatalf("path %s lost composition membership: %+v", path.PathID, path)
+		}
+		if !containsAnyPathClass(path.ProposedActionContractRefs, composition.ProposedActionContractRefs[0]) {
+			t.Fatalf("path %s lost proposed action contract membership: %+v", path.PathID, path)
 		}
 	}
 }

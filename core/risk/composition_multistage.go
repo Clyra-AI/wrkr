@@ -385,6 +385,7 @@ func buildMultiStageComposedActionPath(spec multiStageCompositionPatternSpec, pa
 		Pattern:                      multiStagePublicPattern(spec, stages),
 		ResolutionKey:                multiStageCompositionResolutionKey(paths),
 		PathIDs:                      compositionPathIDs(paths),
+		memberPathIDs:                compositionMembershipPathIDs(paths),
 		WorkflowChainRefs:            compositionWorkflowRefs(paths, nil),
 		Stages:                       stages,
 		Transitions:                  transitions,
@@ -859,7 +860,8 @@ func mergeMultiStageComposedActionPath(current, incoming ComposedActionPath) Com
 		return incoming
 	}
 	merged := current
-	merged.PathIDs = dedupeSortedStrings(append(merged.PathIDs, incoming.PathIDs...))
+	merged.PathIDs = boundedOutputEvidenceRefs(append(merged.PathIDs, incoming.PathIDs...))
+	merged.memberPathIDs = dedupeSortedStrings(append(compositionMemberPathIDs(current), compositionMemberPathIDs(incoming)...))
 	merged.WorkflowChainRefs = dedupeSortedStrings(append(merged.WorkflowChainRefs, incoming.WorkflowChainRefs...))
 	merged.EvidenceRefs = dedupeSortedStrings(append(merged.EvidenceRefs, incoming.EvidenceRefs...))
 	merged.ProofRefs = dedupeSortedStrings(append(merged.ProofRefs, incoming.ProofRefs...))
