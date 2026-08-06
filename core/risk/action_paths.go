@@ -789,21 +789,36 @@ func actionPathHasCriticalTrustGap(depth *agginventory.TrustDepth) bool {
 }
 
 func ApplyGovernFirstProfile(profileName string, paths []ActionPath) ([]ActionPath, *ActionPathToControlFirst) {
+	filtered, choice, _ := ApplyGovernFirstProfileContext(context.Background(), profileName, paths)
+	return filtered, choice
+}
+
+// ApplyGovernFirstProfileContext filters and projects buyer-facing paths while honoring cancellation.
+func ApplyGovernFirstProfileContext(ctx context.Context, profileName string, paths []ActionPath) ([]ActionPath, *ActionPathToControlFirst, error) {
 	if len(paths) == 0 {
-		return nil, nil
+		return nil, nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	filtered := append([]ActionPath(nil), paths...)
 	if strings.EqualFold(strings.TrimSpace(profileName), "assessment") {
 		filtered = make([]ActionPath, 0, len(paths))
 		for _, path := range paths {
+			if err := ctx.Err(); err != nil {
+				return nil, nil, err
+			}
 			if assessmentSuppressesPath(path) {
 				continue
 			}
 			filtered = append(filtered, path)
 		}
 	}
-	filtered = ProjectActionPaths(filtered)
-	return filtered, buildActionPathChoice(filtered)
+	filtered, err := ProjectActionPathsContext(ctx, filtered)
+	if err != nil {
+		return nil, nil, err
+	}
+	return filtered, buildActionPathChoice(filtered), nil
 }
 
 // ApplyFindingProfile keeps assessment-only fixtures and examples out of buyer

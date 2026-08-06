@@ -95,3 +95,30 @@ func TestLeaseMetadataHelpersHandleAbsentOrMalformedMetadata(t *testing.T) {
 		t.Fatal("readOwnerMetadata(malformed) error = nil, want error")
 	}
 }
+
+func TestOwnerMetadataRejectsSymlink(t *testing.T) {
+	root := t.TempDir()
+	victimPath := filepath.Join(root, "victim.json")
+	if err := os.WriteFile(victimPath, []byte("preserve this payload"), 0o600); err != nil {
+		t.Fatalf("write victim metadata: %v", err)
+	}
+	metadataPath := filepath.Join(root, metadataName)
+	if err := os.Symlink(victimPath, metadataPath); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	lease := &Lease{metadataPath: metadataPath}
+	if err := lease.writeOwnerMetadata(); err == nil {
+		t.Fatal("writeOwnerMetadata() error = nil, want symlink rejection")
+	}
+	if _, err := readOwnerMetadata(metadataPath); err == nil {
+		t.Fatal("readOwnerMetadata() error = nil, want symlink rejection")
+	}
+	payload, err := os.ReadFile(victimPath)
+	if err != nil {
+		t.Fatalf("read victim metadata: %v", err)
+	}
+	if want := "preserve this payload"; string(payload) != want {
+		t.Fatalf("victim metadata = %q, want %q", payload, want)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
@@ -106,6 +107,54 @@ func TestBuildComposedActionPathsContextStopsBeforeAnalysis(t *testing.T) {
 	}, nil)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected canceled composition build, got %v", err)
+	}
+}
+
+func TestBuildComposedActionPathsContextSkipsCrossScopeCandidatePairs(t *testing.T) {
+	const candidatesPerSide = 24
+	paths := make([]ActionPath, 0, candidatesPerSide*2)
+	for index := 0; index < candidatesPerSide; index++ {
+		source := compositionTestPath(fmt.Sprintf("apc-read-%02d", index), fmt.Sprintf("rk-read-%02d", index), []string{"read"}, TargetClassCustomerDataAdjacent)
+		source.Repo = fmt.Sprintf("read-repo-%02d", index)
+		paths = append(paths, source)
+
+		sink := compositionTestPath(fmt.Sprintf("apc-egress-%02d", index), fmt.Sprintf("rk-egress-%02d", index), []string{"egress"}, TargetClassUnknown)
+		sink.Repo = fmt.Sprintf("egress-repo-%02d", index)
+		paths = append(paths, sink)
+	}
+
+	ctx := &deadlineAfterCallsContext{Context: context.Background(), allowedCalls: 700}
+	compositions, choice, err := BuildComposedActionPathsContext(ctx, paths, nil)
+	if err != nil {
+		t.Fatalf("BuildComposedActionPathsContext() error = %v", err)
+	}
+	if len(compositions) == 0 || choice == nil {
+		t.Fatalf("expected same-scope egress self-compositions, got compositions=%+v choice=%+v", compositions, choice)
+	}
+	for _, composition := range compositions {
+		for _, pathID := range composition.PathIDs {
+			if strings.HasPrefix(pathID, "apc-read-") {
+				t.Fatalf("cross-scope read candidate was composed: %+v", composition)
+			}
+		}
+	}
+}
+
+func TestProjectActionPathsContextHonorsCancellationDuringProjectionAndSort(t *testing.T) {
+	paths := []ActionPath{
+		compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent),
+		compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown),
+		compositionTestPath("apc-write", "rk-write", []string{"write"}, TargetClassReleaseAdjacent),
+	}
+
+	projectionCtx := &deadlineAfterCallsContext{Context: context.Background(), allowedCalls: 1}
+	if _, err := ProjectActionPathsContext(projectionCtx, paths); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("projection cancellation error = %v, want deadline exceeded", err)
+	}
+
+	sortCtx := &deadlineAfterCallsContext{Context: context.Background(), allowedCalls: len(paths) + 2}
+	if _, err := ProjectActionPathsContext(sortCtx, paths); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("sort cancellation error = %v, want deadline exceeded", err)
 	}
 }
 
@@ -1223,6 +1272,20 @@ func compositionTestPath(pathID, resolutionKey string, actionClasses []string, t
 			Surface:  "api",
 		}},
 	})
+}
+
+type deadlineAfterCallsContext struct {
+	context.Context
+	allowedCalls int
+	calls        int
+}
+
+func (c *deadlineAfterCallsContext) Err() error {
+	c.calls++
+	if c.calls > c.allowedCalls {
+		return context.DeadlineExceeded
+	}
+	return nil
 }
 
 func semanticForAction(actionClasses []string) string {

@@ -583,7 +583,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, analysisFindings)
 	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
 	riskReport.ActionPaths = risk.DecorateControlMetadata(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
-	riskReport.ActionPaths = risk.ProjectActionPaths(riskReport.ActionPaths)
+	projectedActionPaths, projectionErr := risk.ProjectActionPathsContext(ctx, riskReport.ActionPaths)
+	if projectionErr != nil {
+		return emitScanFailure(projectionErr)
+	}
+	riskReport.ActionPaths = projectedActionPaths
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 
 	var previousProfile *profileeval.Result
@@ -592,7 +596,12 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		previousProfile = &copyResult
 	}
 	profileResult := profileeval.Evaluate(profileDef, analysisFindings, previousProfile)
-	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileResult.ProfileName, riskReport.ActionPaths)
+	governedActionPaths, actionPathChoice, governFirstErr := risk.ApplyGovernFirstProfileContext(ctx, profileResult.ProfileName, riskReport.ActionPaths)
+	if governFirstErr != nil {
+		return emitScanFailure(governFirstErr)
+	}
+	riskReport.ActionPaths = governedActionPaths
+	riskReport.ActionPathToControlFirst = actionPathChoice
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
