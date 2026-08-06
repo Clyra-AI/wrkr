@@ -33,6 +33,38 @@ func TestBuildComposedActionPathsStableIDIgnoresPathIDChurn(t *testing.T) {
 	}
 }
 
+func TestCompositionCandidateFallbackTargetIdentityNormalizesValues(t *testing.T) {
+	tests := []struct {
+		name                             string
+		sourceTargetClass, sourceOrgRepo string
+		sinkTargetClass, sinkOrgRepo     string
+		want                             string
+	}{
+		{
+			name:              "sorts and deduplicates",
+			sourceTargetClass: "cloud",
+			sourceOrgRepo:     "acme/payments",
+			sinkTargetClass:   "cloud",
+			sinkOrgRepo:       "acme/payments",
+			want:              "acme/payments+cloud",
+		},
+		{
+			name:            "skips empty values",
+			sourceOrgRepo:   "acme/payments",
+			sinkTargetClass: "production",
+			want:            "acme/payments+production",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := compositionCandidateFallbackTargetIdentity(test.sourceTargetClass, test.sourceOrgRepo, test.sinkTargetClass, test.sinkOrgRepo)
+			if got != test.want {
+				t.Fatalf("compositionCandidateFallbackTargetIdentity() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestBuildComposedActionPathsSensitiveReadToEgress(t *testing.T) {
 	paths := []ActionPath{
 		compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent),
