@@ -209,7 +209,7 @@ func TestPRWorkflowPathFilterContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .github/workflows/pr.yml: %v", err)
 	}
-	text := string(content)
+	text := strings.ReplaceAll(string(content), "\r\n", "\n")
 	for _, fragment := range []string{
 		"dorny/paths-filter@v4.0.1",
 		"security:",
