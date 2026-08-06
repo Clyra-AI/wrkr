@@ -75,6 +75,7 @@
     "github.com/Clyra-AI/wrkr/internal/managedmarker": 0.0,
     "github.com/Clyra-AI/wrkr/internal/proofcompat": 69.2,
     "github.com/Clyra-AI/wrkr/internal/reponame": 0.0,
+    "github.com/Clyra-AI/wrkr/internal/statelock": 71.9,
     "github.com/Clyra-AI/wrkr/internal/testutil/detectors": 0.0,
     "github.com/Clyra-AI/wrkr/scenarios/wrkr/webmcp-declarations/repos/route-repo/server": 0.0,
     "github.com/Clyra-AI/wrkr/scripts": 0.0,

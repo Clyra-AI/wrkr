@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,7 +106,7 @@ func (l *Lease) writeOwnerMetadata() error {
 	if l == nil || strings.TrimSpace(l.metadataPath) == "" {
 		return nil
 	}
-	file, err := os.OpenFile(l.metadataPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	file, err := openOwnerMetadataForWrite(l.metadataPath)
 	if err != nil {
 		return fmt.Errorf("write managed artifact lock metadata: %w", err)
 	}
@@ -143,10 +144,17 @@ func busyError(statePath, metadataPath string) error {
 }
 
 func readOwnerMetadata(lockPath string) (ownerMetadata, error) {
-	// #nosec G304 -- lockPath is derived from the caller-selected managed state directory.
-	payload, err := os.ReadFile(lockPath)
+	file, err := openOwnerMetadataForRead(lockPath)
 	if err != nil {
 		return ownerMetadata{}, err
+	}
+	payload, readErr := io.ReadAll(file)
+	closeErr := file.Close()
+	if readErr != nil {
+		return ownerMetadata{}, readErr
+	}
+	if closeErr != nil {
+		return ownerMetadata{}, closeErr
 	}
 	var metadata ownerMetadata
 	if err := json.Unmarshal(payload, &metadata); err != nil {

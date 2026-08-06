@@ -1,7 +1,7 @@
 package risk
 
 import (
-	"sort"
+	"context"
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -88,17 +88,91 @@ func ProjectActionPath(path ActionPath) ActionPath {
 }
 
 func ProjectActionPaths(paths []ActionPath) []ActionPath {
+	projected, _ := ProjectActionPathsContext(context.Background(), paths)
+	return projected
+}
+
+// ProjectActionPathsContext projects and orders action paths while honoring cancellation.
+func ProjectActionPathsContext(ctx context.Context, paths []ActionPath) ([]ActionPath, error) {
 	if len(paths) == 0 {
-		return nil
+		return nil, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	out := make([]ActionPath, 0, len(paths))
 	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		out = append(out, ProjectActionPath(path))
 	}
-	sort.Slice(out, func(i, j int) bool {
-		return compareActionPaths(out[i], out[j])
-	})
-	return out
+	if err := sortActionPathsContext(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func sortActionPathsContext(ctx context.Context, paths []ActionPath) error {
+	if len(paths) < 2 {
+		return ctx.Err()
+	}
+	scratch := make([]ActionPath, len(paths))
+	for width := 1; width < len(paths); {
+		for start := 0; start < len(paths); start += 2 * width {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			middle := start + width
+			if middle > len(paths) {
+				middle = len(paths)
+			}
+			end := start + 2*width
+			if end > len(paths) {
+				end = len(paths)
+			}
+
+			left, right, destination := start, middle, start
+			for left < middle && right < end {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				if compareActionPaths(paths[right], paths[left]) {
+					scratch[destination] = paths[right]
+					right++
+				} else {
+					scratch[destination] = paths[left]
+					left++
+				}
+				destination++
+			}
+			for left < middle {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				scratch[destination] = paths[left]
+				left++
+				destination++
+			}
+			for right < end {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				scratch[destination] = paths[right]
+				right++
+				destination++
+			}
+		}
+		copy(paths, scratch)
+		if width > len(paths)/2 {
+			break
+		}
+		width *= 2
+	}
+	return nil
 }
 
 func ProjectBuyerFacingActionPath(path ActionPath) ActionPath {

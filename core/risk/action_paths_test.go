@@ -1,6 +1,8 @@
 package risk
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"reflect"
@@ -1633,6 +1635,17 @@ func TestApplyGovernFirstProfileAssessmentSuppressesAllCandidates(t *testing.T) 
 	}
 	if choice != nil {
 		t.Fatalf("expected no control-first choice when all assessment candidates are suppressed, got %+v", choice)
+	}
+}
+
+func TestApplyGovernFirstProfileContextHonorsCancellation(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, err := ApplyGovernFirstProfileContext(ctx, "assessment", []ActionPath{{PathID: "one", Repo: "acme/service", Location: ".github/workflows/release.yml"}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("ApplyGovernFirstProfileContext() error = %v, want context cancellation", err)
 	}
 }
 

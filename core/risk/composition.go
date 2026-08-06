@@ -276,9 +276,15 @@ func BuildComposedActionPathsContext(ctx context.Context, paths []ActionPath, wo
 	if err := ctx.Err(); err != nil {
 		return nil, nil, err
 	}
-	projected := ProjectActionPaths(paths)
+	projected, err := ProjectActionPathsContext(ctx, paths)
+	if err != nil {
+		return nil, nil, err
+	}
 	candidateMetadata := make([]compositionCandidate, len(projected))
 	for index := range projected {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		candidateMetadata[index] = newCompositionCandidate(projected[index])
 	}
 	chainRefsByPath := agentresolver.WorkflowChainRefsByPath(workflowChains)
@@ -289,20 +295,18 @@ func BuildComposedActionPathsContext(ctx context.Context, paths []ActionPath, wo
 	for _, spec := range specs {
 		sources := filterCompositionCandidates(projected, candidateMetadata, spec.sourceOK)
 		sinks := filterCompositionCandidates(projected, candidateMetadata, spec.sinkOK)
+		sinksByScope := indexCompositionCandidatesByScope(sinks)
 		count := 0
 		evaluated := 0
 		truncatedPattern := false
 		for sourceIndex, source := range sources {
-			for sinkIndex, sink := range sinks {
+			for sinkIndex, sink := range sinksByScope[source.scope] {
 				if err := ctx.Err(); err != nil {
 					return nil, nil, err
 				}
-				if !compositionCandidatesCompatibleCandidate(source, sink) {
-					continue
-				}
 				if evaluated >= maxComposedActionPathCandidateEvaluations {
 					state := truncationStateForPattern(truncated, spec.id, maxComposedActionPathCandidateEvaluations)
-					state.recordBatch(source.memberKey+"->"+sink.memberKey, evaluated, remainingCompatibleCompositionCandidates(sources, sinks, sourceIndex, sinkIndex))
+					state.recordBatch(source.memberKey+"->"+sink.memberKey, evaluated, remainingCompatibleCompositionCandidates(sources, sinksByScope, sourceIndex, sinkIndex))
 					truncatedPattern = true
 					break
 				}
@@ -311,7 +315,7 @@ func BuildComposedActionPathsContext(ctx context.Context, paths []ActionPath, wo
 				current, seen := compositionsByKey[compositionID]
 				if !seen && count >= maxComposedActionPathCandidates {
 					state := truncationStateForPattern(truncated, spec.id, maxComposedActionPathCandidates)
-					state.recordBatch(source.memberKey+"->"+sink.memberKey, evaluated-1, remainingCompatibleCompositionCandidates(sources, sinks, sourceIndex, sinkIndex))
+					state.recordBatch(source.memberKey+"->"+sink.memberKey, evaluated-1, remainingCompatibleCompositionCandidates(sources, sinksByScope, sourceIndex, sinkIndex))
 					truncatedPattern = true
 					break
 				}
@@ -508,26 +512,25 @@ func filterCompositionCandidates(paths []ActionPath, candidates []compositionCan
 	return out
 }
 
-func compositionCandidatesCompatibleCandidate(source, sink compositionCandidate) bool {
-	return source.scope == sink.scope
+func indexCompositionCandidatesByScope(candidates []compositionCandidate) map[string][]compositionCandidate {
+	byScope := make(map[string][]compositionCandidate, len(candidates))
+	for _, candidate := range candidates {
+		byScope[candidate.scope] = append(byScope[candidate.scope], candidate)
+	}
+	return byScope
 }
 
-func remainingCompatibleCompositionCandidates(sources, sinks []compositionCandidate, sourceIndex, sinkIndex int) int {
-	if sourceIndex < 0 || sourceIndex >= len(sources) || sinkIndex < 0 || sinkIndex >= len(sinks) {
+func remainingCompatibleCompositionCandidates(sources []compositionCandidate, sinksByScope map[string][]compositionCandidate, sourceIndex, sinkIndex int) int {
+	if sourceIndex < 0 || sourceIndex >= len(sources) {
 		return 0
 	}
-	remaining := 0
-	for index := sinkIndex; index < len(sinks); index++ {
-		if compositionCandidatesCompatibleCandidate(sources[sourceIndex], sinks[index]) {
-			remaining++
-		}
+	currentSinks := sinksByScope[sources[sourceIndex].scope]
+	if sinkIndex < 0 || sinkIndex >= len(currentSinks) {
+		return 0
 	}
-	sinksByScope := map[string]int{}
-	for _, sink := range sinks {
-		sinksByScope[sink.scope]++
-	}
+	remaining := len(currentSinks) - sinkIndex
 	for index := sourceIndex + 1; index < len(sources); index++ {
-		remaining += sinksByScope[sources[index].scope]
+		remaining += len(sinksByScope[sources[index].scope])
 	}
 	return remaining
 }
