@@ -140,6 +140,7 @@ func busyError(statePath, metadataPath string) error {
 }
 
 func readOwnerMetadata(lockPath string) (ownerMetadata, error) {
+	// #nosec G304 -- lockPath is derived from the caller-selected managed state directory.
 	payload, err := os.ReadFile(lockPath)
 	if err != nil {
 		return ownerMetadata{}, err

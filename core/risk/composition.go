@@ -692,49 +692,28 @@ func compositionCandidateTargetIdentity(source, sink compositionCandidate) strin
 }
 
 func compositionCandidateFallbackTargetIdentity(sourceTargetClass, sourceOrgRepo, sinkTargetClass, sinkOrgRepo string) string {
-	values := [4]string{
+	values := []string{
 		sourceTargetClass,
 		sourceOrgRepo,
 		sinkTargetClass,
 		sinkOrgRepo,
 	}
-	count := 0
+	nonEmpty := make([]string, 0, len(values))
 	for _, value := range values {
 		if strings.TrimSpace(value) == "" {
 			continue
 		}
-		values[count] = value
-		count++
+		nonEmpty = append(nonEmpty, value)
 	}
-	for index := 1; index < count; index++ {
-		for previous := index; previous > 0 && values[previous] < values[previous-1]; previous-- {
-			values[previous], values[previous-1] = values[previous-1], values[previous]
-		}
-	}
-	length := 0
-	unique := 0
-	for index := 0; index < count; index++ {
-		if index > 0 && values[index] == values[index-1] {
+	sort.Strings(nonEmpty)
+	unique := nonEmpty[:0]
+	for _, value := range nonEmpty {
+		if len(unique) > 0 && value == unique[len(unique)-1] {
 			continue
 		}
-		length += len(values[index])
-		if unique > 0 {
-			length++
-		}
-		unique++
+		unique = append(unique, value)
 	}
-	var out strings.Builder
-	out.Grow(length)
-	for index := 0; index < count; index++ {
-		if index > 0 && values[index] == values[index-1] {
-			continue
-		}
-		if out.Len() > 0 {
-			out.WriteByte('+')
-		}
-		out.WriteString(values[index])
-	}
-	return out.String()
+	return strings.Join(unique, "+")
 }
 
 func compositionCandidateTargetClass(source, sink compositionCandidate) string {
