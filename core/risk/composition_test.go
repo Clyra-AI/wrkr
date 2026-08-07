@@ -250,12 +250,13 @@ func TestBuildComposedActionPathsPreservesGroupedDuplicateMembershipBeyondEvalua
 	composition := findCompositionByID(compositions, expectedCompositionID)
 	if composition == nil {
 		t.Fatalf("expected %s composition %s", CompositionPatternSensitiveReadToEgress, expectedCompositionID)
-	}
-	if got, want := len(composition.memberPathIDs), duplicateCount+1; got != want {
-		t.Fatalf("internal membership path ids = %d, want %d", got, want)
-	}
-	if len(composition.PathIDs) > maxOutputEvidenceRefs {
-		t.Fatalf("serialized path ids = %d, want <= %d", len(composition.PathIDs), maxOutputEvidenceRefs)
+	} else {
+		if got, want := len(composition.memberPathIDs), duplicateCount+1; got != want {
+			t.Fatalf("internal membership path ids = %d, want %d", got, want)
+		}
+		if len(composition.PathIDs) > maxOutputEvidenceRefs {
+			t.Fatalf("serialized path ids = %d, want <= %d", len(composition.PathIDs), maxOutputEvidenceRefs)
+		}
 	}
 
 	decorated, err := DecorateActionPathCompositionRefsContext(context.Background(), paths, compositions)
@@ -315,8 +316,7 @@ func TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate(t *testi
 		composition := byProductionTarget[target]
 		if composition == nil {
 			t.Fatalf("missing composition for %s: %+v", target, compositions)
-		}
-		if !containsAnyPathClass(composition.memberPathIDs, pathID) {
+		} else if !containsAnyPathClass(composition.memberPathIDs, pathID) {
 			t.Fatalf("composition for %s did not retain %s: %+v", target, pathID, composition)
 		}
 	}
@@ -338,8 +338,7 @@ func TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate(t *testi
 		}
 		if path == nil {
 			t.Fatalf("missing decorated path %s", pathID)
-		}
-		if !containsAnyPathClass(path.CompositionIDs, byProductionTarget[target].CompositionID) {
+		} else if !containsAnyPathClass(path.CompositionIDs, byProductionTarget[target].CompositionID) {
 			t.Fatalf("path %s has wrong composition target: %+v", pathID, path)
 		}
 	}
@@ -403,13 +402,14 @@ func TestBuildComposedActionPathsKeepsGovernanceDistinctCandidatesSeparate(t *te
 	composition := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
 	if composition == nil {
 		t.Fatalf("expected sensitive-read composition, got %+v", compositions)
-	}
-	if composition.PolicyCoverageStatus != PolicyCoverageStatusDeclared {
-		t.Fatalf("governance state was not merged conservatively: %+v", composition)
-	}
-	if !containsAnyPathClass(composition.memberPathIDs, governedRead.PathID, weakerRead.PathID) ||
-		!containsAnyPathClass(composition.EvidenceRefs, "evidence:weaker-read") {
-		t.Fatalf("expected governance evidence from both candidates, got %+v", composition)
+	} else {
+		if composition.PolicyCoverageStatus != PolicyCoverageStatusDeclared {
+			t.Fatalf("governance state was not merged conservatively: %+v", composition)
+		}
+		if !containsAnyPathClass(composition.memberPathIDs, governedRead.PathID, weakerRead.PathID) ||
+			!containsAnyPathClass(composition.EvidenceRefs, "evidence:weaker-read") {
+			t.Fatalf("expected governance evidence from both candidates, got %+v", composition)
+		}
 	}
 }
 
