@@ -32,7 +32,11 @@ func openOwnerMetadataFile(path string, flags int, truncate bool) (*os.File, err
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("owner metadata must be a single-link regular file: %s", path)
 	}
-	file := os.NewFile(uintptr(fd), path)
+	file, err := ownerMetadataFileFromDescriptor(fd, path)
+	if err != nil {
+		_ = unix.Close(fd)
+		return nil, err
+	}
 	if file == nil {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("open owner metadata file: %s", path)
@@ -44,4 +48,11 @@ func openOwnerMetadataFile(path string, flags int, truncate bool) (*os.File, err
 		}
 	}
 	return file, nil
+}
+
+func ownerMetadataFileFromDescriptor(fd int, path string) (*os.File, error) {
+	if fd < 0 {
+		return nil, fmt.Errorf("open owner metadata file: invalid descriptor")
+	}
+	return os.NewFile(uintptr(fd), path), nil
 }
