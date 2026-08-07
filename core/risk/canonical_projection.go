@@ -9,6 +9,7 @@ import (
 
 const (
 	maxOutputEvidenceRefs       = 64
+	maxOutputOccurrenceRefs     = maxOutputEvidenceRefs
 	maxOutputEndpointOperations = 32
 )
 
@@ -92,6 +93,7 @@ func StripCanonicalProjectionDetails(paths []ActionPath) []ActionPath {
 }
 
 func stripActionPathOutputEvidenceDetails(path ActionPath) ActionPath {
+	path.OccurrenceRefs = boundedOutputStrings(path.OccurrenceRefs, maxOutputOccurrenceRefs)
 	path.ControlEvidenceRefs = boundedOutputEvidenceRefs(path.ControlEvidenceRefs)
 	path.ConstraintEvidenceRefs = boundedOutputEvidenceRefs(path.ConstraintEvidenceRefs)
 	path.TargetClassEvidenceRefs = boundedOutputEvidenceRefs(path.TargetClassEvidenceRefs)
