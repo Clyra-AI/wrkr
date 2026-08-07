@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Kept endpoint-dense scans bounded by reusing canonical endpoint evidence during analysis, preserving per-operation attribution, and isolating concurrent scan artifacts.
 
 ### Security
 

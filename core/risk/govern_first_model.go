@@ -306,46 +306,47 @@ func pathHasHighImpactDeliveryEvidence(path ActionPath) bool {
 	return false
 }
 
-func compareActionPaths(left, right ActionPath) bool {
+// compareProjectedActionPaths orders paths after their buyer-facing fields have
+// been derived. Re-projecting inside a sort comparator repeats expensive endpoint
+// normalization for every comparison on large organizations.
+func compareProjectedActionPaths(left, right ActionPath) bool {
 	leftModel := deriveGovernFirstModel(left)
 	rightModel := deriveGovernFirstModel(right)
-	leftProjection := ProjectBuyerFacingActionPath(left)
-	rightProjection := ProjectBuyerFacingActionPath(right)
 	if leftModel.controlPriorityRank != rightModel.controlPriorityRank {
 		return leftModel.controlPriorityRank < rightModel.controlPriorityRank
 	}
-	if IsActionPathEligible(leftProjection) != IsActionPathEligible(rightProjection) {
-		return IsActionPathEligible(leftProjection)
+	if IsActionPathEligible(left) != IsActionPathEligible(right) {
+		return IsActionPathEligible(left)
 	}
-	if actionBindingRank(leftProjection.ActionBindingState) != actionBindingRank(rightProjection.ActionBindingState) {
-		return actionBindingRank(leftProjection.ActionBindingState) < actionBindingRank(rightProjection.ActionBindingState)
+	if actionBindingRank(left.ActionBindingState) != actionBindingRank(right.ActionBindingState) {
+		return actionBindingRank(left.ActionBindingState) < actionBindingRank(right.ActionBindingState)
 	}
-	if autonomyTierRank(leftProjection.AutonomyTier) != autonomyTierRank(rightProjection.AutonomyTier) {
-		return autonomyTierRank(leftProjection.AutonomyTier) < autonomyTierRank(rightProjection.AutonomyTier)
+	if autonomyTierRank(left.AutonomyTier) != autonomyTierRank(right.AutonomyTier) {
+		return autonomyTierRank(left.AutonomyTier) < autonomyTierRank(right.AutonomyTier)
 	}
-	if delegationReadinessRank(leftProjection.DelegationReadinessState) != delegationReadinessRank(rightProjection.DelegationReadinessState) {
-		return delegationReadinessRank(leftProjection.DelegationReadinessState) < delegationReadinessRank(rightProjection.DelegationReadinessState)
+	if delegationReadinessRank(left.DelegationReadinessState) != delegationReadinessRank(right.DelegationReadinessState) {
+		return delegationReadinessRank(left.DelegationReadinessState) < delegationReadinessRank(right.DelegationReadinessState)
 	}
-	if highStakesPresetScore(leftProjection) != highStakesPresetScore(rightProjection) {
-		return highStakesPresetScore(leftProjection) > highStakesPresetScore(rightProjection)
+	if highStakesPresetScore(left) != highStakesPresetScore(right) {
+		return highStakesPresetScore(left) > highStakesPresetScore(right)
 	}
-	if agenticDeliverySystemChangeRank(leftProjection.AgenticDeliverySystemChange) != agenticDeliverySystemChangeRank(rightProjection.AgenticDeliverySystemChange) {
-		return agenticDeliverySystemChangeRank(leftProjection.AgenticDeliverySystemChange) > agenticDeliverySystemChangeRank(rightProjection.AgenticDeliverySystemChange)
+	if agenticDeliverySystemChangeRank(left.AgenticDeliverySystemChange) != agenticDeliverySystemChangeRank(right.AgenticDeliverySystemChange) {
+		return agenticDeliverySystemChangeRank(left.AgenticDeliverySystemChange) > agenticDeliverySystemChangeRank(right.AgenticDeliverySystemChange)
 	}
 	if leftModel.riskTierRank != rightModel.riskTierRank {
 		return leftModel.riskTierRank < rightModel.riskTierRank
 	}
-	if targetClassRank(leftProjection.TargetClass) != targetClassRank(rightProjection.TargetClass) {
-		return targetClassRank(leftProjection.TargetClass) < targetClassRank(rightProjection.TargetClass)
+	if targetClassRank(left.TargetClass) != targetClassRank(right.TargetClass) {
+		return targetClassRank(left.TargetClass) < targetClassRank(right.TargetClass)
 	}
-	if actionPathTypeRank(leftProjection.ActionPathType) != actionPathTypeRank(rightProjection.ActionPathType) {
-		return actionPathTypeRank(leftProjection.ActionPathType) < actionPathTypeRank(rightProjection.ActionPathType)
+	if actionPathTypeRank(left.ActionPathType) != actionPathTypeRank(right.ActionPathType) {
+		return actionPathTypeRank(left.ActionPathType) < actionPathTypeRank(right.ActionPathType)
 	}
-	if confidenceLaneRank(leftProjection.ConfidenceLane) != confidenceLaneRank(rightProjection.ConfidenceLane) {
-		return confidenceLaneRank(leftProjection.ConfidenceLane) < confidenceLaneRank(rightProjection.ConfidenceLane)
+	if confidenceLaneRank(left.ConfidenceLane) != confidenceLaneRank(right.ConfidenceLane) {
+		return confidenceLaneRank(left.ConfidenceLane) < confidenceLaneRank(right.ConfidenceLane)
 	}
-	if reviewBurdenRank(leftProjection.ReviewBurden) != reviewBurdenRank(rightProjection.ReviewBurden) {
-		return reviewBurdenRank(leftProjection.ReviewBurden) < reviewBurdenRank(rightProjection.ReviewBurden)
+	if reviewBurdenRank(left.ReviewBurden) != reviewBurdenRank(right.ReviewBurden) {
+		return reviewBurdenRank(left.ReviewBurden) < reviewBurdenRank(right.ReviewBurden)
 	}
 	if leftModel.sourceSignalRank != rightModel.sourceSignalRank {
 		return leftModel.sourceSignalRank > rightModel.sourceSignalRank

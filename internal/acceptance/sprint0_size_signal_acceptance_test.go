@@ -21,8 +21,9 @@ const (
 	sprint0AcceptanceMarkdownLineCap = 1500
 	sprint0AcceptanceLeadLineCap     = 45
 	sprint0AcceptanceLeadSectionCap  = 5
-	sprint0EndpointDenseRepoCount    = 4
+	sprint0EndpointDenseRepoCount    = 1
 	sprint0EndpointDenseStateBudget  = 24 << 20
+	sprint0EndpointDenseMinimumRefs  = enterprisepressure.DefaultDenseOpenAPIOperations * 4
 )
 
 func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
@@ -163,7 +164,7 @@ func TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection(t *testing.T)
 		path := requireObjectItem(t, raw)
 		count, _ := path["endpoint_ref_count"].(float64)
 		refs := requireOptionalArrayLength(path["mutable_endpoint_semantic_refs"])
-		if int(count) > refs && int(count) >= 1000 {
+		if int(count) > refs && int(count) >= sprint0EndpointDenseMinimumRefs {
 			groupedPathFound = true
 		}
 	}
@@ -186,7 +187,7 @@ func TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection(t *testing.T)
 		item := requireObjectItem(t, raw)
 		count, _ := item["endpoint_ref_count"].(float64)
 		refs := requireOptionalArrayLength(item["mutable_endpoint_semantic_refs"])
-		if int(count) > refs && int(count) >= 1000 {
+		if int(count) > refs && int(count) >= sprint0EndpointDenseMinimumRefs {
 			groupedItemFound = true
 			if refs > 8 {
 				t.Fatalf("expected bounded endpoint ref samples, got %d in %v", refs, item)

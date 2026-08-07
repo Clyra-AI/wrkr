@@ -1,5 +1,5 @@
 {
-  "action_path_count": 8,
+  "action_path_count": 7,
   "confirmed_path": {
     "confidence_lane": "confirmed_action_path",
     "location": ".github/workflows/refund-agent.yml",
@@ -8,7 +8,7 @@
   "lane_counts": {
     "confirmed_action_path": 1,
     "context_only": 1,
-    "likely_action_path": 5,
+    "likely_action_path": 4,
     "semantic_review_candidate": 1
   },
   "mutable_surface_path": {
@@ -37,25 +37,11 @@
     "location": "server/refund_routes.js",
     "repo": "payments-private",
     "semantics": [
-      "data_export",
-      "data_export",
-      "delete",
       "delete",
       "production_mutation",
       "production_mutation",
-      "production_mutation",
-      "production_mutation",
-      "production_mutation",
-      "production_mutation",
-      "read",
-      "refund",
-      "refund",
-      "refund",
       "refund",
       "user_admin",
-      "user_admin",
-      "write",
-      "write",
       "write"
     ]
   }

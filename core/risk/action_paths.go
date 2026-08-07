@@ -469,6 +469,18 @@ func actionPathIdentityKey(entry agginventory.AgentPrivilegeMapEntry) string {
 			strings.TrimSpace(entry.Location),
 		}, "|")
 	}
+	if isEndpointActionPathRepresentation(entry) {
+		// OpenAPI and route findings are emitted per operation. Keep those
+		// operation records exact in the privilege map, but give the buyer-facing
+		// action-path view one bounded, evidence-backed specification roll-up.
+		return strings.Join([]string{
+			strings.TrimSpace(entry.Org),
+			strings.Join(dedupeSortedStrings(entry.Repos), ","),
+			"endpoint_specification",
+			actionPathToolType(entry),
+			strings.TrimSpace(entry.Location),
+		}, "|")
+	}
 	parts := []string{
 		strings.TrimSpace(entry.Org),
 		strings.Join(dedupeSortedStrings(entry.Repos), ","),
@@ -493,6 +505,18 @@ func actionPathOccurrenceRef(entry agginventory.AgentPrivilegeMapEntry) string {
 			strings.TrimSpace(entry.Symbol),
 		}, "|")
 	}
+	if isEndpointActionPathRepresentation(entry) {
+		return strings.Join([]string{
+			strings.TrimSpace(entry.Org),
+			strings.Join(dedupeSortedStrings(entry.Repos), ","),
+			strings.TrimSpace(entry.Location),
+			actionPathToolType(entry),
+			strings.TrimSpace(entry.ToolInstanceID),
+			strings.TrimSpace(entry.AgentInstanceID),
+			strings.TrimSpace(entry.AgentID),
+			strings.TrimSpace(entry.Symbol),
+		}, "|")
+	}
 	parts := []string{
 		strings.TrimSpace(entry.Org),
 		strings.Join(dedupeSortedStrings(entry.Repos), ","),
@@ -508,6 +532,16 @@ func isWorkflowActionPathRepresentation(entry agginventory.AgentPrivilegeMapEntr
 	for _, value := range []string{entry.Framework, entry.ToolType} {
 		switch strings.ToLower(strings.TrimSpace(value)) {
 		case "ci_agent", "compiled_action":
+			return true
+		}
+	}
+	return false
+}
+
+func isEndpointActionPathRepresentation(entry agginventory.AgentPrivilegeMapEntry) bool {
+	for _, value := range []string{entry.Framework, entry.ToolType} {
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "openapi", "route":
 			return true
 		}
 	}

@@ -293,8 +293,8 @@ func BuildComposedActionPathsContext(ctx context.Context, paths []ActionPath, wo
 	truncated := map[string]*compositionTruncationState{}
 
 	for _, spec := range specs {
-		sources := filterCompositionCandidates(projected, candidateMetadata, spec.sourceOK)
-		sinks := filterCompositionCandidates(projected, candidateMetadata, spec.sinkOK)
+		sources, sourceMembership := groupCompositionCandidates(filterCompositionCandidates(projected, candidateMetadata, spec.sourceOK))
+		sinks, sinkMembership := groupCompositionCandidates(filterCompositionCandidates(projected, candidateMetadata, spec.sinkOK))
 		sinksByScope := indexCompositionCandidatesByScope(sinks)
 		count := 0
 		evaluated := 0
@@ -320,6 +320,10 @@ func BuildComposedActionPathsContext(ctx context.Context, paths []ActionPath, wo
 					break
 				}
 				composition := buildComposedActionPath(spec, source.path, sink.path, chainRefsByPath)
+				composition = withCompositionMemberPathIDs(composition, append(
+					sourceMembership[compositionCandidateMembershipKey(source)],
+					sinkMembership[compositionCandidateMembershipKey(sink)]...,
+				))
 				if seen {
 					compositionsByKey[compositionID] = mergeComposedActionPathWithoutContract(current, composition)
 					continue
@@ -512,6 +516,29 @@ func filterCompositionCandidates(paths []ActionPath, candidates []compositionCan
 	return out
 }
 
+func groupCompositionCandidates(candidates []compositionCandidate) ([]compositionCandidate, map[string][]string) {
+	grouped := make([]compositionCandidate, 0, len(candidates))
+	memberships := make(map[string][]string, len(candidates))
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		key := compositionCandidateMembershipKey(candidate)
+		memberships[key] = append(memberships[key], strings.TrimSpace(candidate.path.PathID))
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		grouped = append(grouped, candidate)
+	}
+	for key, pathIDs := range memberships {
+		memberships[key] = dedupeSortedStrings(pathIDs)
+	}
+	return grouped, memberships
+}
+
+func compositionCandidateMembershipKey(candidate compositionCandidate) string {
+	return candidate.scope + "\x1e" + candidate.memberKey
+}
+
 func indexCompositionCandidatesByScope(candidates []compositionCandidate) map[string][]compositionCandidate {
 	byScope := make(map[string][]compositionCandidate, len(candidates))
 	for _, candidate := range candidates {
@@ -622,6 +649,13 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 	applyCompositionDelegationRelationships(&composition, paths)
 	applyCompositionRecommendedControl(&composition, paths)
 	hydrateCompositionTransitions(&composition)
+	return composition
+}
+
+func withCompositionMemberPathIDs(composition ComposedActionPath, pathIDs []string) ComposedActionPath {
+	members := dedupeSortedStrings(append(compositionMemberPathIDs(composition), pathIDs...))
+	composition.memberPathIDs = members
+	composition.PathIDs = boundedOutputEvidenceRefs(members)
 	return composition
 }
 

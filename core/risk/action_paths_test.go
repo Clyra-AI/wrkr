@@ -1830,6 +1830,46 @@ func TestBuildActionPathsCarriesEndpointGroupProjection(t *testing.T) {
 	}
 }
 
+func TestBuildActionPathsGroupsEndpointOperationsBySpecification(t *testing.T) {
+	t.Parallel()
+
+	entries := []agginventory.AgentPrivilegeMapEntry{}
+	for _, operation := range []string{"POST /v1/payments", "DELETE /v1/payments/{id}"} {
+		semantic := agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    operation,
+			EvidenceRefs: []string{operation},
+		}
+		entries = append(entries, agginventory.AgentPrivilegeMapEntry{
+			AgentID:                     "wrkr:openapi:" + operation,
+			AgentInstanceID:             "instance:" + operation,
+			ToolInstanceID:              "tool:" + operation,
+			ToolID:                      "payments-openapi",
+			ToolType:                    "openapi",
+			Framework:                   "openapi",
+			Org:                         "acme",
+			Repos:                       []string{"acme/payments"},
+			Location:                    "openapi/payments.yaml",
+			MutableEndpointSemantics:    []agginventory.MutableEndpointSemantic{semantic},
+			MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs([]agginventory.MutableEndpointSemantic{semantic}),
+		})
+	}
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{AgentPrivilegeMap: entries})
+	if len(paths) != 1 {
+		t.Fatalf("expected one OpenAPI specification roll-up, got %+v", paths)
+	}
+	path := paths[0]
+	if path.OccurrenceCount != 2 || path.EndpointRefCount != 2 {
+		t.Fatalf("expected two exact operations in one bounded roll-up, got %+v", path)
+	}
+	if len(path.MutableEndpointSemanticRefs) != 2 || len(path.EndpointRefSamples) != 2 {
+		t.Fatalf("expected both operation references to remain attributable, got %+v", path)
+	}
+}
+
 func sliceToSet(values []string) map[string]struct{} {
 	out := make(map[string]struct{}, len(values))
 	for _, value := range values {

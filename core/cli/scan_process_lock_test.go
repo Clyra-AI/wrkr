@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,6 +61,38 @@ func TestConcurrentScanProcessesPreserveCompleteProofChain(t *testing.T) {
 	concurrentCount := proofChainRecordCount(t, concurrentState)
 	if concurrentCount != sequentialCount {
 		t.Fatalf("concurrent proof records = %d, sequential proof records = %d", concurrentCount, sequentialCount)
+	}
+}
+
+func TestConcurrentScanProcessesWithSeparateArtifactsDoNotCollide(t *testing.T) {
+	t.Parallel()
+
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", "scenarios", "wrkr", "scan-mixed-org", "repos"))
+	if err != nil {
+		t.Fatalf("resolve fixture path: %v", err)
+	}
+
+	artifactRoot := t.TempDir()
+	commands := make([]*exec.Cmd, 0, 4)
+	states := make([]string, 0, 4)
+	for index := 0; index < 4; index++ {
+		statePath := filepath.Join(artifactRoot, fmt.Sprintf("scan-%d", index), "state.json")
+		states = append(states, statePath)
+		commands = append(commands, scanProcessCommand(t, repoRoot, statePath))
+	}
+
+	for _, command := range commands {
+		if err := command.Start(); err != nil {
+			t.Fatalf("start isolated scan: %v", err)
+		}
+	}
+	for index, command := range commands {
+		if err := command.Wait(); err != nil {
+			t.Fatalf("isolated scan %d failed: %v\nstderr=%s", index, err, command.Stderr.(*bytes.Buffer).String())
+		}
+		if count := proofChainRecordCount(t, states[index]); count == 0 {
+			t.Fatalf("isolated scan %d emitted no proof records", index)
+		}
 	}
 }
 

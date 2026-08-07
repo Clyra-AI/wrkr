@@ -140,7 +140,7 @@ func sortActionPathsContext(ctx context.Context, paths []ActionPath) error {
 				if err := ctx.Err(); err != nil {
 					return err
 				}
-				if compareActionPaths(paths[right], paths[left]) {
+				if compareProjectedActionPaths(paths[right], paths[left]) {
 					scratch[destination] = paths[right]
 					right++
 				} else {
