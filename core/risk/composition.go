@@ -536,7 +536,30 @@ func groupCompositionCandidates(candidates []compositionCandidate) ([]compositio
 }
 
 func compositionCandidateMembershipKey(candidate compositionCandidate) string {
-	return candidate.scope + "\x1e" + candidate.memberKey
+	return strings.Join([]string{
+		candidate.scope,
+		candidate.memberKey,
+		compositionCandidateOutcomeIdentity(candidate),
+	}, "\x1e")
+}
+
+// compositionCandidateOutcomeIdentity keeps only paths that would produce the
+// same target and outcome evidence in one candidate group.
+func compositionCandidateOutcomeIdentity(candidate compositionCandidate) string {
+	endpointSemantics := make([]string, 0, len(candidate.path.MutableEndpointSemantics))
+	for _, item := range candidate.path.MutableEndpointSemantics {
+		endpointSemantics = append(endpointSemantics, strings.Join([]string{
+			"semantic=" + strings.TrimSpace(item.Semantic),
+			"surface=" + strings.TrimSpace(item.Surface),
+			"operation=" + strings.TrimSpace(item.Operation),
+		}, ","))
+	}
+	return strings.Join([]string{
+		"target=" + compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{candidate.path}),
+		"target_class=" + candidate.targetClass,
+		"environment=" + candidate.environment,
+		"endpoint_semantics=" + strings.Join(dedupeSortedStrings(endpointSemantics), "+"),
+	}, "|")
 }
 
 func indexCompositionCandidatesByScope(candidates []compositionCandidate) map[string][]compositionCandidate {
