@@ -52,7 +52,7 @@ Mutable endpoint: 5 grouped endpoint semantics; 2 route groups; data_export x1, 
 Production context: status=correlated, surface=label-a5534a43, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-0315367e,label-d66e2561
 Owner: owner-ab37caea
 Purpose: exportCustomers
-Lineage: label-a5534a43 -> label-a5534a43 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-6dd0f3ed -> label-6dd0f3ed -> label-6955e514 -> label-eef5b827 -> credential (missing) -> label-eb24c1ad -> label-ab37caea -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
+Lineage: label-a5534a43 -> label-a5534a43 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-6dd0f3ed -> label-6dd0f3ed -> label-837b932d -> label-eef5b827 -> credential (missing) -> label-eb24c1ad -> label-ab37caea -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
 
 4. repo-d236d5 in loc-d5d3368a
 Problem: The path reaches declared mutable actions that need tighter approval, proof, or scope.
