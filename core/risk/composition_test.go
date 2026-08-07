@@ -272,6 +272,79 @@ func TestBuildComposedActionPathsPreservesGroupedDuplicateMembershipBeyondEvalua
 	}
 }
 
+func TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate(t *testing.T) {
+	paymentRead := compositionTestPath("apc-payment-read", "rk-read-shared", []string{"read"}, TargetClassCustomerDataAdjacent)
+	paymentRead.MatchedProductionTargets = []string{"production:payments"}
+	paymentRead.EndpointRefGroupID = "payments-api"
+	paymentRead.MutableEndpointSemantics = []agginventory.MutableEndpointSemantic{{
+		Semantic:  agginventory.EndpointSemanticRead,
+		Surface:   "openapi",
+		Operation: "GET /payments",
+	}}
+	billingRead := compositionTestPath("apc-billing-read", "rk-read-shared", []string{"read"}, TargetClassCustomerDataAdjacent)
+	billingRead.MatchedProductionTargets = []string{"production:billing"}
+	billingRead.EndpointRefGroupID = "billing-api"
+	billingRead.MutableEndpointSemantics = []agginventory.MutableEndpointSemantic{{
+		Semantic:  agginventory.EndpointSemanticRead,
+		Surface:   "openapi",
+		Operation: "GET /billing",
+	}}
+	egress := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+
+	paths := []ActionPath{paymentRead, billingRead, egress}
+	compositions, _ := BuildComposedActionPaths(paths, nil)
+	byProductionTarget := map[string]*ComposedActionPath{}
+	for index := range compositions {
+		composition := &compositions[index]
+		if composition.PatternID != CompositionPatternSensitiveReadToEgress {
+			continue
+		}
+		for _, target := range []string{"production:payments", "production:billing"} {
+			if strings.Contains(composition.TargetIdentity, target) {
+				byProductionTarget[target] = composition
+			}
+		}
+	}
+	if got, want := len(byProductionTarget), 2; got != want {
+		t.Fatalf("sensitive-read compositions = %d, want %d: %+v", got, want, compositions)
+	}
+	for target, pathID := range map[string]string{
+		"production:payments": paymentRead.PathID,
+		"production:billing":  billingRead.PathID,
+	} {
+		composition := byProductionTarget[target]
+		if composition == nil {
+			t.Fatalf("missing composition for %s: %+v", target, compositions)
+		}
+		if !containsAnyPathClass(composition.memberPathIDs, pathID) {
+			t.Fatalf("composition for %s did not retain %s: %+v", target, pathID, composition)
+		}
+	}
+
+	decorated, err := DecorateActionPathCompositionRefsContext(context.Background(), paths, compositions)
+	if err != nil {
+		t.Fatalf("DecorateActionPathCompositionRefsContext() error = %v", err)
+	}
+	for pathID, target := range map[string]string{
+		paymentRead.PathID: "production:payments",
+		billingRead.PathID: "production:billing",
+	} {
+		var path *ActionPath
+		for index := range decorated {
+			if decorated[index].PathID == pathID {
+				path = &decorated[index]
+				break
+			}
+		}
+		if path == nil {
+			t.Fatalf("missing decorated path %s", pathID)
+		}
+		if !containsAnyPathClass(path.CompositionIDs, byProductionTarget[target].CompositionID) {
+			t.Fatalf("path %s has wrong composition target: %+v", pathID, path)
+		}
+	}
+}
+
 func TestCompositionCandidateIDMatchesMaterializedComposition(t *testing.T) {
 	spec := compositionPatternSpecs()[0]
 	for name, paths := range map[string][]ActionPath{

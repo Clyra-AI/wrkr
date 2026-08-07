@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "eddfcc590c29437e5c453d5e50876726765910f759f5622da976e8233a4e4dbc",
+  "validated_content_sha256": "b1a054bc6bee756847292a185d6f4530e977ab8438432382f4ffdad1bd5022f3",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -64,6 +64,7 @@
     "core/risk.TestBuildComposedActionPathsMultiStageRejectsUnknownTrustBoundaryAndWeakRefs",
     "core/risk.TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget",
     "core/risk.TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation",
+    "core/risk.TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate",
     "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability",
     "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget",
     "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
@@ -238,15 +239,16 @@
       "name": "composition_generation_bounds",
       "status": "pass",
       "commands": [
-        "go test ./core/risk -run 'TestBuildComposedActionPaths(BoundsDuplicateCandidateEvaluation|BoundsSuppressedCandidateEvidence|MultiStageDefaultProjectionSizeAndNoiseBudget)$' -count=1"
+        "go test ./core/risk -run 'TestBuildComposedActionPaths(BoundsDuplicateCandidateEvaluation|BoundsSuppressedCandidateEvidence|KeepsOutcomeDistinctCandidatesSeparate|MultiStageDefaultProjectionSizeAndNoiseBudget)$' -count=1"
       ],
       "fixture_names": [
         "core/risk.TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation",
         "core/risk.TestBuildComposedActionPathsBoundsSuppressedCandidateEvidence",
+        "core/risk.TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate",
         "core/risk.high-fanout-multi-stage:38-paths",
         "core/risk.BenchmarkBuildComposedActionPathsDenseCandidateCap"
       ],
-      "evidence": "Pairwise and duplicate candidate generation has deterministic evaluation and output-reference caps, with explicit truncation receipts."
+      "evidence": "Pairwise and duplicate candidate generation has deterministic evaluation and output-reference caps, preserves distinct production-target and endpoint outcomes, and records explicit truncation receipts."
     },
     {
       "name": "redaction",
