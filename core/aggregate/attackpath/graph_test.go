@@ -1,6 +1,8 @@
 package attackpath
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -320,6 +322,25 @@ func TestControlPathGraphCompositionEvidenceRefsRemainDeterministic(t *testing.T
 	}
 }
 
+func TestControlPathGraphSortsHonorCancellation(t *testing.T) {
+	nodes := make([]ControlPathNode, 128)
+	edges := make([]ControlPathEdge, 128)
+	for index := range nodes {
+		value := fmt.Sprintf("%03d", len(nodes)-index)
+		nodes[index] = ControlPathNode{PathID: "apc-" + value, Kind: ControlPathNodeTool, NodeID: "node-" + value}
+		edges[index] = ControlPathEdge{PathID: "apc-" + value, Kind: "path_uses_tool", EdgeID: "edge-" + value}
+	}
+
+	nodeCtx := &deadlineAfterCallsContext{Context: context.Background(), allowedCalls: 4}
+	if err := sortControlPathNodesContext(nodeCtx, nodes); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("node-sort cancellation error = %v, want deadline exceeded", err)
+	}
+	edgeCtx := &deadlineAfterCallsContext{Context: context.Background(), allowedCalls: 4}
+	if err := sortControlPathEdgesContext(edgeCtx, edges); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("edge-sort cancellation error = %v, want deadline exceeded", err)
+	}
+}
+
 func TestUniqueSortedStringsCopiesAlreadyNormalizedInput(t *testing.T) {
 	input := make([]string, 2, 4)
 	copy(input, []string{"attack_path:a", "attack_path:b"})
@@ -546,4 +567,18 @@ func hasControlPathEdgeKind(edges []ControlPathEdge, want string) bool {
 		}
 	}
 	return false
+}
+
+type deadlineAfterCallsContext struct {
+	context.Context
+	allowedCalls int
+	calls        int
+}
+
+func (c *deadlineAfterCallsContext) Err() error {
+	c.calls++
+	if c.calls > c.allowedCalls {
+		return context.DeadlineExceeded
+	}
+	return nil
 }

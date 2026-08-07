@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -258,6 +259,20 @@ type compositionCandidate struct {
 	targetClass               string
 	environment               string
 	hasExplicitTargetIdentity bool
+	workflowChainRefs         []string
+	governanceIdentity        string
+}
+
+type compositionCandidateGovernanceProjection struct {
+	Stage                     CompositionStage
+	Authority                 compositionAuthorityProfile
+	WorkflowChainRefs         []string
+	RuntimeEvidenceState      string
+	RiskTier                  string
+	RecommendedControl        string
+	RecommendedControlReasons []string
+	ClosureRequirements       []ClosureRequirement
+	EvidenceCompleteness      *EvidenceCompleteness
 }
 
 func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.WorkflowChainArtifact) ([]ComposedActionPath, *ComposedActionPathToControlFirst) {
@@ -280,14 +295,20 @@ func BuildComposedActionPathsContext(ctx context.Context, paths []ActionPath, wo
 	if err != nil {
 		return nil, nil, err
 	}
+	chainRefsByPath := agentresolver.WorkflowChainRefsByPath(workflowChains)
 	candidateMetadata := make([]compositionCandidate, len(projected))
 	for index := range projected {
 		if err := ctx.Err(); err != nil {
 			return nil, nil, err
 		}
-		candidateMetadata[index] = newCompositionCandidate(projected[index])
+		candidate := newCompositionCandidate(projected[index])
+		candidate.workflowChainRefs = dedupeSortedStrings(append(
+			append([]string(nil), projected[index].WorkflowChainRefs...),
+			chainRefsByPath[strings.TrimSpace(projected[index].PathID)]...,
+		))
+		candidate.governanceIdentity = compositionCandidateGovernanceIdentity(candidate)
+		candidateMetadata[index] = candidate
 	}
-	chainRefsByPath := agentresolver.WorkflowChainRefsByPath(workflowChains)
 	specs := compositionPatternSpecs()
 	compositionsByKey := map[string]ComposedActionPath{}
 	truncated := map[string]*compositionTruncationState{}
@@ -536,10 +557,15 @@ func groupCompositionCandidates(candidates []compositionCandidate) ([]compositio
 }
 
 func compositionCandidateMembershipKey(candidate compositionCandidate) string {
+	governanceIdentity := strings.TrimSpace(candidate.governanceIdentity)
+	if governanceIdentity == "" {
+		governanceIdentity = compositionCandidateGovernanceIdentity(candidate)
+	}
 	return strings.Join([]string{
 		candidate.scope,
 		candidate.memberKey,
 		compositionCandidateOutcomeIdentity(candidate),
+		governanceIdentity,
 	}, "\x1e")
 }
 
@@ -560,6 +586,35 @@ func compositionCandidateOutcomeIdentity(candidate compositionCandidate) string 
 		"environment=" + candidate.environment,
 		"endpoint_semantics=" + strings.Join(dedupeSortedStrings(endpointSemantics), "+"),
 	}, "|")
+}
+
+// compositionCandidateGovernanceIdentity prevents the bounded candidate pass
+// from pooling paths that would contribute different policy, credential, or
+// evidence outcomes to the same materialized composition. It intentionally
+// hashes only output-affecting governance data so dense scans retain duplicate
+// compaction without repeatedly serializing the full action-path payload.
+func compositionCandidateGovernanceIdentity(candidate compositionCandidate) string {
+	stage := buildCompositionStage("", candidate.path)
+	stage.PathID = ""
+	stage.StageID = ""
+	projection := compositionCandidateGovernanceProjection{
+		Stage:                     stage,
+		Authority:                 compositionAuthorityProfileForPath(candidate.path),
+		WorkflowChainRefs:         append([]string(nil), candidate.workflowChainRefs...),
+		RuntimeEvidenceState:      strings.TrimSpace(candidate.path.RuntimeEvidenceState),
+		RiskTier:                  strings.TrimSpace(candidate.path.RiskTier),
+		RecommendedControl:        strings.TrimSpace(candidate.path.RecommendedControl),
+		RecommendedControlReasons: dedupeSortedStrings(candidate.path.RecommendedControlReasons),
+		ClosureRequirements:       CloneClosureRequirements(candidate.path.ClosureRequirements),
+		EvidenceCompleteness:      CloneEvidenceCompleteness(candidate.path.EvidenceCompleteness),
+	}
+	payload, err := json.Marshal(projection)
+	if err != nil {
+		// Failing closed here preserves the candidate instead of allowing an
+		// unrepresentable governance state to share another path's contract.
+		return "unserializable:" + stableCompositionHash(strings.TrimSpace(candidate.path.PathID))
+	}
+	return stableCompositionHash(string(payload))
 }
 
 func indexCompositionCandidatesByScope(candidates []compositionCandidate) map[string][]compositionCandidate {
@@ -1506,13 +1561,9 @@ func mergeCompositionTransitionDelegationValue(current, incoming CompositionTran
 	if strings.TrimSpace(current.TransitionID) == "" {
 		current = incoming
 	}
-	if strings.TrimSpace(current.Relationship) == "" {
+	if compositionTransitionDelegationMoreRestrictive(incoming, current) {
 		current.Relationship = strings.TrimSpace(incoming.Relationship)
-	}
-	if strings.TrimSpace(current.ParentAuthorityRef) == "" {
 		current.ParentAuthorityRef = strings.TrimSpace(incoming.ParentAuthorityRef)
-	}
-	if strings.TrimSpace(current.ChildAuthorityRef) == "" {
 		current.ChildAuthorityRef = strings.TrimSpace(incoming.ChildAuthorityRef)
 	}
 	current.ScopeDelta = dedupeSortedStrings(append(current.ScopeDelta, incoming.ScopeDelta...))
@@ -1521,6 +1572,36 @@ func mergeCompositionTransitionDelegationValue(current, incoming CompositionTran
 	current.ExpiryDelta = dedupeSortedStrings(append(current.ExpiryDelta, incoming.ExpiryDelta...))
 	current.ReasonCodes = dedupeSortedStrings(append(current.ReasonCodes, incoming.ReasonCodes...))
 	return current
+}
+
+func compositionTransitionDelegationMoreRestrictive(incoming, current CompositionTransition) bool {
+	incomingRank := compositionDelegationRelationshipControlRank(incoming.Relationship)
+	currentRank := compositionDelegationRelationshipControlRank(current.Relationship)
+	if incomingRank != currentRank {
+		return incomingRank < currentRank
+	}
+	return compositionTransitionDelegationIdentity(incoming) < compositionTransitionDelegationIdentity(current)
+}
+
+func compositionDelegationRelationshipControlRank(relationship string) int {
+	switch strings.TrimSpace(relationship) {
+	case CompositionDelegationContradictory:
+		return recommendedControlRank(RecommendedControlBlock)
+	case CompositionDelegationBroadened:
+		return recommendedControlRank(RecommendedControlJITCredentialRequired)
+	case CompositionDelegationUnknown:
+		return recommendedControlRank(RecommendedControlSecurityReview)
+	default:
+		return recommendedControlRank(RecommendedControlAllow)
+	}
+}
+
+func compositionTransitionDelegationIdentity(transition CompositionTransition) string {
+	return strings.Join([]string{
+		strings.TrimSpace(transition.Relationship),
+		strings.TrimSpace(transition.ParentAuthorityRef),
+		strings.TrimSpace(transition.ChildAuthorityRef),
+	}, "\x1f")
 }
 
 func compositionTransitionDelegationKeys(transition CompositionTransition, stages []CompositionStage) []string {

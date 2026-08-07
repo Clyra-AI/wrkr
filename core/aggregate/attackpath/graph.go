@@ -628,15 +628,9 @@ func BuildControlPathGraphContext(ctx context.Context, paths []ControlPathInput)
 	}
 
 	ordered := append([]ControlPathInput(nil), paths...)
-	sort.Slice(ordered, func(i, j int) bool {
-		if strings.TrimSpace(ordered[i].Org) != strings.TrimSpace(ordered[j].Org) {
-			return strings.TrimSpace(ordered[i].Org) < strings.TrimSpace(ordered[j].Org)
-		}
-		if strings.TrimSpace(ordered[i].Repo) != strings.TrimSpace(ordered[j].Repo) {
-			return strings.TrimSpace(ordered[i].Repo) < strings.TrimSpace(ordered[j].Repo)
-		}
-		return strings.TrimSpace(ordered[i].PathID) < strings.TrimSpace(ordered[j].PathID)
-	})
+	if err := sortControlPathInputsContext(ctx, ordered); err != nil {
+		return nil, err
+	}
 
 	nodes := make([]ControlPathNode, 0, len(ordered)*8)
 	edges := make([]ControlPathEdge, 0, len(ordered)*8)
@@ -669,28 +663,16 @@ func BuildControlPathGraphContext(ctx context.Context, paths []ControlPathInput)
 		}
 	}
 
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].PathID != nodes[j].PathID {
-			return nodes[i].PathID < nodes[j].PathID
-		}
-		if nodes[i].Kind != nodes[j].Kind {
-			return nodes[i].Kind < nodes[j].Kind
-		}
-		return nodes[i].NodeID < nodes[j].NodeID
-	})
-	sort.Slice(edges, func(i, j int) bool {
-		if edges[i].PathID != edges[j].PathID {
-			return edges[i].PathID < edges[j].PathID
-		}
-		if edges[i].Kind != edges[j].Kind {
-			return edges[i].Kind < edges[j].Kind
-		}
-		return edges[i].EdgeID < edges[j].EdgeID
-	})
-
+	if err := sortControlPathNodesContext(ctx, nodes); err != nil {
+		return nil, err
+	}
+	if err := sortControlPathEdgesContext(ctx, edges); err != nil {
+		return nil, err
+	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	graph := &ControlPathGraph{
 		Version: ControlPathGraphVersion,
 		Summary: ControlPathGraphSummary{
@@ -706,6 +688,94 @@ func BuildControlPathGraphContext(ctx context.Context, paths []ControlPathInput)
 		Edges: edges,
 	}
 	return StripCanonicalProjectionDetails(BackfillCanonicalProjectionRefs(graph)), nil
+}
+
+func sortControlPathInputsContext(ctx context.Context, values []ControlPathInput) error {
+	return stableSortControlPathValuesContext(ctx, values, func(left, right ControlPathInput) bool {
+		if strings.TrimSpace(left.Org) != strings.TrimSpace(right.Org) {
+			return strings.TrimSpace(left.Org) < strings.TrimSpace(right.Org)
+		}
+		if strings.TrimSpace(left.Repo) != strings.TrimSpace(right.Repo) {
+			return strings.TrimSpace(left.Repo) < strings.TrimSpace(right.Repo)
+		}
+		return strings.TrimSpace(left.PathID) < strings.TrimSpace(right.PathID)
+	})
+}
+
+func sortControlPathNodesContext(ctx context.Context, values []ControlPathNode) error {
+	return stableSortControlPathValuesContext(ctx, values, func(left, right ControlPathNode) bool {
+		if left.PathID != right.PathID {
+			return left.PathID < right.PathID
+		}
+		if left.Kind != right.Kind {
+			return left.Kind < right.Kind
+		}
+		return left.NodeID < right.NodeID
+	})
+}
+
+func sortControlPathEdgesContext(ctx context.Context, values []ControlPathEdge) error {
+	return stableSortControlPathValuesContext(ctx, values, func(left, right ControlPathEdge) bool {
+		if left.PathID != right.PathID {
+			return left.PathID < right.PathID
+		}
+		if left.Kind != right.Kind {
+			return left.Kind < right.Kind
+		}
+		return left.EdgeID < right.EdgeID
+	})
+}
+
+func stableSortControlPathValuesContext[T any](ctx context.Context, values []T, less func(left, right T) bool) error {
+	if len(values) < 2 {
+		return ctx.Err()
+	}
+	scratch := make([]T, len(values))
+	for width := 1; width < len(values); {
+		for start := 0; start < len(values); start += 2 * width {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			middle := min(start+width, len(values))
+			end := min(start+2*width, len(values))
+			left, right, destination := start, middle, start
+			for left < middle && right < end {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				if less(values[right], values[left]) {
+					scratch[destination] = values[right]
+					right++
+				} else {
+					scratch[destination] = values[left]
+					left++
+				}
+				destination++
+			}
+			for left < middle {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				scratch[destination] = values[left]
+				left++
+				destination++
+			}
+			for right < end {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				scratch[destination] = values[right]
+				right++
+				destination++
+			}
+		}
+		copy(values, scratch)
+		if width > len(values)/2 {
+			break
+		}
+		width *= 2
+	}
+	return nil
 }
 
 func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEdge) {
