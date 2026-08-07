@@ -11,6 +11,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
@@ -1867,6 +1868,21 @@ func TestBuildActionPathsGroupsEndpointOperationsBySpecification(t *testing.T) {
 	}
 	if len(path.MutableEndpointSemanticRefs) != 2 || len(path.EndpointRefSamples) != 2 {
 		t.Fatalf("expected both operation references to remain attributable, got %+v", path)
+	}
+	wantAgentID := identity.AgentID(identity.ToolID("openapi", "openapi/payments.yaml"), "acme")
+	if path.AgentID != wantAgentID {
+		t.Fatalf("expected specification-level agent id %q, got %q", wantAgentID, path.AgentID)
+	}
+	wantToolInstanceID := identity.ToolInstanceID("openapi", "acme/payments", "openapi/payments.yaml", "", 0, 0)
+	if path.ToolInstanceID != wantToolInstanceID {
+		t.Fatalf("expected specification-level tool instance id %q, got %q", wantToolInstanceID, path.ToolInstanceID)
+	}
+
+	reversed := append([]agginventory.AgentPrivilegeMapEntry(nil), entries...)
+	reversed[0], reversed[1] = reversed[1], reversed[0]
+	reversedPaths, _ := BuildActionPaths(nil, &agginventory.Inventory{AgentPrivilegeMap: reversed})
+	if len(reversedPaths) != 1 || reversedPaths[0].AgentID != wantAgentID || reversedPaths[0].ToolInstanceID != wantToolInstanceID {
+		t.Fatalf("expected endpoint roll-up identity to be independent of operation order, got %+v", reversedPaths)
 	}
 }
 
