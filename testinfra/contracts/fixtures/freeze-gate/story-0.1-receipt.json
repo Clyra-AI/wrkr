@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "7121632cfa15c7a3d4f3cbd61615010527fe61e6f300ce68c6f9e41bb5ef038a",
+  "validated_content_sha256": "341a22fe25ff1503536478c54b2a6e5f85a5480102260b227e6fbaac53f66265",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -43,7 +43,8 @@
     "action_contract_conformance_fixture_v1",
     "bounded_multi_stage_composed_action_contracts",
     "control_path_graph_timeout_cancellation",
-    "bounded_serialized_action_path_occurrence_refs"
+    "bounded_serialized_action_path_occurrence_refs",
+    "endpoint_specification_identity"
   ],
   "validated_on": "2026-08-07",
   "fixture_names": [
@@ -68,6 +69,7 @@
     "core/risk.TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation",
     "core/risk.TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate",
     "core/risk.TestBuildActionPathsBoundsSerializedOccurrenceRefs",
+    "core/risk.TestBuildActionPathsGroupsEndpointOperationsBySpecification",
     "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability",
     "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget",
     "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
@@ -226,6 +228,7 @@
         "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1",
         "go test ./core/risk -run TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget -count=1",
         "go test ./core/risk -run TestBuildActionPathsBoundsSerializedOccurrenceRefs -count=1",
+        "go test ./core/risk -run TestBuildActionPathsGroupsEndpointOperationsBySpecification -count=1",
         "go test ./core/report -run TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget -count=1"
       ],
       "fixture_names": [
@@ -238,7 +241,7 @@
         "core/risk.endpoint-specification-rollup:320-operations",
         "core/report.multiStageReportPath:20-paths"
       ],
-      "evidence": "Saved state, evidence JSON, endpoint-dense state, and the multi-stage Action Contract packet remain under committed byte budgets; serialized action-path occurrence references are capped while exact occurrence counts are retained."
+      "evidence": "Saved state, evidence JSON, endpoint-dense state, and the multi-stage Action Contract packet remain under committed byte budgets; serialized action-path occurrence references are capped while exact occurrence counts are retained, and endpoint roll-ups carry deterministic specification-level identities."
     },
     {
       "name": "composition_generation_bounds",

@@ -13,6 +13,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/owners"
 	"github.com/Clyra-AI/wrkr/core/resolution"
@@ -311,6 +312,7 @@ func buildActionPath(
 	credentials := agginventory.NormalizeCredentialProvenances(entry.Credentials)
 	provenance := agginventory.CredentialRollup(credentials, entry.CredentialProvenance)
 	authority := agginventory.NormalizeCredentialAuthority(entry.CredentialAuthority)
+	agentID, toolInstanceID := actionPathIdentityFields(entry)
 	if len(credentials) == 0 && provenance != nil {
 		credentials = agginventory.NormalizeCredentialProvenances([]*agginventory.CredentialProvenance{provenance})
 	}
@@ -323,9 +325,9 @@ func buildActionPath(
 		PathID:                      actionPathID(entry),
 		Org:                         strings.TrimSpace(entry.Org),
 		Repo:                        firstRepoFromEntry(entry),
-		AgentID:                     strings.TrimSpace(entry.AgentID),
+		AgentID:                     agentID,
 		ToolFamilyID:                strings.TrimSpace(entry.ToolFamilyID),
-		ToolInstanceID:              strings.TrimSpace(entry.ToolInstanceID),
+		ToolInstanceID:              toolInstanceID,
 		ToolType:                    actionPathToolType(entry),
 		Location:                    strings.TrimSpace(entry.Location),
 		LocationRange:               cloneLocationRange(entry.LocationRange),
@@ -453,6 +455,16 @@ func actionPathToolType(entry agginventory.AgentPrivilegeMapEntry) string {
 		return strings.TrimSpace(entry.Framework)
 	}
 	return strings.TrimSpace(entry.ToolType)
+}
+
+func actionPathIdentityFields(entry agginventory.AgentPrivilegeMapEntry) (string, string) {
+	if !isEndpointActionPathRepresentation(entry) {
+		return strings.TrimSpace(entry.AgentID), strings.TrimSpace(entry.ToolInstanceID)
+	}
+	toolType := actionPathToolType(entry)
+	location := strings.TrimSpace(entry.Location)
+	return identity.AgentID(identity.ToolID(toolType, location), strings.TrimSpace(entry.Org)),
+		identity.ToolInstanceID(toolType, firstRepoFromEntry(entry), location, "", 0, 0)
 }
 
 func actionPathID(entry agginventory.AgentPrivilegeMapEntry) string {
