@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "531712b307a222a8c88e74ece217843336f91ecc27727959b1bca394a9499eb1",
+  "validated_content_sha256": "7121632cfa15c7a3d4f3cbd61615010527fe61e6f300ce68c6f9e41bb5ef038a",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -42,7 +42,8 @@
     "action_contract_packet_v1",
     "action_contract_conformance_fixture_v1",
     "bounded_multi_stage_composed_action_contracts",
-    "control_path_graph_timeout_cancellation"
+    "control_path_graph_timeout_cancellation",
+    "bounded_serialized_action_path_occurrence_refs"
   ],
   "validated_on": "2026-08-07",
   "fixture_names": [
@@ -66,6 +67,7 @@
     "core/risk.TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget",
     "core/risk.TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation",
     "core/risk.TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate",
+    "core/risk.TestBuildActionPathsBoundsSerializedOccurrenceRefs",
     "core/report.TestBuildActionContractPacketPreservesOrderedMultiStageReachability",
     "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget",
     "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
@@ -223,6 +225,7 @@
         "go test ./internal/scenarios -run TestScenarioActionContractPacketPaidAssessment -tags=scenario -count=1",
         "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1",
         "go test ./core/risk -run TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget -count=1",
+        "go test ./core/risk -run TestBuildActionPathsBoundsSerializedOccurrenceRefs -count=1",
         "go test ./core/report -run TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget -count=1"
       ],
       "fixture_names": [
@@ -232,9 +235,10 @@
         "internal/scenarios.TestScenarioActionContractPacketPaidAssessment",
         "core/report.actionContractPacketTestInput:three-stage",
         "core/risk.high-fanout-multi-stage:38-paths",
+        "core/risk.endpoint-specification-rollup:320-operations",
         "core/report.multiStageReportPath:20-paths"
       ],
-      "evidence": "Saved state, evidence JSON, endpoint-dense state, and the multi-stage Action Contract packet remain under committed byte budgets."
+      "evidence": "Saved state, evidence JSON, endpoint-dense state, and the multi-stage Action Contract packet remain under committed byte budgets; serialized action-path occurrence references are capped while exact occurrence counts are retained."
     },
     {
       "name": "composition_generation_bounds",

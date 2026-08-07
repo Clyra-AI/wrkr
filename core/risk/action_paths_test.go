@@ -1870,6 +1870,69 @@ func TestBuildActionPathsGroupsEndpointOperationsBySpecification(t *testing.T) {
 	}
 }
 
+func TestBuildActionPathsBoundsSerializedOccurrenceRefs(t *testing.T) {
+	t.Parallel()
+
+	const occurrenceCount = maxOutputOccurrenceRefs + 256
+	entries := make([]agginventory.AgentPrivilegeMapEntry, 0, occurrenceCount)
+	for index := 0; index < occurrenceCount; index++ {
+		operation := fmt.Sprintf("POST /v1/payments/%03d/capture", index)
+		semantic := agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    operation,
+			EvidenceRefs: []string{operation},
+		}
+		entries = append(entries, agginventory.AgentPrivilegeMapEntry{
+			AgentID:                     "wrkr:openapi:" + operation,
+			AgentInstanceID:             "instance:" + operation,
+			ToolInstanceID:              "tool:" + operation,
+			ToolID:                      "payments-openapi",
+			ToolType:                    "openapi",
+			Framework:                   "openapi",
+			Org:                         "acme",
+			Repos:                       []string{"acme/payments"},
+			Location:                    "openapi/payments.yaml",
+			MutableEndpointSemantics:    []agginventory.MutableEndpointSemantic{semantic},
+			MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs([]agginventory.MutableEndpointSemantic{semantic}),
+		})
+	}
+
+	paths, choice := BuildActionPaths(nil, &agginventory.Inventory{AgentPrivilegeMap: entries})
+	if len(paths) != 1 || choice == nil {
+		t.Fatalf("expected one action path and control-first choice, got paths=%+v choice=%+v", paths, choice)
+	}
+	if got := paths[0].OccurrenceCount; got != occurrenceCount {
+		t.Fatalf("expected exact occurrence count %d, got %d", occurrenceCount, got)
+	}
+	if got := len(paths[0].OccurrenceRefs); got != occurrenceCount {
+		t.Fatalf("expected complete in-memory occurrence attribution %d, got %d", occurrenceCount, got)
+	}
+
+	stripped := StripCanonicalProjectionDetails(paths)
+	if got := stripped[0].OccurrenceCount; got != occurrenceCount {
+		t.Fatalf("expected serialized occurrence count %d, got %d", occurrenceCount, got)
+	}
+	if got := len(stripped[0].OccurrenceRefs); got != maxOutputOccurrenceRefs {
+		t.Fatalf("expected serialized occurrence refs capped at %d, got %d", maxOutputOccurrenceRefs, got)
+	}
+	if got := len(paths[0].OccurrenceRefs); got != occurrenceCount {
+		t.Fatalf("expected source occurrence refs to remain intact, got %d", got)
+	}
+
+	strippedChoice := StripActionPathToControlFirstCanonicalProjectionDetails(choice)
+	if strippedChoice == nil {
+		t.Fatal("expected stripped control-first choice")
+	}
+	if got := strippedChoice.Path.OccurrenceCount; got != occurrenceCount {
+		t.Fatalf("expected control-first occurrence count %d, got %d", occurrenceCount, got)
+	}
+	if got := len(strippedChoice.Path.OccurrenceRefs); got != maxOutputOccurrenceRefs {
+		t.Fatalf("expected control-first occurrence refs capped at %d, got %d", maxOutputOccurrenceRefs, got)
+	}
+}
+
 func sliceToSet(values []string) map[string]struct{} {
 	out := make(map[string]struct{}, len(values))
 	for _, value := range values {
