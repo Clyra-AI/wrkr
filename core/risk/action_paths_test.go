@@ -1940,12 +1940,13 @@ func TestBuildActionPathsBoundsSerializedOccurrenceRefs(t *testing.T) {
 	strippedChoice := StripActionPathToControlFirstCanonicalProjectionDetails(choice)
 	if strippedChoice == nil {
 		t.Fatal("expected stripped control-first choice")
-	}
-	if got := strippedChoice.Path.OccurrenceCount; got != occurrenceCount {
-		t.Fatalf("expected control-first occurrence count %d, got %d", occurrenceCount, got)
-	}
-	if got := len(strippedChoice.Path.OccurrenceRefs); got != maxOutputOccurrenceRefs {
-		t.Fatalf("expected control-first occurrence refs capped at %d, got %d", maxOutputOccurrenceRefs, got)
+	} else {
+		if got := strippedChoice.Path.OccurrenceCount; got != occurrenceCount {
+			t.Fatalf("expected control-first occurrence count %d, got %d", occurrenceCount, got)
+		}
+		if got := len(strippedChoice.Path.OccurrenceRefs); got != maxOutputOccurrenceRefs {
+			t.Fatalf("expected control-first occurrence refs capped at %d, got %d", maxOutputOccurrenceRefs, got)
+		}
 	}
 }
 
