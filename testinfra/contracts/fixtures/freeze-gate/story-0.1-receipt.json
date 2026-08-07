@@ -1,10 +1,12 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "c6c060c4d548ac194d253e1f85f3f95a94e194ea82934703c9865a12694f6e67",
+  "validated_content_sha256": "eddfcc590c29437e5c453d5e50876726765910f759f5622da976e8233a4e4dbc",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
     "README.md",
+    "core/aggregate/attackpath",
+    "core/aggregate/privilegebudget",
     "core/cli",
     "core/evidence",
     "core/export/actioncontracts",
@@ -15,6 +17,7 @@
     "docs/commands/scan.md",
     "docs/examples/site-assets",
     "internal/acceptance",
+    "internal/enterprisepressure",
     "internal/e2e/diff",
     "internal/scenarios",
     "scenarios/cross-product/action-contract-interop",
@@ -40,10 +43,10 @@
     "action_contract_conformance_fixture_v1",
     "bounded_multi_stage_composed_action_contracts"
   ],
-  "validated_on": "2026-08-06",
+  "validated_on": "2026-08-07",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
-    "internal/enterprisepressure.EndpointDense:4-repos",
+    "internal/enterprisepressure.EndpointDense:1-repo",
     "scenarios/wrkr/first-offer-noise-pack",
     "scenarios/wrkr/scan-diff-no-noise",
     "core/export/actioncontracts.TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent",
@@ -90,11 +93,11 @@
     },
     {
       "artifact": "endpoint-dense-scan.json",
-      "fixture": "internal/enterprisepressure.EndpointDense:4-repos",
-      "measured_bytes": 23747901,
+      "fixture": "internal/enterprisepressure.EndpointDense:1-repo",
+      "measured_bytes": 2479780,
       "baseline_bytes": 0,
       "budget_bytes": 25165824,
-      "delta_bytes": 23747901,
+      "delta_bytes": 2479780,
       "measurement_source": "internal/acceptance.TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection"
     },
     {
@@ -222,7 +225,7 @@
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
-        "internal/enterprisepressure.EndpointDense:4-repos",
+        "internal/enterprisepressure.EndpointDense:1-repo",
         "core/report.actionContractPacketTestInput",
         "internal/scenarios.TestScenarioActionContractPacketPaidAssessment",
         "core/report.actionContractPacketTestInput:three-stage",
@@ -293,7 +296,7 @@
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
-        "internal/enterprisepressure.EndpointDense:4-repos",
+        "internal/enterprisepressure.EndpointDense:1-repo",
         "core/report.actionContractPacketTestInput",
         "core/report.actionContractPacketTestInput:three-stage"
       ],
@@ -349,6 +352,25 @@
         "scenarios/cross-product/action-contract-interop/expected/fixture-manifest.json"
       ],
       "evidence": "All nine internal artifact and packet fixtures are produced by the real Wrkr pipeline, schema/digest verified, and regenerated to temporary storage for exact-byte comparison. External Gait/Axym receipts remain a separate Tier 12 release dependency."
+    },
+    {
+      "name": "scan_analysis_reliability",
+      "status": "pass",
+      "commands": [
+        "go test ./core/cli -run 'TestScan(TimeoutAfterStateWriteRollsBackManagedArtifacts|ConcurrentScanProcessesWithSeparateArtifactsDoNotCollide|ConcurrentScanProcessesPreserveCompleteProofChain)$' -count=1 -timeout=5m",
+        "go test ./core/aggregate/privilegebudget -run TestBuildKeepsOpenAPIEndpointSemanticsInstanceScoped -count=1",
+        "go test ./core/risk -run TestBuildActionPathsGroupsEndpointOperationsBySpecification -count=1",
+        "go test ./internal/scenarios -run TestScenarioWave42EndpointDenseProjectionBoundaries -tags=scenario -count=1 -timeout=5m",
+        "go test ./internal/scenarios -run TestScenarioScanAnalysisReliabilityAtEnterpriseScale -tags=scenario -count=1 -timeout=5m"
+      ],
+      "fixture_names": [
+        "core/cli.process-isolation-and-timeout",
+        "core/aggregate/privilegebudget.open-api-instance-scope",
+        "core/risk.open-api-specification-roll-up",
+        "internal/enterprisepressure.EndpointDense:4-repos",
+        "internal/enterprisepressure.EndpointDense:384-repos"
+      ],
+      "evidence": "Endpoint-dense fixtures retain exact operation evidence, expose bounded specification roll-ups in buyer BOM and control-graph artifacts, and a 384-repository scan stays deterministic under a 512 MiB Go memory limit; timeout or concurrent isolated scans leave reusable managed state."
     }
   ],
   "public_surface_decision": "composition public surface may be exposed only when this receipt is present, status is green, and every validation listed here is pass"

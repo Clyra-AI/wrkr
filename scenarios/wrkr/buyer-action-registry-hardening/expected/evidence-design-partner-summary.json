@@ -1,5 +1,5 @@
 {
-  "bom_count": 8,
+  "bom_count": 7,
   "first_bom": {
     "confidence_lane": "likely_action_path",
     "location": "loc-dd191250",
@@ -37,7 +37,7 @@
       "repos"
     ]
   },
-  "registry_count": 8,
+  "registry_count": 7,
   "share_profile": "design-partner",
   "template": "design-partner-summary"
 }

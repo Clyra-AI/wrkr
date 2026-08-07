@@ -713,6 +713,7 @@ func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEd
 	if pathID == "" {
 		return nil, nil
 	}
+	path = prepareControlPathEndpointMetadata(path)
 	org := fallbackOrg(path.Org)
 	repo := controlValue(path.Repo, "unknown_repo")
 	location := controlValue(path.Location, "unknown_workflow")
@@ -848,6 +849,20 @@ func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEd
 	return nodes, edges
 }
 
+func prepareControlPathEndpointMetadata(path ControlPathInput) ControlPathInput {
+	path.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(
+		path.EndpointRefGroupProjection,
+		path.MutableEndpointSemanticRefs,
+		path.MutableEndpointSemantics,
+	)
+	path.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(
+		path.MutableEndpointSemanticRefs,
+		path.MutableEndpointSemantics,
+	)
+	path.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics)
+	return path
+}
+
 func controlCredentialNode(pathID string, path ControlPathInput, org string, repo string, toolType string, location string) *ControlPathNode {
 	provenance := agginventory.NormalizeCredentialProvenance(path.CredentialProvenance)
 	if provenance == nil && !path.CredentialAccess {
@@ -875,9 +890,9 @@ func controlCredentialNode(pathID string, path ControlPathInput, org string, rep
 	node.CredentialAuthority = agginventory.CloneCredentialAuthority(path.CredentialAuthority)
 	node.AuthorityBindingRefs = append([]string(nil), path.AuthorityBindingRefs...)
 	node.AuthorityBindings = agginventory.CloneAuthorityBindings(path.AuthorityBindings)
-	node.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
-	node.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
-	node.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics)
+	node.EndpointRefGroupProjection = path.EndpointRefGroupProjection
+	node.MutableEndpointSemanticRefs = append([]string(nil), path.MutableEndpointSemanticRefs...)
+	node.MutableEndpointSemantics = agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics)
 	return &node
 }
 
@@ -893,9 +908,9 @@ func applyNodeMetadata(node *ControlPathNode, path ControlPathInput, lineageSegm
 	node.VersionSource = strings.TrimSpace(path.VersionSource)
 	node.ConfigFingerprint = strings.TrimSpace(path.ConfigFingerprint)
 	node.ConfigSource = strings.TrimSpace(path.ConfigSource)
-	node.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
-	node.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
-	node.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics)
+	node.EndpointRefGroupProjection = path.EndpointRefGroupProjection
+	node.MutableEndpointSemanticRefs = append([]string(nil), path.MutableEndpointSemanticRefs...)
+	node.MutableEndpointSemantics = agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics)
 }
 
 func lineageSegmentForGovernanceControl(control string) string {
@@ -1317,9 +1332,18 @@ func actionCapabilityLabels(path ControlPathInput) []string {
 	if path.ProductionWrite {
 		values = append(values, "production_write")
 	}
-	for _, item := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
-		if strings.TrimSpace(item.Semantic) != "" {
-			values = append(values, "endpoint_semantic:"+strings.TrimSpace(item.Semantic))
+	projection := agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	if len(projection.EndpointOperationCounts) > 0 {
+		for _, item := range projection.EndpointOperationCounts {
+			if class := strings.TrimSpace(item.Class); class != "" {
+				values = append(values, "endpoint_semantic:"+class)
+			}
+		}
+	} else {
+		for _, item := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
+			if strings.TrimSpace(item.Semantic) != "" {
+				values = append(values, "endpoint_semantic:"+strings.TrimSpace(item.Semantic))
+			}
 		}
 	}
 	for _, class := range path.WritePathClasses {

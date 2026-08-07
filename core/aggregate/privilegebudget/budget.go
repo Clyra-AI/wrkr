@@ -347,7 +347,7 @@ func buildInstanceEntries(
 			approvalClassification = "unapproved"
 		}
 
-		mutableEndpointSemantics := mergeMutableEndpointSemantics(tool.MutableEndpointSemantics, mutableEndpointSemanticsFromSignals(signals))
+		mutableEndpointSemantics := mutableEndpointSemanticsForAgent(tool, scopedSignals, signals)
 		writeCapable := hasAnyPermission(permissions, writeSet)
 		credentialAccess := hasCredentialAccessForSurface(dataClass, permissions, agent.BoundAuthSurfaces)
 		execCapable := hasExecPermission(permissions)
@@ -1224,6 +1224,16 @@ func mutableEndpointSemanticsFromSignals(signals findingSignals) []agginventory.
 		values = append(values, item)
 	}
 	return agginventory.NormalizeMutableEndpointSemantics(values)
+}
+
+func mutableEndpointSemanticsForAgent(tool agginventory.Tool, scopedSignals findingSignals, fallbackSignals findingSignals) []agginventory.MutableEndpointSemantic {
+	if scoped := mutableEndpointSemanticsFromSignals(scopedSignals); len(scoped) > 0 {
+		// Endpoint instance records are precise evidence. Do not widen them with
+		// the aggregate tool or repository surface, which would attribute every
+		// endpoint to every operation in a shared specification.
+		return scoped
+	}
+	return mergeMutableEndpointSemantics(tool.MutableEndpointSemantics, mutableEndpointSemanticsFromSignals(fallbackSignals))
 }
 
 func mergeMutableEndpointSemantics(groups ...[]agginventory.MutableEndpointSemantic) []agginventory.MutableEndpointSemantic {

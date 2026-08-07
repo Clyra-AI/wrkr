@@ -199,7 +199,7 @@ func TestBuildComposedActionPathsBoundsSuppressedCandidateEvidence(t *testing.T)
 func TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation(t *testing.T) {
 	paths := make([]ActionPath, 0, maxComposedActionPathCandidateEvaluations+2)
 	for index := 0; index < maxComposedActionPathCandidateEvaluations+1; index++ {
-		source := compositionTestPath(fmt.Sprintf("apc-read-%04d", index), "rk-read-shared", []string{"read"}, TargetClassCustomerDataAdjacent)
+		source := compositionTestPath(fmt.Sprintf("apc-read-%04d", index), fmt.Sprintf("rk-read-%04d", index), []string{"read"}, TargetClassCustomerDataAdjacent)
 		source.Repo = "checkout"
 		paths = append(paths, source)
 	}
@@ -216,20 +216,59 @@ func TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation(t *testing.T
 	var receipt *CompositionTruncation
 	for index := range composition.Truncations {
 		candidate := composition.Truncations[index]
-		if candidate.Reason == CompositionTruncationCandidateCap && candidate.Limit == maxComposedActionPathCandidateEvaluations {
+		if candidate.Reason == CompositionTruncationCandidateCap && candidate.Limit == maxComposedActionPathCandidates {
 			receipt = &candidate
 			break
 		}
 	}
 	if receipt == nil || receipt.OmittedCandidates == 0 {
-		t.Fatalf("expected duplicate candidate evaluation receipt, got %+v", composition.Truncations)
+		t.Fatalf("expected candidate cap receipt, got %+v", composition.Truncations)
 		return
 	}
-	if receipt.ObservedCandidates != maxComposedActionPathCandidateEvaluations+receipt.OmittedCandidates {
-		t.Fatalf("observed candidates = %d, want evaluated %d plus omitted %d", receipt.ObservedCandidates, maxComposedActionPathCandidateEvaluations, receipt.OmittedCandidates)
+	if receipt.ObservedCandidates != maxComposedActionPathCandidates+receipt.OmittedCandidates {
+		t.Fatalf("observed candidates = %d, want emitted %d plus omitted %d", receipt.ObservedCandidates, maxComposedActionPathCandidates, receipt.OmittedCandidates)
 	}
 	if len(composition.PathIDs) > maxOutputEvidenceRefs {
 		t.Fatalf("path ids = %d, want <= %d", len(composition.PathIDs), maxOutputEvidenceRefs)
+	}
+}
+
+func TestBuildComposedActionPathsPreservesGroupedDuplicateMembershipBeyondEvaluationCap(t *testing.T) {
+	duplicateCount := maxComposedActionPathCandidateEvaluations + 1
+	paths := make([]ActionPath, 0, duplicateCount+1)
+	for index := 0; index < duplicateCount; index++ {
+		source := compositionTestPath(fmt.Sprintf("apc-read-%04d", index), "rk-read-shared", []string{"read"}, TargetClassCustomerDataAdjacent)
+		source.Repo = "checkout"
+		paths = append(paths, source)
+	}
+	sink := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+	sink.Repo = "checkout"
+	paths = append(paths, sink)
+
+	compositions, _ := BuildComposedActionPaths(paths, nil)
+	expectedCompositionID := buildComposedActionPath(compositionPatternSpecs()[0], paths[0], sink, nil).CompositionID
+	composition := findCompositionByID(compositions, expectedCompositionID)
+	if composition == nil {
+		t.Fatalf("expected %s composition %s", CompositionPatternSensitiveReadToEgress, expectedCompositionID)
+	}
+	if got, want := len(composition.memberPathIDs), duplicateCount+1; got != want {
+		t.Fatalf("internal membership path ids = %d, want %d", got, want)
+	}
+	if len(composition.PathIDs) > maxOutputEvidenceRefs {
+		t.Fatalf("serialized path ids = %d, want <= %d", len(composition.PathIDs), maxOutputEvidenceRefs)
+	}
+
+	decorated, err := DecorateActionPathCompositionRefsContext(context.Background(), paths, compositions)
+	if err != nil {
+		t.Fatalf("DecorateActionPathCompositionRefsContext() error = %v", err)
+	}
+	for _, path := range decorated {
+		if !containsAnyPathClass(path.CompositionIDs, composition.CompositionID) {
+			t.Fatalf("path %s is missing composition membership: %+v", path.PathID, path)
+		}
+		if len(path.ProposedActionContractRefs) == 0 {
+			t.Fatalf("path %s is missing proposed action contract membership: %+v", path.PathID, path)
+		}
 	}
 }
 
@@ -1310,6 +1349,15 @@ func findCompositionByPattern(paths []ComposedActionPath, patternID string) *Com
 	for idx := range paths {
 		if paths[idx].PatternID == patternID {
 			return &paths[idx]
+		}
+	}
+	return nil
+}
+
+func findCompositionByID(paths []ComposedActionPath, compositionID string) *ComposedActionPath {
+	for index := range paths {
+		if paths[index].CompositionID == compositionID {
+			return &paths[index]
 		}
 	}
 	return nil

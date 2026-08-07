@@ -1111,6 +1111,77 @@ func TestBuildCreatesSeparateInstanceScopedEntriesForAgentsInSameFile(t *testing
 	}
 }
 
+func TestBuildKeepsOpenAPIEndpointSemanticsInstanceScoped(t *testing.T) {
+	t.Parallel()
+
+	const (
+		org      = "acme"
+		repo     = "acme/payments"
+		location = "openapi/payments.yaml"
+	)
+	endpoint := func(symbol, semantic, operation string) model.Finding {
+		return model.Finding{
+			FindingType: "openapi_endpoint",
+			ToolType:    "openapi",
+			Org:         org,
+			Repo:        repo,
+			Location:    location,
+			Evidence: []model.Evidence{
+				{Key: "operation_id", Value: symbol},
+				{Key: "mutable_endpoint_semantic", Value: semantic + "|high|openapi|" + operation},
+			},
+		}
+	}
+	findings := []model.Finding{
+		endpoint("refundPayment", agginventory.EndpointSemanticRefund, "POST /v1/refunds"),
+		endpoint("capturePayment", agginventory.EndpointSemanticPayment, "POST /v1/payments"),
+	}
+	tools := []agginventory.Tool{{
+		ToolID:    identity.ToolID("openapi", location),
+		ToolType:  "openapi",
+		Org:       org,
+		Repos:     []string{repo},
+		Locations: []agginventory.ToolLocation{{Repo: repo, Location: location}},
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{
+			{Semantic: agginventory.EndpointSemanticRefund, Confidence: "high", Surface: "openapi", Operation: "POST /v1/refunds"},
+			{Semantic: agginventory.EndpointSemanticPayment, Confidence: "high", Surface: "openapi", Operation: "POST /v1/payments"},
+		},
+	}}
+	agents := make([]agginventory.Agent, 0, len(findings))
+	for _, item := range findings {
+		symbol, startLine, endLine := agentIdentityPartsForFinding(item)
+		instanceID := identity.AgentInstanceID(item.ToolType, item.Location, symbol, startLine, endLine)
+		agents = append(agents, agginventory.Agent{
+			AgentID:         identity.AgentID(instanceID, org),
+			AgentInstanceID: instanceID,
+			ToolInstanceID:  identity.ToolInstanceID(item.ToolType, item.Repo, item.Location, symbol, startLine, endLine),
+			Framework:       "openapi",
+			Symbol:          symbol,
+			Org:             org,
+			Repo:            repo,
+			Location:        location,
+		})
+	}
+
+	_, entries := Build(tools, agents, findings, nil)
+	if len(entries) != 2 {
+		t.Fatalf("expected two endpoint entries, got %+v", entries)
+	}
+	wantBySymbol := map[string]string{
+		"refundPayment":  agginventory.EndpointSemanticRefund,
+		"capturePayment": agginventory.EndpointSemanticPayment,
+	}
+	for _, entry := range entries {
+		want, ok := wantBySymbol[entry.Symbol]
+		if !ok {
+			t.Fatalf("unexpected endpoint entry %+v", entry)
+		}
+		if len(entry.MutableEndpointSemantics) != 1 || entry.MutableEndpointSemantics[0].Semantic != want {
+			t.Fatalf("endpoint %s semantics = %+v, want only %q", entry.Symbol, entry.MutableEndpointSemantics, want)
+		}
+	}
+}
+
 func TestCredentialAuthoritySeparatesReferenceFromUsability(t *testing.T) {
 	t.Parallel()
 

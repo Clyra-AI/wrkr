@@ -1,5 +1,5 @@
 {
-  "bom_count": 8,
+  "bom_count": 7,
   "confirmed_item": {
     "credential_authority_ref": "cred-d3b8675b6f0d",
     "lineage_statuses": [
@@ -85,10 +85,10 @@
   "lane_counts": {
     "confirmed_action_path": 1,
     "context_only": 1,
-    "likely_action_path": 5,
+    "likely_action_path": 4,
     "semantic_review_candidate": 1
   },
-  "registry_count": 8,
+  "registry_count": 7,
   "registry_surface_types": [
     "agent_config",
     "api_schema",

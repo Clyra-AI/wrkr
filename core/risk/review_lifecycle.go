@@ -54,7 +54,7 @@ func ProjectReviewLifecycleTransitionsContext(ctx context.Context, current []Act
 	}
 
 	sort.Slice(out, func(i, j int) bool {
-		return compareActionPaths(out[i], out[j])
+		return compareProjectedActionPaths(out[i], out[j])
 	})
 	if err := ctx.Err(); err != nil {
 		return nil, err
