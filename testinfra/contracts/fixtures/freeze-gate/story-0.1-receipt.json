@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "b1a054bc6bee756847292a185d6f4530e977ab8438432382f4ffdad1bd5022f3",
+  "validated_content_sha256": "531712b307a222a8c88e74ece217843336f91ecc27727959b1bca394a9499eb1",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -41,7 +41,8 @@
     "proposed_action_contract_artifact",
     "action_contract_packet_v1",
     "action_contract_conformance_fixture_v1",
-    "bounded_multi_stage_composed_action_contracts"
+    "bounded_multi_stage_composed_action_contracts",
+    "control_path_graph_timeout_cancellation"
   ],
   "validated_on": "2026-08-07",
   "fixture_names": [
@@ -239,16 +240,19 @@
       "name": "composition_generation_bounds",
       "status": "pass",
       "commands": [
-        "go test ./core/risk -run 'TestBuildComposedActionPaths(BoundsDuplicateCandidateEvaluation|BoundsSuppressedCandidateEvidence|KeepsOutcomeDistinctCandidatesSeparate|MultiStageDefaultProjectionSizeAndNoiseBudget)$' -count=1"
+        "go test ./core/risk -run 'TestBuildComposedActionPaths(BoundsDuplicateCandidateEvaluation|BoundsSuppressedCandidateEvidence|KeepsGovernanceDistinctCandidatesSeparate|KeepsOutcomeDistinctCandidatesSeparate|MultiStageDefaultProjectionSizeAndNoiseBudget)$' -count=1",
+        "go test ./core/aggregate/attackpath -run TestControlPathGraphSortsHonorCancellation -count=1"
       ],
       "fixture_names": [
         "core/risk.TestBuildComposedActionPathsBoundsDuplicateCandidateEvaluation",
         "core/risk.TestBuildComposedActionPathsBoundsSuppressedCandidateEvidence",
+        "core/risk.TestBuildComposedActionPathsKeepsGovernanceDistinctCandidatesSeparate",
         "core/risk.TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate",
+        "core/aggregate/attackpath.TestControlPathGraphSortsHonorCancellation",
         "core/risk.high-fanout-multi-stage:38-paths",
         "core/risk.BenchmarkBuildComposedActionPathsDenseCandidateCap"
       ],
-      "evidence": "Pairwise and duplicate candidate generation has deterministic evaluation and output-reference caps, preserves distinct production-target and endpoint outcomes, and records explicit truncation receipts."
+      "evidence": "Pairwise and duplicate candidate generation has deterministic evaluation and output-reference caps, preserves distinct production-target, endpoint, and governance outcomes, records explicit truncation receipts, and observes cancellation during control-graph sorting."
     },
     {
       "name": "redaction",

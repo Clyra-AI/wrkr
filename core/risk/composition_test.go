@@ -345,6 +345,74 @@ func TestBuildComposedActionPathsKeepsOutcomeDistinctCandidatesSeparate(t *testi
 	}
 }
 
+func TestBuildComposedActionPathsKeepsGovernanceDistinctCandidatesSeparate(t *testing.T) {
+	governedRead := compositionTestPath("apc-governed-read", "rk-read-shared", []string{"read"}, TargetClassCustomerDataAdjacent)
+	governedRead.PolicyCoverageStatus = PolicyCoverageStatusMatched
+	governedRead.ControlEvidenceRefs = []string{"evidence:governed-read"}
+	governedRead.CredentialAuthorityRef = "authority:read"
+	governedRead.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent: true,
+		AccessType:        agginventory.AuthorityAccessRead,
+		LikelyScope:       "customer-data:read",
+	}
+
+	weakerRead := governedRead
+	weakerRead.PathID = "apc-weaker-read"
+	weakerRead.PolicyCoverageStatus = PolicyCoverageStatusDeclared
+	weakerRead.ControlEvidenceRefs = []string{"evidence:weaker-read"}
+	weakerRead.CredentialAuthorityRef = "authority:read-weaker"
+	weakerRead.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent: true,
+		AccessType:        agginventory.AuthorityAccessRead,
+		LikelyScope:       "customer-data:read",
+		ReasonCodes:       []string{"authority:weaker"},
+	}
+	contradictoryCandidate := governedRead
+	contradictoryCandidate.PathID = "apc-contradictory-read"
+	contradictoryCandidate.Contradictions = []evidencepolicy.Contradiction{{
+		Class:             "credential_policy_conflict",
+		ReasonCodes:       []string{"policy:conflicting_credential_authority"},
+		EvidenceRefs:      []string{"evidence:credential-conflict"},
+		RecommendedAction: RecommendedControlBlock,
+	}}
+
+	egress := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+	egress.CredentialAuthorityRef = "authority:egress"
+	egress.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent: true,
+		AccessType:        agginventory.AuthorityAccessRead,
+		LikelyScope:       "network:egress",
+	}
+
+	grouped, memberships := groupCompositionCandidates([]compositionCandidate{
+		newCompositionCandidate(governedRead),
+		newCompositionCandidate(weakerRead),
+	})
+	if got, want := len(grouped), 2; got != want || len(memberships) != want {
+		t.Fatalf("governance-distinct candidates were grouped: grouped=%+v memberships=%+v", grouped, memberships)
+	}
+	contradictionGroups, _ := groupCompositionCandidates([]compositionCandidate{
+		newCompositionCandidate(governedRead),
+		newCompositionCandidate(contradictoryCandidate),
+	})
+	if got, want := len(contradictionGroups), 2; got != want {
+		t.Fatalf("contradictory candidate was grouped with an otherwise identical path: %+v", contradictionGroups)
+	}
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{governedRead, weakerRead, egress}, nil)
+	composition := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
+	if composition == nil {
+		t.Fatalf("expected sensitive-read composition, got %+v", compositions)
+	}
+	if composition.PolicyCoverageStatus != PolicyCoverageStatusDeclared {
+		t.Fatalf("governance state was not merged conservatively: %+v", composition)
+	}
+	if !containsAnyPathClass(composition.memberPathIDs, governedRead.PathID, weakerRead.PathID) ||
+		!containsAnyPathClass(composition.EvidenceRefs, "evidence:weaker-read") {
+		t.Fatalf("expected governance evidence from both candidates, got %+v", composition)
+	}
+}
+
 func TestCompositionCandidateIDMatchesMaterializedComposition(t *testing.T) {
 	spec := compositionPatternSpecs()[0]
 	for name, paths := range map[string][]ActionPath{
@@ -883,6 +951,53 @@ func TestMergeComposedActionPathPreservesDelegationMetadataAfterStageRebuild(t *
 	}
 	if !containsAnyPathClass(merged.EscalatingTransitionRefs, transition.TransitionID) || merged.MostRestrictiveSource != "transition:"+transition.TransitionID {
 		t.Fatalf("expected rebuilt transition refs to point at merged transition ids, got refs=%v source=%q transition=%+v", merged.EscalatingTransitionRefs, merged.MostRestrictiveSource, transition)
+	}
+}
+
+func TestMergeComposedActionPathPrefersMostRestrictiveDelegationRelationship(t *testing.T) {
+	base := ComposedActionPath{
+		CompositionID: "cap-restrictive-transition",
+		Stages: []CompositionStage{
+			{
+				StageID:       compositionStageID(CompositionStageRoleSource, "rk-source", TargetClassReleaseAdjacent, EvidenceStateDeclared),
+				Role:          CompositionStageRoleSource,
+				ResolutionKey: "rk-source",
+				TargetClass:   TargetClassReleaseAdjacent,
+				EvidenceState: EvidenceStateDeclared,
+			},
+			{
+				StageID:       compositionStageID(CompositionStageRolePrivilegedSink, "rk-sink", TargetClassProductionImpacting, EvidenceStateDeclared),
+				Role:          CompositionStageRolePrivilegedSink,
+				ResolutionKey: "rk-sink",
+				TargetClass:   TargetClassProductionImpacting,
+				EvidenceState: EvidenceStateDeclared,
+			},
+		},
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+	}
+	base.Transitions = buildCompositionTransitions(base.CompositionID, base.Stages)
+	base.Transitions[0].Relationship = CompositionDelegationEqual
+	base.Transitions[0].ParentAuthorityRef = "authority:repo-read"
+	base.Transitions[0].ChildAuthorityRef = "authority:prod-read"
+
+	incoming := base
+	incoming.Transitions = append([]CompositionTransition(nil), base.Transitions...)
+	incoming.Transitions[0].Relationship = CompositionDelegationContradictory
+	incoming.Transitions[0].ParentAuthorityRef = "authority:repo-conflicted"
+	incoming.Transitions[0].ChildAuthorityRef = "authority:prod-conflicted"
+	incoming.Transitions[0].ReasonCodes = []string{"delegation_relationship:contradictory_evidence"}
+
+	merged := mergeComposedActionPath(base, incoming)
+	if len(merged.Transitions) != 1 {
+		t.Fatalf("expected one merged transition, got %+v", merged.Transitions)
+	}
+	transition := merged.Transitions[0]
+	if transition.Relationship != CompositionDelegationContradictory ||
+		transition.ParentAuthorityRef != "authority:repo-conflicted" ||
+		transition.ChildAuthorityRef != "authority:prod-conflicted" ||
+		!containsAnyPathClass(transition.ReasonCodes, "delegation_relationship:contradictory_evidence") {
+		t.Fatalf("expected most restrictive delegation to survive merge, got %+v", transition)
 	}
 }
 
