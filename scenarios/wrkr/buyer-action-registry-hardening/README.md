@@ -8,5 +8,7 @@ This fixture exercises the buyer-facing action registry hardening path:
 - mutable endpoint semantics from MCP, OpenAPI, and route declarations
 - action lineage and action surface registry output
 - design-partner and customer-safe redacted report artifacts
+- bounded confirmed-exposure and validate-next report sections with evidence source/freshness wording
+- internal-only remediation attribution for repository, workflow, credential reference, target, and likely owner
 
 All names, owners, repos, tokens, and providers in this fixture are fake.

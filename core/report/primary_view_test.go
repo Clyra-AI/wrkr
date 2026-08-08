@@ -743,7 +743,7 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	}
 
 	markdown := RenderMarkdown(summary)
-	inspectFirstIdx := strings.Index(markdown, "## What To Look At First")
+	inspectFirstIdx := strings.Index(markdown, "## Confirmed Exposures")
 	primaryIdx := strings.Index(markdown, "## Primary Workflow BOM")
 	topPathsIdx := strings.Index(markdown, "## Top Action Paths")
 	contextIdx := strings.Index(markdown, "## Report Context Appendix")
@@ -763,11 +763,11 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	if appendixIdx < 0 {
 		t.Fatalf("expected workflow appendix section, got %q", markdown)
 	}
-	if inspectFirstIdx > primaryIdx {
-		t.Fatalf("expected inspect-first cards to lead before primary workflow BOM, got %q", markdown)
+	if inspectFirstIdx > contextIdx {
+		t.Fatalf("expected confirmed exposures to lead before report context, got %q", markdown)
 	}
-	if primaryIdx > appendixIdx {
-		t.Fatalf("expected primary workflow BOM to lead before appendix, got %q", markdown)
+	if contextIdx > primaryIdx || primaryIdx > appendixIdx {
+		t.Fatalf("expected detailed primary workflow BOM to remain in the appendix, got %q", markdown)
 	}
 	if !strings.Contains(markdown, "Workflow: codex in acme/release / pr/108 via .github/workflows/release.yml.") {
 		t.Fatalf("expected human-readable workflow line in markdown, got %q", markdown)
@@ -781,8 +781,8 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	if !strings.Contains(markdown, "Next actions: Attach approval evidence for this exact workflow path | Attach path-specific proof before promotion.") {
 		t.Fatalf("expected concise next actions in markdown, got %q", markdown)
 	}
-	if !strings.Contains(markdown, "Inspect first: codex in acme/release / pr/108 via .github/workflows/release.yml.") {
-		t.Fatalf("expected buyer diagnostic card lead, got %q", markdown)
+	if !strings.Contains(markdown, "Relationship: confirmed static configuration-backed action path.") {
+		t.Fatalf("expected confirmed-exposure decision memo lead, got %q", markdown)
 	}
 	lead := markdown[:contextIdx]
 	if strings.Contains(lead, "Decision traces:") || strings.Contains(lead, "Appendix refs:") {
@@ -886,17 +886,23 @@ func TestAgentActionBOMStartsWithInspectFirstCards(t *testing.T) {
 	if inspectFirstIdx < 0 || primaryIdx < 0 || topPathsIdx < 0 || contextIdx < 0 {
 		t.Fatalf("expected inspect-first, primary, top-path, and appendix sections, got %q", markdown)
 	}
-	leadCards := markdown[inspectFirstIdx:primaryIdx]
+	leadCards := markdown[inspectFirstIdx:contextIdx]
 	if strings.Contains(leadCards, "BOM id:") {
 		t.Fatalf("expected machine-heavy BOM metadata to stay out of the lead cards, got %q", leadCards)
 	}
 	if strings.Contains(leadCards, "apc-card-") {
 		t.Fatalf("expected opaque path ids to stay out of the lead cards, got %q", leadCards)
 	}
-	if count := strings.Count(leadCards, "- Inspect "); count != 5 {
-		t.Fatalf("expected five inspect-first cards when enough eligible paths exist, got %d in %q", count, leadCards)
+	if count := strings.Count(leadCards, "Related paths collapsed:"); count != 1 || !strings.Contains(leadCards, "Related paths collapsed: 5") {
+		t.Fatalf("expected one grouped confirmed exposure when all paths have the same outcome, got %q", leadCards)
 	}
-	topPaths := markdown[topPathsIdx:contextIdx]
+	if primaryIdx < contextIdx || topPathsIdx < primaryIdx {
+		t.Fatalf("expected detailed path sections after the decision memo, got %q", markdown)
+	}
+	topPaths := markdown[topPathsIdx:]
+	if appendixIdx := strings.Index(topPaths, "## Workflow Chain Appendix"); appendixIdx >= 0 {
+		topPaths = topPaths[:appendixIdx]
+	}
 	if count := strings.Count(topPaths, "\n- "); count != 5 {
 		t.Fatalf("expected five compact top action paths before appendices, got %d in %q", count, topPaths)
 	}
@@ -1127,21 +1133,11 @@ func TestRenderMarkdownSeparatesRepeatedWorkflowAuthoritiesWithDifferentActions(
 		t.Fatalf("expected context appendix, got %q", markdown)
 	}
 	lead := markdown[:contextIdx]
-	if !strings.Contains(lead, "Inspect next") {
-		t.Fatalf("expected distinct remediation action to stay visible in inspect cards:\n%s", lead)
+	if !strings.Contains(lead, "## Validate Next") {
+		t.Fatalf("expected separate validation queue for non-confirmed paths:\n%s", lead)
 	}
-	if strings.Contains(lead, "plus 1 related authority collapsed") {
-		t.Fatalf("expected different remediation actions not to collapse as related authorities:\n%s", lead)
-	}
-	topPathsIdx := strings.Index(lead, "## Top Action Paths")
-	if topPathsIdx < 0 {
-		t.Fatalf("expected top action paths section, got:\n%s", lead)
-	}
-	if count := strings.Count(lead[topPathsIdx:], "\n- "); count != 2 {
-		t.Fatalf("expected separate top action paths for different remediation actions, got %d:\n%s", count, lead[topPathsIdx:])
-	}
-	if !strings.Contains(lead[topPathsIdx:], "replace standing credential authority") || !strings.Contains(lead[topPathsIdx:], "attach scoped approval evidence") {
-		t.Fatalf("expected both remediation actions in top action paths, got:\n%s", lead[topPathsIdx:])
+	if !strings.Contains(lead, "Related paths collapsed: 1") {
+		t.Fatalf("expected duplicate candidate paths to collapse by consequential outcome:\n%s", lead)
 	}
 	if !strings.Contains(markdown[contextIdx:], "repo=repo-a location=loc-release") {
 		t.Fatalf("expected appendix detail to remain available, got:\n%s", markdown)

@@ -320,8 +320,11 @@ func TestRenderMarkdownSummarizesFirstRunEvidenceOnboarding(t *testing.T) {
 		t.Fatalf("expected report context appendix, got %q", markdown)
 	}
 	lead := markdown[:contextIdx]
-	if !strings.Contains(lead, "Evidence onboarding: approval/proof evidence was not imported or observed") {
+	if !strings.Contains(lead, "Evidence onboarding: approval/proof evidence was not observed in this scan or imported evidence") {
 		t.Fatalf("expected evidence onboarding note, got:\n%s", lead)
+	}
+	if !strings.Contains(lead, "wrkr ingest --state <state> --input <external-control-evidence.json> --json") {
+		t.Fatalf("expected evidence onboarding to name the deterministic import path, got:\n%s", lead)
 	}
 	if count := strings.Count(lead, "approval evidence not found"); count > 1 {
 		t.Fatalf("expected repeated raw approval evidence gap to be summarized in lead, got %d:\n%s", count, lead)
@@ -540,7 +543,7 @@ func TestBuyerDiagnosticCardsHumanizePathAndCredentialEnums(t *testing.T) {
 	if strings.Contains(card.Inspect, risk.ActionPathTypeCICDWorkflow) || !strings.Contains(card.Inspect, "CI/CD workflow") {
 		t.Fatalf("expected buyer-readable workflow type, got %q", card.Inspect)
 	}
-	if strings.Contains(card.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(card.Why, "static secret") {
+	if strings.Contains(card.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(card.Why, "standing secret reference") {
 		t.Fatalf("expected buyer-readable credential kind, got %q", card.Why)
 	}
 
@@ -553,7 +556,7 @@ func TestBuyerDiagnosticCardsHumanizePathAndCredentialEnums(t *testing.T) {
 		},
 		DelegationReadinessState: item.DelegationReadinessState,
 	}, item, false)
-	if strings.Contains(primaryCard.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(primaryCard.Why, "static secret") {
+	if strings.Contains(primaryCard.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(primaryCard.Why, "standing secret reference") {
 		t.Fatalf("expected primary buyer card to humanize credential kind, got %q", primaryCard.Why)
 	}
 }
@@ -637,13 +640,13 @@ func TestBuyerDiagnosticCardsUseUncappedBOMSourceItems(t *testing.T) {
 		WorkflowHighlights: BuildWorkflowHighlights(Summary{AgentActionBOM: bom}),
 	}
 	markdown := RenderMarkdown(summary)
-	leadEnd := strings.Index(markdown, "## Primary Workflow BOM")
+	leadEnd := strings.Index(markdown, "## Report Context Appendix")
 	if leadEnd < 0 {
-		t.Fatalf("expected primary workflow section, got:\n%s", markdown)
+		t.Fatalf("expected report context appendix, got:\n%s", markdown)
 	}
 	lead := markdown[:leadEnd]
-	if !strings.Contains(lead, "Inspect next") || !strings.Contains(lead, "deploy-prod.yml") {
-		t.Fatalf("expected inspect card for distinct path beyond public item cap, got:\n%s", lead)
+	if !strings.Contains(lead, "## Confirmed Exposures") || !strings.Contains(lead, "deploy-prod.yml") || !strings.Contains(lead, "Related paths collapsed: 5") {
+		t.Fatalf("expected bounded confirmed exposure brief to use the uncapped source items, got:\n%s", lead)
 	}
 }
 

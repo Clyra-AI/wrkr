@@ -108,6 +108,32 @@ func TestBuyerArtifactQABlocksKnownLeadEnumTokens(t *testing.T) {
 	}
 }
 
+func TestBuyerArtifactQABlocksHumanizedInternalTokensAndOverfullExposureBrief(t *testing.T) {
+	t.Parallel()
+
+	markdown := "# Wrkr Deterministic Report\n\n## What To Look At First\n\n## Confirmed Exposures\n\n1. plain source code\n2. unknown durable credential\n3. static secret with approval approval evidence\n4. fourth exposure\n\n## Validate Next\n\nCandidate: one\nCandidate: two\nCandidate: three\nCandidate: four\n\n## Report Context Appendix\n\n- detail=ok\n"
+	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{Texts: map[string]string{"markdown": markdown}})
+	if err == nil {
+		t.Fatal("expected humanized internal tokens and overfull exposure brief to fail QA")
+	}
+	for _, want := range []string{"plain source code", "unknown durable credential", "static secret", "approval approval evidence", "confirmed exposures exceed", "validation candidates exceed"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("expected QA issue %q, got %v", want, err)
+		}
+	}
+}
+
+func TestBuyerArtifactQABlocksInferredCandidatesInConfirmedExposureSection(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{Texts: map[string]string{
+		"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n## Confirmed Exposures\n\n1. Credential to deploy\n   Relationship: inferred from static source correlation; validate the executable binding before treating this as confirmed.\n\n## Report Context Appendix\n\n- detail=ok\n",
+	}})
+	if err == nil || !strings.Contains(err.Error(), "confirmed exposures contain inferred candidate wording") {
+		t.Fatalf("expected inferred relationship in confirmed section to fail QA, got %v", err)
+	}
+}
+
 func TestBuyerArtifactQABlocksOverlongPrimaryLine(t *testing.T) {
 	t.Parallel()
 

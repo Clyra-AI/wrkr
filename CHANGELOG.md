@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- [semver:minor] Reworked buyer-facing Agent Action BOM and design-partner reports into bounded confirmed-exposure and validation briefs with source/freshness evidence wording, internal remediation attribution, and first-run evidence-import guidance.
 
 ### Deprecated
 

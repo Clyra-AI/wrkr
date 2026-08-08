@@ -35,6 +35,10 @@ func RenderMarkdown(summary Summary) string {
 		}
 		agentActionBOMLeadHandledEmptyState = renderAgentActionBOMLeadSection(&builder, summary)
 		renderAgentActionBOMContextAppendix(&builder, summary)
+		if summary.AgentActionBOM.Summary.PrimaryView != nil {
+			renderPrimaryWorkflowBOMSection(&builder, summary.AgentActionBOM.Summary.PrimaryView)
+		}
+		renderCompactTopActionPathsSection(&builder, summary.WorkflowHighlights)
 		renderExecutiveRollupSection(&builder, "Executive Rollup Appendix", resolveExecutiveRollup(summary))
 		renderSurfaceContextSection(&builder, "Target Surface Context Appendix", targetSurfaceContextItems(summary.AgentActionBOM.Items))
 		renderSurfaceContextSection(&builder, "Instruction Control Surfaces Appendix", instructionControlSurfaceItems(summary.AgentActionBOM.Items))
@@ -791,12 +795,14 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 	bom := summary.AgentActionBOM
 	builder.WriteString("## What To Look At First\n\n")
 	renderEvidenceOnboardingNote(builder, summary)
-	renderBuyerDiagnosticCards(builder, summary)
-	builder.WriteString("\n")
+	brief := renderBuyerExposureBrief(builder, summary)
+	if summary.ShareProfile == string(ShareProfileInternal) {
+		renderInternalRemediationBrief(builder, brief)
+	}
 
 	emptyStateStatus := strings.TrimSpace(bom.Summary.EmptyStateStatus)
 	emptyStateReasons := bom.Summary.EmptyStateReasons
-	if bom.Summary.PrimaryView == nil || len(bom.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible") {
+	if len(bom.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible") {
 		builder.WriteString("## Empty-State Assessment\n\n")
 		fmt.Fprintf(builder, "- Status: %s. Coverage confidence: %s. Reasons: %s.\n\n",
 			humanizeEnum(firstNonEmptyValue(emptyStateStatus, "eligible")),
@@ -805,9 +811,6 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 		)
 		return true
 	}
-
-	renderPrimaryWorkflowBOMSection(builder, bom.Summary.PrimaryView)
-	renderCompactTopActionPathsSection(builder, summary.WorkflowHighlights)
 	return false
 }
 
@@ -819,37 +822,6 @@ type buyerDiagnosticCard struct {
 	EvidenceUnresolved string
 	RecommendedAction  string
 	RelatedCount       int
-}
-
-func renderBuyerDiagnosticCards(builder *strings.Builder, summary Summary) {
-	if builder == nil {
-		return
-	}
-	cards := buildBuyerDiagnosticCards(summary)
-	for idx, card := range cards {
-		prefix := "Inspect first"
-		if idx > 0 {
-			prefix = "Inspect next"
-		}
-		related := ""
-		if card.RelatedCount > 1 {
-			related = fmt.Sprintf(" Related paths collapsed: %d.", card.RelatedCount-1)
-		}
-		fmt.Fprintf(builder, "- %s: %s.\n",
-			prefix,
-			card.Inspect,
-		)
-		fmt.Fprintf(builder, "  Why: %s. Evidence: %s; %s; unresolved: %s.%s\n",
-			firstNonEmptyValue(card.Why, "This remains one of the highest-signal governable paths in the scan."),
-			firstNonEmptyValue(card.EvidenceClass, "unresolved context"),
-			firstNonEmptyValue(card.EvidenceFound, "evidence summary unavailable"),
-			firstNonEmptyValue(card.EvidenceUnresolved, "none"),
-			related,
-		)
-		fmt.Fprintf(builder, "  Action: %s.\n",
-			firstNonEmptyValue(card.RecommendedAction, "review this path before expanding scope"),
-		)
-	}
 }
 
 func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
@@ -1032,7 +1004,8 @@ func renderEvidenceOnboardingNote(builder *strings.Builder, summary Summary) {
 	if summary.RepeatUsageSignals != nil && strings.TrimSpace(summary.RepeatUsageSignals.Status) == "first_run" {
 		prefix = "First-run evidence onboarding"
 	}
-	fmt.Fprintf(builder, "- %s: approval/proof evidence was not imported or observed for most governable paths; review the top authority paths first, then attach path-specific approval, proof, or control declaration evidence before treating them as governed.\n", prefix)
+	fmt.Fprintf(builder, "- %s: approval/proof evidence was not observed in this scan or imported evidence for most governable paths. This does not prove a control is absent.\n", prefix)
+	builder.WriteString("- To complete the next review, provide repository-local external-control evidence or run `wrkr ingest --state <state> --input <external-control-evidence.json> --json` with owner, branch-protection, required-check, protected-environment, deployment-approval, or proof records; then rerun the report.\n")
 }
 
 func shouldRenderEvidenceOnboarding(summary Summary) bool {
@@ -1744,7 +1717,10 @@ func humanizeEnum(value string) string {
 	value = strings.ReplaceAll(value, "-", " ")
 	value = strings.ReplaceAll(value, "ci cd", "CI/CD")
 	value = strings.ReplaceAll(value, "github pat", "GitHub PAT")
-	value = strings.ReplaceAll(value, "unknown durable", "unknown durable credential")
+	value = strings.ReplaceAll(value, "plain source code", "source code path")
+	value = strings.ReplaceAll(value, "unknown durable credential", "credential type not identified")
+	value = strings.ReplaceAll(value, "unknown durable", "credential type not identified")
+	value = strings.ReplaceAll(value, "static secret", "standing secret reference")
 	return value
 }
 
@@ -1763,6 +1739,9 @@ func humanizeAuthorityText(value string) string {
 	value = strings.ReplaceAll(value, "github pat", "GitHub PAT")
 	value = strings.ReplaceAll(value, "github workflow token", "GitHub workflow token")
 	value = strings.ReplaceAll(value, "jit", "JIT")
+	value = strings.ReplaceAll(value, "unknown durable credential", "credential type not identified")
+	value = strings.ReplaceAll(value, "unknown durable", "credential type not identified")
+	value = strings.ReplaceAll(value, "static secret", "standing secret reference")
 	return strings.Join(strings.Fields(value), " ")
 }
 
@@ -1966,48 +1945,14 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 	if summary.FocusView != nil {
 		renderFocusViewSection(&builder, summary.FocusView)
 	}
-
-	items := designPartnerItems(summary)
-	builder.WriteString("## Top Validated Findings\n\n")
-	if len(items) == 0 {
-		builder.WriteString("- No validated action paths were available. Remaining evidence is context-only or still needs stronger execution linkage before buyer-facing confirmation.\n\n")
+	if summary.AgentActionBOM == nil {
+		builder.WriteString("## Confirmed Exposures\n\n")
+		builder.WriteString("- No governable action paths were available in the saved scan state.\n\n")
+		builder.WriteString("## Validate Next\n\n")
+		builder.WriteString("- Scan a repository or import evidence before making a control posture claim.\n\n")
 	} else {
-		for idx, item := range items {
-			builder.WriteString(fmt.Sprintf("%d. %s in %s\n", idx+1, firstNonEmptyValue(item.Repo, "unknown-repo"), firstNonEmptyValue(item.Location, "unknown-location")))
-			builder.WriteString(fmt.Sprintf("Problem: %s\n", designPartnerProblem(item)))
-			builder.WriteString(fmt.Sprintf("Evidence class: %s\n", primaryViewEvidenceClassification(item)))
-			builder.WriteString(fmt.Sprintf("Inferred relationship: %s\n", designPartnerExplanation(item)))
-			builder.WriteString(fmt.Sprintf("Unresolved context: %s\n", designPartnerProofGap(item)))
-			builder.WriteString(fmt.Sprintf("Threat: %s\n", designPartnerThreat(item)))
-			builder.WriteString(fmt.Sprintf("Recommended control: %s\n", firstNonEmptyValue(item.Remediation, item.RecommendedNextAction, "review and add path-specific proof before approval")))
-			builder.WriteString(fmt.Sprintf("Credential authority: %s\n", designPartnerCredentialAuthority(item)))
-			builder.WriteString(fmt.Sprintf("High-stakes: %s\n", designPartnerHighStakes(item)))
-			builder.WriteString(fmt.Sprintf("Mutable endpoint: %s\n", designPartnerMutableEndpoint(item)))
-			builder.WriteString(fmt.Sprintf("Production context: %s\n", designPartnerProductionContext(item)))
-			builder.WriteString(fmt.Sprintf("Owner: %s\n", firstNonEmptyValue(item.Owner, "owner not confirmed")))
-			builder.WriteString(fmt.Sprintf("Purpose: %s\n", firstNonEmptyValue(item.Purpose, "purpose not confirmed")))
-			builder.WriteString(fmt.Sprintf("Lineage: %s\n\n", designPartnerLineage(item)))
-		}
-	}
-
-	if len(summary.ActionSurfaceRegistry) > 0 {
-		builder.WriteString("## Registry Highlights\n\n")
-		limit := len(summary.ActionSurfaceRegistry)
-		if limit > 5 {
-			limit = 5
-		}
-		for idx := 0; idx < limit; idx++ {
-			entry := summary.ActionSurfaceRegistry[idx]
-			builder.WriteString(fmt.Sprintf("- %s surface=%s owner=%s purpose=%s confidence=%s remediation=%s\n",
-				firstNonEmptyValue(entry.Label, entry.ToolType, entry.RegistryID),
-				firstNonEmptyValue(entry.SurfaceType, "surface"),
-				firstNonEmptyValue(entry.Owner, "owner not confirmed"),
-				firstNonEmptyValue(entry.Purpose, "purpose not confirmed"),
-				firstNonEmptyValue(entry.ConfidenceLane, "unknown"),
-				firstNonEmptyValue(entry.Remediation, "review linked path controls"),
-			))
-		}
-		builder.WriteString("\n")
+		renderEvidenceOnboardingNote(&builder, summary)
+		renderBuyerExposureBrief(&builder, summary)
 	}
 
 	builder.WriteString("## Known Limits\n\n")
@@ -2091,29 +2036,6 @@ func groupedAbsenceClaims(claims []scanquality.AbsenceClaim) []renderedAbsenceCl
 	return out
 }
 
-func designPartnerItems(summary Summary) []AgentActionBOMItem {
-	if summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) == 0 {
-		return nil
-	}
-	filtered := make([]AgentActionBOMItem, 0, len(summary.AgentActionBOM.Items))
-	for _, item := range summary.AgentActionBOM.Items {
-		if !bomItemEligible(item) {
-			continue
-		}
-		if strings.TrimSpace(item.ConfidenceLane) == "context_only" {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-	if len(filtered) == 0 {
-		return nil
-	}
-	if len(filtered) > 10 {
-		filtered = filtered[:10]
-	}
-	return filtered
-}
-
 func renderRepeatUsageSignals(builder *strings.Builder, signals *RepeatUsageSignals) {
 	if builder == nil || signals == nil {
 		return
@@ -2140,255 +2062,8 @@ func renderRepeatUsageSignals(builder *strings.Builder, signals *RepeatUsageSign
 	)
 }
 
-func designPartnerProblem(item AgentActionBOMItem) string {
-	switch {
-	case item.StandingPrivilege:
-		return "A standing credential can drive this path without enough compensating proof or gating."
-	case item.ProductionWrite || item.ControlState == "block_recommended":
-		return "This path can change production-adjacent state and is missing enough governance evidence."
-	case itemHasMutableEndpointProjection(item):
-		return "The path reaches declared mutable actions that need tighter approval, proof, or scope."
-	case item.ApprovalGap:
-		return "The path is operationally meaningful, but approval evidence is not yet linked or complete."
-	case item.Owner == "":
-		return "The path is governable, but ownership is not yet explicit."
-	default:
-		return "This path remains one of the highest static action surfaces to review before wider buyer trust claims."
-	}
-}
-
-func designPartnerExplanation(item AgentActionBOMItem) string {
-	parts := []string{}
-	if purpose := strings.TrimSpace(item.Purpose); purpose != "" {
-		parts = append(parts, fmt.Sprintf("purpose=%s", purpose))
-	}
-	if source := strings.TrimSpace(item.PurposeSource); source != "" {
-		parts = append(parts, fmt.Sprintf("purpose_source=%s", source))
-	}
-	if version := strings.TrimSpace(item.Version); version != "" {
-		parts = append(parts, fmt.Sprintf("version=%s", version))
-	}
-	if versionSource := strings.TrimSpace(item.VersionSource); versionSource != "" {
-		parts = append(parts, fmt.Sprintf("version_source=%s", versionSource))
-	}
-	if configSource := strings.TrimSpace(item.ConfigSource); configSource != "" {
-		parts = append(parts, fmt.Sprintf("config=%s", configSource))
-	}
-	if len(parts) == 0 {
-		return "Wrkr found a deterministic static binding for this action path, but the underlying config metadata is still sparse."
-	}
-	return strings.Join(parts, ", ")
-}
-
-func designPartnerThreat(item AgentActionBOMItem) string {
-	parts := []string{
-		fmt.Sprintf("risk_zone=%s", firstNonEmptyValue(item.RiskZone, "unknown")),
-		fmt.Sprintf("risk_tier=%s", firstNonEmptyValue(item.RiskTier, "unknown")),
-	}
-	if status := strings.TrimSpace(item.ProductionTargetStatus); status != "" {
-		parts = append(parts, "production_target_status="+status)
-	}
-	if summary := itemMutableEndpointThreatSummary(item); summary != "" {
-		parts = append(parts, "mutable_endpoint="+summary)
-	}
-	return strings.Join(parts, ", ")
-}
-
-func designPartnerProofGap(item AgentActionBOMItem) string {
-	parts := []string{
-		"proof=" + risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
-		"policy=" + firstNonEmptyValue(item.PolicyStatus, "none"),
-		"runtime=" + markdownBOMRuntimeEvidenceLabel(item),
-	}
-	if item.ApprovalGap {
-		parts = append(parts, "approval="+risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState))
-	}
-	return strings.Join(parts, ", ")
-}
-
-func designPartnerCredentialAuthority(item AgentActionBOMItem) string {
-	if item.CredentialAuthority == nil {
-		if item.CredentialProvenance != nil {
-			parts := []string{}
-			if kind := strings.TrimSpace(item.CredentialProvenance.CredentialKind); kind != "" {
-				parts = append(parts, "kind="+kind)
-			}
-			if source := strings.TrimSpace(item.CredentialProvenance.Type); source != "" {
-				parts = append(parts, "source="+source)
-			}
-			if scope := strings.TrimSpace(item.CredentialProvenance.Scope); scope != "" {
-				parts = append(parts, "scope="+scope)
-			}
-			if item.CredentialProvenance.StandingAccess {
-				parts = append(parts, "access=standing")
-			}
-			if len(parts) > 0 {
-				return strings.Join(parts, ", ")
-			}
-		}
-		if item.CredentialAccess {
-			return "credential access is present, but normalized authority details are incomplete"
-		}
-		return "no credential authority was linked to this path"
-	}
-	parts := []string{}
-	if kind := strings.TrimSpace(item.CredentialAuthority.CredentialKind); kind != "" {
-		parts = append(parts, "kind="+kind)
-	}
-	if source := strings.TrimSpace(item.CredentialAuthority.CredentialSource); source != "" {
-		parts = append(parts, "source="+source)
-	}
-	if accessType := strings.TrimSpace(item.CredentialAuthority.AccessType); accessType != "" {
-		parts = append(parts, "access="+accessType)
-	}
-	if rotation := strings.TrimSpace(item.CredentialAuthority.RotationEvidenceStatus); rotation != "" {
-		parts = append(parts, "rotation="+rotation)
-	}
-	if len(parts) == 0 {
-		return "credential authority is present"
-	}
-	return strings.Join(parts, ", ")
-}
-
-func designPartnerMutableEndpoint(item AgentActionBOMItem) string {
-	if !itemHasMutableEndpointProjection(item) {
-		return "no declared mutable endpoint semantics were linked to this path"
-	}
-	if summary := itemGroupedMutableEndpointSummary(item); summary != "" {
-		return summary
-	}
-	parts := make([]string, 0, len(item.MutableEndpointSemantics))
-	for _, semantic := range item.MutableEndpointSemantics {
-		label := firstNonEmptyValue(strings.TrimSpace(semantic.Semantic), strings.TrimSpace(semantic.Operation), "declared_mutation")
-		if confidence := strings.TrimSpace(semantic.Confidence); confidence != "" {
-			label += "@" + confidence
-		}
-		parts = append(parts, label)
-	}
-	return strings.Join(parts, ", ")
-}
-
-func designPartnerHighStakes(item AgentActionBOMItem) string {
-	if len(item.HighStakesPresets) == 0 {
-		return "no high-stakes preset was projected for this path"
-	}
-	parts := make([]string, 0, len(item.HighStakesPresets))
-	for _, preset := range item.HighStakesPresets {
-		label := strings.TrimSpace(preset.Preset)
-		if label == "" {
-			continue
-		}
-		if len(preset.ReasonCodes) > 0 {
-			label += " (" + strings.Join(preset.ReasonCodes, ",") + ")"
-		}
-		parts = append(parts, label)
-	}
-	if len(parts) == 0 {
-		return "no high-stakes preset was projected for this path"
-	}
-	return strings.Join(parts, "; ")
-}
-
 func itemHasMutableEndpointProjection(item AgentActionBOMItem) bool {
 	return len(item.MutableEndpointSemantics) > 0 || item.EndpointRefCount > 0
-}
-
-func itemMutableEndpointThreatSummary(item AgentActionBOMItem) string {
-	labels := itemMutableEndpointClassLabels(item, 3)
-	if len(labels) > 0 {
-		return strings.Join(labels, ",")
-	}
-	if item.EndpointRefCount > 0 {
-		return fmt.Sprintf("grouped_refs=%d", item.EndpointRefCount)
-	}
-	return ""
-}
-
-func itemGroupedMutableEndpointSummary(item AgentActionBOMItem) string {
-	classes := itemMutableEndpointClassLabels(item, 4)
-	parts := []string{}
-	if item.EndpointRefCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d grouped endpoint semantics", item.EndpointRefCount))
-	}
-	if len(item.EndpointRouteGroups) > 0 {
-		parts = append(parts, fmt.Sprintf("%d route groups", len(item.EndpointRouteGroups)))
-	}
-	if len(classes) > 0 {
-		parts = append(parts, strings.Join(classes, ", "))
-	}
-	if len(item.EndpointRefSamples) > 0 {
-		samples := make([]string, 0, len(item.EndpointRefSamples))
-		for _, sample := range item.EndpointRefSamples {
-			label := firstNonEmptyValue(strings.TrimSpace(sample.Operation), strings.Join(sample.Semantics, ","), strings.TrimSpace(sample.RefID))
-			if label == "" {
-				continue
-			}
-			samples = append(samples, label)
-		}
-		if len(samples) > 0 {
-			parts = append(parts, "samples="+strings.Join(samples, " | "))
-		}
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.Join(parts, "; ")
-}
-
-func itemMutableEndpointClassLabels(item AgentActionBOMItem, limit int) []string {
-	if limit <= 0 {
-		limit = 3
-	}
-	if len(item.MutableEndpointSemantics) > 0 {
-		labels := make([]string, 0, len(item.MutableEndpointSemantics))
-		for _, semantic := range item.MutableEndpointSemantics {
-			if trimmed := strings.TrimSpace(semantic.Semantic); trimmed != "" {
-				labels = append(labels, trimmed)
-			}
-		}
-		labels = uniqueSortedStrings(labels)
-		if len(labels) > limit {
-			labels = labels[:limit]
-		}
-		return labels
-	}
-	if len(item.EndpointOperationCounts) == 0 {
-		return nil
-	}
-	out := make([]string, 0, minInt(limit, len(item.EndpointOperationCounts)))
-	for idx, count := range item.EndpointOperationCounts {
-		if idx >= limit {
-			break
-		}
-		label := strings.TrimSpace(count.Class)
-		if label == "" {
-			continue
-		}
-		if count.Count > 0 {
-			label = fmt.Sprintf("%s x%d", label, count.Count)
-		}
-		out = append(out, label)
-	}
-	return out
-}
-
-func designPartnerProductionContext(item AgentActionBOMItem) string {
-	if item.ProductionContext == nil {
-		return "no production-data context was projected for this path"
-	}
-	parts := []string{
-		"status=" + firstNonEmptyValue(item.ProductionContext.Status, "unknown"),
-		"surface=" + firstNonEmptyValue(item.ProductionContext.SurfaceLabel, "unknown"),
-		"credential=" + firstNonEmptyValue(item.ProductionContext.CredentialMode, "unknown"),
-		"target=" + firstNonEmptyValue(item.ProductionContext.TargetClass, "unknown"),
-	}
-	if strings.TrimSpace(item.ProductionContext.DeploymentStatus) != "" {
-		parts = append(parts, "deployment="+strings.TrimSpace(item.ProductionContext.DeploymentStatus))
-	}
-	if len(item.ProductionContext.MutableEndpointOperations) > 0 {
-		parts = append(parts, "operations="+strings.Join(item.ProductionContext.MutableEndpointOperations, ","))
-	}
-	return strings.Join(parts, ", ")
 }
 
 func markdownGovernedPathViews(today *risk.GovernedPathView, recommended *risk.GovernedPathView) string {
@@ -2471,21 +2146,6 @@ func markdownAgenticDeliveryChange(change *risk.AgenticDeliverySystemChange) str
 		parts = append(parts, "recommended_control="+strings.TrimSpace(change.RecommendedControl))
 	}
 	return strings.Join(parts, " ")
-}
-
-func designPartnerLineage(item AgentActionBOMItem) string {
-	if item.ActionLineage == nil || len(item.ActionLineage.Segments) == 0 {
-		return "lineage not available"
-	}
-	parts := make([]string, 0, len(item.ActionLineage.Segments))
-	for _, segment := range item.ActionLineage.Segments {
-		label := firstNonEmptyValue(strings.TrimSpace(segment.Label), strings.TrimSpace(segment.Kind), "segment")
-		if strings.TrimSpace(segment.Status) == "missing" {
-			label += " (missing)"
-		}
-		parts = append(parts, label)
-	}
-	return strings.Join(parts, " -> ")
 }
 
 func renderFocusViewSection(builder *strings.Builder, focus *FocusView) {
