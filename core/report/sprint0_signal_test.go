@@ -68,8 +68,8 @@ func TestAgentActionBOMPrimaryViewLineBudget(t *testing.T) {
 	if len(lines) > defaultMarkdownLineCap {
 		t.Fatalf("expected markdown under the %d-line budget, got %d", defaultMarkdownLineCap, len(lines))
 	}
-	if !strings.Contains(markdown, "## Primary Workflow BOM") || !strings.Contains(markdown, "## Workflow BOM Appendix") {
-		t.Fatalf("expected primary-view and appendix sections in markdown, got %q", markdown)
+	if !strings.Contains(markdown, "## Confirmed Exposures") || !strings.Contains(markdown, "## Internal Remediation Brief") || !strings.Contains(markdown, "## Workflow BOM Appendix") {
+		t.Fatalf("expected decision memo and appendix sections in markdown, got %q", markdown)
 	}
 }
 

@@ -2605,15 +2605,10 @@ func TestRenderMarkdownDesignPartnerTemplateRendersTopValidatedFindings(t *testi
 	markdown := RenderMarkdown(summary)
 	for _, want := range []string{
 		"# Wrkr Design Partner Summary",
-		"## Top Validated Findings",
-		"Problem:",
-		"Evidence class: confirmed path",
-		"Inferred relationship:",
-		"Unresolved context:",
-		"Threat:",
-		"Recommended control:",
-		"Lineage:",
-		"## Registry Highlights",
+		"## Confirmed Exposures",
+		"Relationship: confirmed static configuration-backed action path.",
+		"Evidence: repository configuration observed in this scan (freshness: current scan)",
+		"## Validate Next",
 		"## Known Limits",
 	} {
 		if !strings.Contains(markdown, want) {

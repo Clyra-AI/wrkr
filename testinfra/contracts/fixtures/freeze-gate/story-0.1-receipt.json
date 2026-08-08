@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "980c1c325f77b9591565a498931546559e848bb019adb0d66c596cf0322ee02e",
+  "validated_content_sha256": "016e498167126be4fb941978f8ede9d95c79d5ac3650685494725cec52188ddd",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -46,7 +46,7 @@
     "bounded_serialized_action_path_occurrence_refs",
     "endpoint_specification_identity"
   ],
-  "validated_on": "2026-08-07",
+  "validated_on": "2026-08-08",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:1-repo",
@@ -267,6 +267,7 @@
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureHardening -count=1",
+        "go test ./core/report -run 'TestRenderMarkdown(AddsInternalRemediationBriefOnlyToInternalReports|QualifiesReducedCoverageWithoutSuppressingConfirmedExposure)$' -count=1",
         "go test ./core/export/actioncontracts -run TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity -count=1",
         "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1",
         "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1",
@@ -276,11 +277,12 @@
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "internal/enterprisepressure.VariantBaseline:64-repos",
+        "core/report.buyerExposureBrief",
         "core/export/actioncontracts.testSnapshot",
         "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
         "core/report.TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs"
       ],
-      "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, fixture repo names, multi-stage trust-boundary/correlation identities, and unmapped peer route references in selected projections."
+      "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, fixture repo names, multi-stage trust-boundary/correlation identities, unmapped peer route references, and internal remediation attribution in selected projections."
     },
     {
       "name": "recursive_redaction",
@@ -321,16 +323,20 @@
       "commands": [
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureContract -count=1",
+        "go test ./core/report -run TestRenderMarkdownLeadsWithConfirmedExposuresAndSeparatesCandidates -count=1",
+        "go test ./internal/acceptance -run TestBuyerActionRegistryHardeningAcceptance -count=1",
         "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1",
         "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "scenarios/wrkr/enterprise-pressure",
+        "scenarios/wrkr/buyer-action-registry-hardening",
+        "core/report.buyerExposureBrief",
         "core/report.actionContractPacketTestInput",
         "core/report.actionContractPacketTestInput:three-stage"
       ],
-      "evidence": "Agent Action BOM lead stays under 45 lines and 5 sections; enterprise and opt-in multi-stage packet markdown stay under their committed line and byte budgets."
+      "evidence": "Agent Action BOM lead keeps confirmed exposure and inferred validation candidates separate, remains bounded, and preserves source/freshness wording; enterprise and opt-in multi-stage packet markdown stay under their committed line and byte budgets."
     },
     {
       "name": "finding_noise",
@@ -338,6 +344,7 @@
       "commands": [
         "go test ./internal/e2e/diff -run TestE2EScenarioUnchangedReposProduceZeroDiffNoise -count=1",
         "go test -tags scenario ./internal/scenarios -run TestScenarioFirstOfferNoisePackAssessmentSharpening -count=1",
+        "go test ./internal/scenarios -run TestScenarioBuyerActionRegistryHardening -tags=scenario -count=1",
         "go test ./testinfra/contracts -run TestStory24NoisePackAssessmentContracts -count=1",
         "go test ./core/cli -run TestReportDefaultOutputDoesNotIncludeActionContractPacket -count=1",
         "go test ./core/risk -run TestBuildComposedActionPathsMultiStageRejectsUnknownTrustBoundaryAndWeakRefs -count=1",
@@ -346,11 +353,12 @@
       "fixture_names": [
         "scenarios/wrkr/scan-diff-no-noise",
         "scenarios/wrkr/first-offer-noise-pack",
+        "scenarios/wrkr/buyer-action-registry-hardening",
         "core/cli.seedActionContractPacketState",
         "core/risk.TestBuildComposedActionPathsMultiStageRejectsUnknownTrustBoundaryAndWeakRefs",
         "core/report.multiStageReportPath:20-paths"
       ],
-      "evidence": "Unchanged fixture scans produce zero diff noise, first-offer assessment fixtures keep expected focused findings, weak or missing cross-system joins add no guessed composition, and multi-stage projection does not add default top-risk rows."
+      "evidence": "Unchanged fixture scans produce zero diff noise, first-offer assessment fixtures keep expected focused findings, buyer output separates confirmed exposure from inferred candidates, weak or missing cross-system joins add no guessed composition, and multi-stage projection does not add default top-risk rows."
     },
     {
       "name": "exact_byte_interop",

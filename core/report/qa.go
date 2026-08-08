@@ -37,6 +37,11 @@ var buyerPrimaryInternalTokens = []string{
 	"not_collected",
 	"static_secret",
 	"unknown_durable",
+	"plain source code",
+	"unknown durable credential",
+	"approval approval evidence",
+	"static secret",
+	"repo_fallback",
 }
 
 const buyerPrimaryMaxLineLength = 520
@@ -129,7 +134,66 @@ func validateBuyerPrimaryText(name string, text string) []string {
 			break
 		}
 	}
+	issues = append(issues, validateBuyerExposureBrief(name, primary)...)
 	return issues
+}
+
+func validateBuyerExposureBrief(name string, primary string) []string {
+	confirmed := buyerPrimaryNamedSection(primary, "## Confirmed Exposures")
+	validateNext := buyerPrimaryNamedSection(primary, "## Validate Next")
+	issues := make([]string, 0)
+	if confirmed != "" {
+		if strings.Contains(strings.ToLower(confirmed), "inferred from static source correlation") {
+			issues = append(issues, fmt.Sprintf("%s confirmed exposures contain inferred candidate wording", name))
+		}
+		if count := buyerExposureEntryCount(confirmed, false); count > buyerExposureBriefLimit {
+			issues = append(issues, fmt.Sprintf("%s confirmed exposures exceed the %d-group decision memo budget", name, buyerExposureBriefLimit))
+		}
+	}
+	if validateNext != "" && buyerExposureEntryCount(validateNext, true) > buyerExposureBriefLimit {
+		issues = append(issues, fmt.Sprintf("%s validation candidates exceed the %d-group decision memo budget", name, buyerExposureBriefLimit))
+	}
+	return issues
+}
+
+func buyerPrimaryNamedSection(primary string, heading string) string {
+	start := strings.Index(primary, heading)
+	if start < 0 {
+		return ""
+	}
+	section := primary[start+len(heading):]
+	if next := strings.Index(section, "\n## "); next >= 0 {
+		section = section[:next]
+	}
+	return section
+}
+
+func buyerExposureEntryCount(section string, candidate bool) int {
+	count := 0
+	for _, line := range strings.Split(section, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if candidate {
+			if strings.HasPrefix(trimmed, "Candidate: ") {
+				count++
+			}
+			continue
+		}
+		dot := strings.Index(trimmed, ". ")
+		if dot <= 0 {
+			continue
+		}
+		validNumber := true
+		for _, char := range trimmed[:dot] {
+			if char < '0' || char > '9' {
+				validNumber = false
+				break
+			}
+		}
+		if validNumber {
+			count++
+		}
+	}
+	return count
 }
 
 func buyerLeadCardNeedsEvidenceClassification(lower string) bool {
