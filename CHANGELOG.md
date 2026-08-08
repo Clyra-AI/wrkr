@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- [semver:minor] Reworked buyer-facing Agent Action BOM and design-partner reports into bounded confirmed-exposure and validation briefs with source/freshness evidence wording, internal remediation attribution, and first-run evidence-import guidance.
+- (none yet)
 
 ### Deprecated
 
@@ -38,6 +38,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.13.0] - 2026-08-08
+<!-- release-semver: minor -->
+
+### Changed
+
+- Reworked buyer-facing Agent Action BOM and design-partner reports into bounded confirmed-exposure and validation briefs with source/freshness evidence wording, internal remediation attribution, and first-run evidence-import guidance.
 
 ## [v1.12.2] - 2026-08-07
 <!-- release-semver: patch -->
