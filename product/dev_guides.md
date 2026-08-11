@@ -31,7 +31,6 @@ These notes clarify how this repository currently enforces this standard. They d
   - `fast-lane`
   - `scan-contract`
   - `wave-sequence`
-  - `windows-smoke`
 - Any workflow rename must update:
   - `.github/required-checks.json`
   - `scripts/check_branch_protection_contract.sh`
@@ -582,8 +581,8 @@ These minimums are for v1 launch. Scenario count grows with product surface — 
 - Require at least one fast lane on every `pull_request`; this lane is merge-blocking.
 - Product-affecting changes run deterministic lint, one coverage-backed first-party test pass, contract validation, scenario validation, freeze evidence, and focused security checks.
 - Keep required check names stable while allowing expensive jobs to complete as skipped successes when their governed paths did not change.
-- Run the Windows smoke lane for runtime, CLI, filesystem, script, and workflow changes; use the weekly cross-platform workflow for macOS depth.
-- Docs-only and changelog-only PRs must not allocate product test, CodeQL, or Windows runners unless their governed paths changed.
+- Use Linux for merge-blocking validation and the weekly cross-platform workflow for macOS portability depth.
+- Docs-only and changelog-only PRs must not allocate product test or CodeQL runners unless their governed paths changed.
 - Every PR workflow must define `concurrency` with `cancel-in-progress: true`.
 
 ### Main Pipeline (protected branch push)

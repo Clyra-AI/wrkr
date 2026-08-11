@@ -295,7 +295,7 @@ func TestRequiredChecksRemainEnforced(t *testing.T) {
 		t.Fatalf("parse required checks contract: %v", err)
 	}
 
-	for _, required := range []string{"fast-lane", "scan-contract", "wave-sequence", "windows-smoke"} {
+	for _, required := range []string{"codeql-security", "fast-lane", "scan-contract", "wave-sequence"} {
 		found := false
 		for _, actual := range payload.RequiredChecks {
 			if actual == required {
@@ -305,6 +305,11 @@ func TestRequiredChecksRemainEnforced(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("required checks contract missing %q: %v", required, payload.RequiredChecks)
+		}
+	}
+	for _, actual := range payload.RequiredChecks {
+		if actual == "windows-smoke" {
+			t.Fatal("required checks contract must not retain the retired Windows smoke gate")
 		}
 	}
 }
