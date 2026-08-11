@@ -60,7 +60,10 @@ func TestAssessWritesOutputDirectoryManifest(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected artifacts object, got %T", payload["artifacts"])
 	}
-	for _, key := range []string{"state_path", "report_markdown_path", "report_evidence_json_path", "backlog_csv_path", "evidence_output_dir", "export_pack_path"} {
+	if _, ok := artifacts["paired_artifact_paths"]; ok {
+		t.Fatalf("unpaired assessment unexpectedly reported paired artifacts: %v", artifacts)
+	}
+	for _, key := range []string{"state_path", "report_markdown_path", "report_appendix_path", "report_evidence_json_path", "backlog_csv_path", "evidence_output_dir", "export_pack_path", "customer_share_dir", "customer_share_manifest"} {
 		value, _ := artifacts[key].(string)
 		if value == "" {
 			t.Fatalf("expected artifact %s, got %v", key, artifacts)
@@ -68,6 +71,16 @@ func TestAssessWritesOutputDirectoryManifest(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(outputDir, filepath.FromSlash(value))); err != nil {
 			t.Fatalf("expected artifact %s to exist: %v", key, err)
 		}
+	}
+	shareDir, _ := artifacts["customer_share_dir"].(string)
+	if _, err := os.Stat(filepath.Join(outputDir, filepath.FromSlash(shareDir), "wrkr-report.md")); err != nil {
+		t.Fatalf("expected customer-safe lead report: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, filepath.FromSlash(shareDir), "wrkr-report-appendix.md")); err != nil {
+		t.Fatalf("expected customer-safe appendix report: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, filepath.FromSlash(shareDir), "scan-state.json")); !os.IsNotExist(err) {
+		t.Fatalf("customer-share must exclude raw state, got err=%v", err)
 	}
 }
 
@@ -112,6 +125,61 @@ func TestAssessDefaultsToCustomerRedactedShareProfile(t *testing.T) {
 	}
 	if commandMetadata["share_profile"] != "customer-redacted" {
 		t.Fatalf("expected default assess share profile customer-redacted, got %v", commandMetadata["share_profile"])
+	}
+}
+
+func TestAssessCustomerShareUsesPairedRedactedArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repo := writeAssessFixtureRepo(t, tmp)
+	outputDir := filepath.Join(tmp, "assessment")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"assess",
+		"--path", repo,
+		"--output-dir", outputDir,
+		"--share-profile", "internal",
+		"--paired-share-profile", "customer-redacted",
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("expected exit 0, got %d stderr=%s", code, errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse assess payload: %v", err)
+	}
+	artifacts := payload["artifacts"].(map[string]any)
+	shareDir := filepath.Join(outputDir, filepath.FromSlash(artifacts["customer_share_dir"].(string)))
+	reportBytes, err := os.ReadFile(filepath.Join(shareDir, "wrkr-report.md"))
+	if err != nil {
+		t.Fatalf("read shared paired report: %v", err)
+	}
+	pairedPaths := artifacts["paired_artifact_paths"].(map[string]any)
+	pairedReportBytes, err := os.ReadFile(filepath.Join(outputDir, filepath.FromSlash(pairedPaths["markdown_customer_redacted"].(string))))
+	if err != nil {
+		t.Fatalf("read paired redacted report: %v", err)
+	}
+	if !bytes.Equal(reportBytes, pairedReportBytes) {
+		t.Fatal("customer-share report did not use the paired redacted artifact")
+	}
+	internalReportBytes, err := os.ReadFile(filepath.Join(outputDir, filepath.FromSlash(artifacts["report_markdown_path"].(string))))
+	if err != nil {
+		t.Fatalf("read internal report: %v", err)
+	}
+	if bytes.Equal(reportBytes, internalReportBytes) {
+		t.Fatal("customer-share report unexpectedly matched the internal artifact")
+	}
+	entries, err := os.ReadDir(shareDir)
+	if err != nil {
+		t.Fatalf("read customer-share: %v", err)
+	}
+	for _, entry := range entries {
+		if strings.Contains(entry.Name(), "join-map") || strings.Contains(entry.Name(), "scan-state") {
+			t.Fatalf("customer-share included private artifact %s", entry.Name())
+		}
 	}
 }
 

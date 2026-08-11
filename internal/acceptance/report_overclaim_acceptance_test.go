@@ -51,7 +51,7 @@ func TestReportOverclaimAcceptance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read static-runtime markdown: %v", err)
 		}
-		if !strings.Contains(string(markdown), "runtime evidence not collected") {
+		if !strings.Contains(string(markdown), "runtime evidence not observed in this scan or imported evidence") {
 			t.Fatalf("expected static-only runtime wording, got %q", string(markdown))
 		}
 		assertAcceptanceArtifactsPassBuyerQA(t, reportPayload, map[string]string{

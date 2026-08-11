@@ -1208,7 +1208,7 @@ func TestAgentActionBOMCarriesCanonicalEvidenceStates(t *testing.T) {
 		t.Fatalf("expected one BOM item, got %+v", bom)
 	}
 	item := bom.Items[0]
-	if item.ControlResolutionState != risk.ControlResolutionStateDetectedControl {
+	if item.ControlResolutionState != risk.ControlResolutionStateNoVisibleControl {
 		t.Fatalf("expected control resolution state on BOM item, got %+v", item)
 	}
 	if item.ApprovalEvidenceState != risk.EvidenceStateUnknown || item.OwnerEvidenceState != risk.EvidenceStateVerified {
@@ -1794,7 +1794,7 @@ func TestStaticOnlyRuntimeEvidenceNotCollected(t *testing.T) {
 	if got := risk.RuntimeEvidenceAbsenceStatus(paths[0]); got != risk.RuntimeEvidenceAbsenceNotCollected {
 		t.Fatalf("expected static-only runtime evidence to be not_collected, got %+v", paths[0])
 	}
-	if label := risk.BuyerRuntimeEvidenceLabel(paths[0].RuntimeEvidenceState, risk.RuntimeEvidenceAbsenceStatus(paths[0]), paths[0].GaitCoverage); label != "runtime evidence not collected" {
+	if label := risk.BuyerRuntimeEvidenceLabel(paths[0].RuntimeEvidenceState, risk.RuntimeEvidenceAbsenceStatus(paths[0]), paths[0].GaitCoverage); label != "runtime evidence not observed in this scan or imported evidence" {
 		t.Fatalf("expected static-only runtime label, got %q", label)
 	}
 }
@@ -2024,7 +2024,7 @@ func TestMarkdownApprovalUnknownUsesEvidenceNotFound(t *testing.T) {
 	}
 
 	markdown := RenderMarkdown(summary)
-	if !strings.Contains(markdown, "approval evidence not found") {
+	if !strings.Contains(markdown, "approval evidence not observed in this scan or imported evidence") {
 		t.Fatalf("expected buyer-safe approval wording, got:\n%s", markdown)
 	}
 	if strings.Contains(markdown, "approval missing") {
@@ -3087,6 +3087,43 @@ func TestEvidenceDecisionOwnerCandidatesAreRedacted(t *testing.T) {
 	}
 	if strings.Contains(strings.Join(out[0].RejectedCandidates[0].EvidenceRefs, " "), "github.example.com/acme/enterprise-001/pull/108") {
 		t.Fatalf("expected rejected candidate evidence refs to be redacted, got %+v", out[0].RejectedCandidates[0])
+	}
+}
+
+func TestEvidenceDecisionSourceLabelsAreNormalizedForShareableProfiles(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileCustomerRedacted, nil)
+	decisions := []evidencepolicy.Decision{{
+		Field:              evidencepolicy.FieldApproval,
+		SelectedSourceType: "private-control-system",
+		SelectedSource:     "https://controls.internal.example/acme/release-policy",
+		RejectedCandidates: []evidencepolicy.Candidate{{
+			Field:      evidencepolicy.FieldApproval,
+			SourceType: evidencepolicy.SourceTypeProviderExport,
+			Source:     "github.enterprise.example/acme/branch-protection",
+		}},
+	}}
+
+	out := sanitizeEvidenceDecisionsWithConfig(decisions, config)
+	if len(out) != 1 || len(out[0].RejectedCandidates) != 1 {
+		t.Fatalf("expected sanitized evidence decisions, got %+v", out)
+	}
+	if out[0].SelectedSourceType != evidencepolicy.SourceTypeUnknown || out[0].SelectedSource != evidencepolicy.SourceTypeUnknown {
+		t.Fatalf("expected custom source metadata to be normalized, got %+v", out[0])
+	}
+	rejected := out[0].RejectedCandidates[0]
+	if rejected.SourceType != evidencepolicy.SourceTypeProviderExport || rejected.Source != evidencepolicy.SourceTypeProviderExport {
+		t.Fatalf("expected known source metadata to retain only its normalized type, got %+v", rejected)
+	}
+	serialized, err := json.Marshal(out)
+	if err != nil {
+		t.Fatalf("marshal sanitized evidence decisions: %v", err)
+	}
+	for _, sensitive := range []string{"controls.internal.example", "github.enterprise.example", "private-control-system"} {
+		if strings.Contains(string(serialized), sensitive) {
+			t.Fatalf("shareable evidence decision exposed %q: %s", sensitive, serialized)
+		}
 	}
 }
 

@@ -448,7 +448,7 @@ func TestBacklogClosureDoesNotSayOwnerMissing(t *testing.T) {
 	if strings.Contains(strings.ToLower(item.ClosureCriteria), "owner missing") {
 		t.Fatalf("expected buyer-safe closure wording, got %+v", item)
 	}
-	if !strings.Contains(strings.ToLower(item.Remediation), "owner evidence is unknown") {
+	if !strings.Contains(strings.ToLower(item.Remediation), "owner evidence was not observed in this scan or imported evidence") {
 		t.Fatalf("expected remediation to use evidence-state wording, got %+v", item)
 	}
 }

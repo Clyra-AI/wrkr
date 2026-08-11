@@ -5,7 +5,7 @@ import "strings"
 func BuyerControlResolutionLabel(state string) string {
 	switch normalizeControlResolutionState(state) {
 	case ControlResolutionStateDetectedControl:
-		return "visible control evidence detected"
+		return "control-relevant evidence observed; effectiveness not verified"
 	case ControlResolutionStateDeclaredControl:
 		return "control declared in provided metadata"
 	case ControlResolutionStateExternalControlReference:
@@ -15,7 +15,7 @@ func BuyerControlResolutionLabel(state string) string {
 	case ControlResolutionStateNotApplicable:
 		return "control evidence not applicable"
 	default:
-		return "no visible control evidence found"
+		return "control evidence not observed in this scan or imported evidence"
 	}
 }
 
@@ -32,7 +32,7 @@ func BuyerEvidenceStateLabel(kind, state string) string {
 		case EvidenceStateContradictory:
 			return "approval evidence is contradictory"
 		default:
-			return "approval evidence not found"
+			return "approval evidence not observed in this scan or imported evidence"
 		}
 	case "owner":
 		switch normalizeEvidenceState(state) {
@@ -45,7 +45,7 @@ func BuyerEvidenceStateLabel(kind, state string) string {
 		case EvidenceStateContradictory:
 			return "owner evidence is contradictory"
 		default:
-			return "owner evidence is unknown"
+			return "owner evidence not observed in this scan or imported evidence"
 		}
 	case "proof":
 		switch normalizeEvidenceState(state) {
@@ -58,7 +58,7 @@ func BuyerEvidenceStateLabel(kind, state string) string {
 		case EvidenceStateContradictory:
 			return "path-specific proof is contradictory"
 		default:
-			return "path-specific proof not found"
+			return "path-specific proof not observed in this scan or imported evidence"
 		}
 	case "runtime":
 		switch normalizeEvidenceState(state) {
@@ -71,7 +71,7 @@ func BuyerEvidenceStateLabel(kind, state string) string {
 		case EvidenceStateContradictory:
 			return "runtime evidence is contradictory"
 		default:
-			return "runtime evidence not collected"
+			return "runtime evidence not observed in this scan or imported evidence"
 		}
 	case "target":
 		switch normalizeEvidenceState(state) {
@@ -84,7 +84,7 @@ func BuyerEvidenceStateLabel(kind, state string) string {
 		case EvidenceStateContradictory:
 			return "target evidence is contradictory"
 		default:
-			return "target evidence unknown"
+			return "target evidence not observed in this scan or imported evidence"
 		}
 	case "credential":
 		switch normalizeEvidenceState(state) {
@@ -97,7 +97,7 @@ func BuyerEvidenceStateLabel(kind, state string) string {
 		case EvidenceStateContradictory:
 			return "credential evidence is contradictory"
 		default:
-			return "credential evidence unknown"
+			return "credential evidence not observed in this scan or imported evidence"
 		}
 	default:
 		return "evidence state unknown"
@@ -120,7 +120,7 @@ func BuyerRuntimeEvidenceLabel(state string, absenceStatus string, coverage *Gai
 	case RuntimeEvidenceAbsenceMissingForClaim:
 		return "runtime evidence missing for a control claim"
 	case RuntimeEvidenceAbsenceNotCollected:
-		return "runtime evidence not collected"
+		return "runtime evidence not observed in this scan or imported evidence"
 	default:
 		return BuyerEvidenceStateLabel("runtime", state)
 	}

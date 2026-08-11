@@ -548,7 +548,6 @@ func pathNeedsVisibleControl(path ActionPath) bool {
 
 func pathHasVisibleControlEvidence(path ActionPath) bool {
 	for _, state := range []string{
-		path.OwnerEvidenceState,
 		path.ApprovalEvidenceState,
 		path.ProofEvidenceState,
 		path.RuntimeEvidenceState,

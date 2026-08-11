@@ -174,6 +174,7 @@ type ParseIssue struct {
 	Message           string `json:"message,omitempty"`
 	Reason            string `json:"reason,omitempty"`
 	RecommendedAction string `json:"recommended_action,omitempty"`
+	OccurrenceCount   int    `json:"occurrence_count,omitempty"`
 }
 
 type Input struct {
@@ -217,8 +218,7 @@ func BuildCompactCoverageSummary(report *Report) CompactCoverageSummary {
 	unsupportedDeclarationCount := 0
 	reducedDetectorKeys := map[detectorScopeKey]struct{}{}
 	for _, detector := range report.Detectors {
-		switch strings.TrimSpace(detector.Status) {
-		case "partial", "reduced", "blocked":
+		if detectorHasMaterialCoverageReduction(detector) {
 			reducedDetectorKeys[detectorScopeKey{
 				org:      strings.TrimSpace(detector.Org),
 				repo:     strings.TrimSpace(detector.Repo),
@@ -239,7 +239,7 @@ func BuildCompactCoverageSummary(report *Report) CompactCoverageSummary {
 		}] = struct{}{}
 	}
 	reducedDetectorCount = len(reducedDetectorKeys)
-	parseFailureCount := len(report.ParseErrors)
+	parseFailureCount := materialParseFailureCount(report.ParseErrors)
 	coverageConfidence := CoverageConfidenceComplete
 	if reducedDetectorCount > 0 || parseFailureCount > 0 || blockedDetectorCount > 0 || (report.HostedCoverage != nil && report.HostedCoverage.Completeness == HostedCoverageReduced) {
 		coverageConfidence = CoverageConfidenceReduced
@@ -281,8 +281,7 @@ func CompletenessSignalsForRepo(report *Report, org string, repo string) Complet
 		if repo != "" && strings.TrimSpace(detector.Repo) != "" && strings.TrimSpace(detector.Repo) != repo {
 			continue
 		}
-		switch strings.TrimSpace(detector.Status) {
-		case "partial", "reduced", "blocked":
+		if detectorHasMaterialCoverageReduction(detector) {
 			signals.ReducedCoverage = true
 			if name := strings.TrimSpace(detector.Detector); name != "" {
 				reducedDetectors[name] = struct{}{}
@@ -302,8 +301,10 @@ func CompletenessSignalsForRepo(report *Report, org string, repo string) Complet
 		if repo != "" && strings.TrimSpace(issue.Repo) != "" && strings.TrimSpace(issue.Repo) != repo {
 			continue
 		}
-		signals.ReducedCoverage = true
-		reasons["parse_issue:"+strings.TrimSpace(issue.Kind)] = struct{}{}
+		if parseIssueReducesCoverage(issue) {
+			signals.ReducedCoverage = true
+			reasons["parse_issue:"+strings.TrimSpace(issue.Kind)] = struct{}{}
+		}
 	}
 	for _, claim := range report.AbsenceClaims {
 		if org != "" && strings.TrimSpace(claim.Org) != "" && strings.TrimSpace(claim.Org) != org {
@@ -463,6 +464,7 @@ func collectSuppressedPaths(scopes []detect.Scope) []SuppressedPath {
 
 func collectParseIssues(findings []model.Finding) []ParseIssue {
 	items := make([]ParseIssue, 0)
+	index := map[string]int{}
 	for _, finding := range findings {
 		if finding.ParseError == nil {
 			continue
@@ -473,7 +475,7 @@ func collectParseIssues(findings []model.Finding) []ParseIssue {
 			reason = "generated_or_package_noise"
 			recommendedAction = "suppress"
 		}
-		items = append(items, ParseIssue{
+		item := ParseIssue{
 			Org:               strings.TrimSpace(finding.Org),
 			Repo:              strings.TrimSpace(finding.Repo),
 			Path:              firstNonEmpty(finding.ParseError.Path, finding.Location),
@@ -483,7 +485,15 @@ func collectParseIssues(findings []model.Finding) []ParseIssue {
 			Message:           strings.TrimSpace(finding.ParseError.Message),
 			Reason:            reason,
 			RecommendedAction: recommendedAction,
-		})
+			OccurrenceCount:   1,
+		}
+		key := strings.Join([]string{item.Org, item.Repo, item.Path, item.Detector, item.Kind, item.Format, item.Message, item.Reason, item.RecommendedAction}, "\x00")
+		if idx, ok := index[key]; ok {
+			items[idx].OccurrenceCount++
+			continue
+		}
+		index[key] = len(items)
+		items = append(items, item)
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Org != items[j].Org {
@@ -501,6 +511,44 @@ func collectParseIssues(findings []model.Finding) []ParseIssue {
 		return items[i].Message < items[j].Message
 	})
 	return items
+}
+
+func detectorHasMaterialCoverageReduction(detector DetectorHealth) bool {
+	status := strings.TrimSpace(detector.Status)
+	if status == "blocked" || status == "partial" {
+		return true
+	}
+	if status != "reduced" {
+		return false
+	}
+	for _, reason := range detector.CoverageReasons {
+		switch strings.TrimSpace(reason) {
+		case "", "generated_suppression", "no_candidate_inputs":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func parseIssueReducesCoverage(issue ParseIssue) bool {
+	return strings.TrimSpace(issue.Reason) != "generated_or_package_noise"
+}
+
+func materialParseFailureCount(issues []ParseIssue) int {
+	total := 0
+	for _, issue := range issues {
+		if !parseIssueReducesCoverage(issue) {
+			continue
+		}
+		occurrences := issue.OccurrenceCount
+		if occurrences <= 0 {
+			occurrences = 1
+		}
+		total += occurrences
+	}
+	return total
 }
 
 type detectorScopeKey struct {
@@ -533,7 +581,7 @@ func collectDetectorHealth(input Input) []DetectorHealth {
 
 	out := make([]DetectorHealth, 0)
 	for _, scope := range input.Scopes {
-		for _, detectorID := range []string{"ciagent", "dependency", "mcp", "webmcp"} {
+		for _, detectorID := range detectorIDsForHealth(input) {
 			scopeKey := detectorScopeKey{
 				org:      strings.TrimSpace(scope.Org),
 				repo:     strings.TrimSpace(scope.Repo),
@@ -627,6 +675,21 @@ func collectDetectorHealth(input Input) []DetectorHealth {
 		return out[i].Detector < out[j].Detector
 	})
 	return out
+}
+
+func detectorIDsForHealth(input Input) []string {
+	set := map[string]struct{}{
+		"ciagent":    {},
+		"dependency": {},
+		"mcp":        {},
+		"webmcp":     {},
+	}
+	for _, detectorErr := range input.DetectorErrors {
+		if detector := strings.TrimSpace(detectorErr.Detector); detector != "" {
+			set[detector] = struct{}{}
+		}
+	}
+	return mapKeysSorted(set)
 }
 
 func buildAbsenceClaims(input Input, detectors []DetectorHealth) []AbsenceClaim {
@@ -778,6 +841,9 @@ func buildParsePathIndex(findings []model.Finding) map[detectorScopeKey]map[stri
 	out := map[detectorScopeKey]map[string]parsePathStatus{}
 	for _, finding := range findings {
 		if finding.ParseError == nil {
+			continue
+		}
+		if detect.IsGeneratedPath(firstNonEmpty(finding.ParseError.Path, finding.Location)) {
 			continue
 		}
 		key := detectorScopeKey{

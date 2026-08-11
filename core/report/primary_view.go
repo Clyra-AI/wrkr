@@ -30,6 +30,9 @@ type AgentActionBOMPrimaryView struct {
 	AutonomyTier                string                            `json:"autonomy_tier,omitempty"`
 	DelegationReadinessState    string                            `json:"delegation_readiness_state,omitempty"`
 	RecommendedControl          string                            `json:"recommended_control,omitempty"`
+	EffectiveControl            string                            `json:"effective_control,omitempty"`
+	EffectiveControlScope       string                            `json:"effective_control_scope,omitempty"`
+	EffectiveControlReason      string                            `json:"effective_control_reason,omitempty"`
 	RiskTier                    string                            `json:"risk_tier,omitempty"`
 	EvidenceCompletenessLabel   string                            `json:"evidence_completeness_label,omitempty"`
 	EvidenceCompletenessScore   int                               `json:"evidence_completeness_score,omitempty"`
@@ -304,6 +307,11 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		view.EvidenceCompletenessScore = item.EvidenceCompleteness.TotalScore
 	}
 	applyPrimaryViewComposition(view, primaryViewCompositionForItem(bom, item))
+	if strings.TrimSpace(view.EffectiveControl) == "" {
+		view.EffectiveControl = strings.TrimSpace(view.RecommendedControl)
+		view.EffectiveControlScope = "selected_path"
+		view.EffectiveControlReason = "selected path recommendation applies to this workflow path"
+	}
 	view.CoverageStatus, view.CoverageReasons, view.CoverageImpact = primaryViewCoverage(bom, item)
 	return view
 }
@@ -517,6 +525,15 @@ func applyPrimaryViewComposition(view *AgentActionBOMPrimaryView, composition *r
 	view.TargetSummary = primaryCompositionTargetSummary(*composition)
 	view.CurrentCoverage = primaryCompositionCoverageSummary(*composition)
 	view.ProposedControl = strings.TrimSpace(composition.RecommendedControl)
+	view.EffectiveControl = strings.TrimSpace(view.RecommendedControl)
+	view.EffectiveControlScope = "selected_path"
+	view.EffectiveControlReason = "selected path recommendation applies to this workflow path"
+	if proposed := strings.TrimSpace(composition.RecommendedControl); proposed != "" &&
+		primaryRecommendedControlRank(proposed) < primaryRecommendedControlRank(view.EffectiveControl) {
+		view.EffectiveControl = proposed
+		view.EffectiveControlScope = "composition"
+		view.EffectiveControlReason = "composition recommendation is stricter because it covers the full multi-stage path"
+	}
 	view.ExpectedOutcome = firstNonEmptyValue(strings.TrimSpace(composition.OutcomeClass), strings.TrimSpace(composition.DurableOutcomeKey))
 	view.ProposedActionContract = risk.CloneProposedActionContract(composition.ProposedActionContract)
 	if view.ProposedActionContract != nil && strings.TrimSpace(view.ExpectedOutcome) == "" {

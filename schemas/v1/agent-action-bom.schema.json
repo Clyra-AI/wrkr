@@ -429,6 +429,9 @@
         "autonomy_tier": {"$ref": "#/$defs/autonomyTier"},
         "delegation_readiness_state": {"$ref": "#/$defs/delegationReadinessState"},
         "recommended_control": {"$ref": "#/$defs/recommendedControl"},
+        "effective_control": {"$ref": "#/$defs/recommendedControl"},
+        "effective_control_scope": {"type": "string", "enum": ["selected_path", "composition"]},
+        "effective_control_reason": {"type": "string"},
         "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
         "evidence_completeness_label": {"type": "string", "enum": ["strong_evidence", "partial_evidence", "insufficient_evidence"]},
         "evidence_completeness_score": {"type": "integer"},
@@ -1189,7 +1192,8 @@
         "format": {"type": "string"},
         "message": {"type": "string"},
         "reason": {"type": "string"},
-        "recommended_action": {"type": "string"}
+        "recommended_action": {"type": "string"},
+        "occurrence_count": {"type": "integer", "minimum": 1}
       },
       "additionalProperties": false
     },

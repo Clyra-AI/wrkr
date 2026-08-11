@@ -22,7 +22,7 @@ type scanProgressRenderer interface {
 	Flush()
 }
 
-func newScanProgressRenderer(mode scanProgressMode, stderr io.Writer) scanProgressRenderer {
+func newScanProgressRenderer(mode scanProgressMode, stderr io.Writer, compactEvents bool) scanProgressRenderer {
 	if stderr == nil {
 		return nil
 	}
@@ -32,7 +32,7 @@ func newScanProgressRenderer(mode scanProgressMode, stderr io.Writer) scanProgre
 	case scanProgressModePlain:
 		return &scanProgressPlainRenderer{stderr: stderr}
 	case scanProgressModeEvents:
-		return &scanProgressEventRenderer{stderr: stderr}
+		return &scanProgressEventRenderer{stderr: stderr, compact: compactEvents}
 	default:
 		return nil
 	}
@@ -133,11 +133,15 @@ func (r *scanProgressPlainRenderer) Render(snapshot scanProgressSnapshot, update
 func (r *scanProgressPlainRenderer) Flush() {}
 
 type scanProgressEventRenderer struct {
-	stderr io.Writer
+	stderr  io.Writer
+	compact bool
 }
 
 func (r *scanProgressEventRenderer) Render(snapshot scanProgressSnapshot, update scanProgressUpdate) {
 	if r == nil || r.stderr == nil {
+		return
+	}
+	if r.compact && (update.Kind == "detector_start" || (update.Kind == "detector_complete" && strings.TrimSpace(update.Status) != "failed")) {
 		return
 	}
 	line := formatScanProgressEventLine(snapshot, update)

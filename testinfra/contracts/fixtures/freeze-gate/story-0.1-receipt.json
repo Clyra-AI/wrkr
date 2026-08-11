@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "faffc12b9cf0e98f44ca4384b003bab5f1f9ed696ca583fb0e7749668a8e5d46",
+  "validated_content_sha256": "63a18e02d56af03e250228af9844ee90abe02141594f61fccd332572cbe9301c",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -46,11 +46,12 @@
     "bounded_serialized_action_path_occurrence_refs",
     "endpoint_specification_identity"
   ],
-  "validated_on": "2026-08-08",
+  "validated_on": "2026-08-11",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:1-repo",
     "scenarios/wrkr/first-offer-noise-pack",
+    "scenarios/wrkr/first-offer-mixed-governance:customer-truth-assessment-delivery",
     "scenarios/wrkr/scan-diff-no-noise",
     "core/export/actioncontracts.TestBuildActionContractArtifactsIsDeterministicAndSensitiveToContent",
     "core/export/actioncontracts.TestBuildActionContractArtifactsRedactsBeforeAssigningVariantIdentity",
@@ -96,6 +97,33 @@
       "budget_bytes": 2097152,
       "delta_bytes": 1109705,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
+    },
+    {
+      "artifact": "customer-share/wrkr-report.md",
+      "fixture": "scenarios/wrkr/first-offer-mixed-governance:customer-truth-assessment-delivery",
+      "measured_bytes": 4497,
+      "baseline_bytes": 0,
+      "budget_bytes": 16384,
+      "delta_bytes": 4497,
+      "measurement_source": "internal/scenarios.TestScenarioCustomerTruthAssessmentDelivery"
+    },
+    {
+      "artifact": "customer-share/wrkr-report-appendix.md",
+      "fixture": "scenarios/wrkr/first-offer-mixed-governance:customer-truth-assessment-delivery",
+      "measured_bytes": 41505,
+      "baseline_bytes": 0,
+      "budget_bytes": 65536,
+      "delta_bytes": 41505,
+      "measurement_source": "internal/scenarios.TestScenarioCustomerTruthAssessmentDelivery"
+    },
+    {
+      "artifact": "customer-share/wrkr-report-evidence.json",
+      "fixture": "scenarios/wrkr/first-offer-mixed-governance:customer-truth-assessment-delivery",
+      "measured_bytes": 1230583,
+      "baseline_bytes": 0,
+      "budget_bytes": 2097152,
+      "delta_bytes": 1230583,
+      "measurement_source": "internal/scenarios.TestScenarioCustomerTruthAssessmentDelivery"
     },
     {
       "artifact": "endpoint-dense-scan.json",
@@ -229,7 +257,8 @@
         "go test ./core/risk -run TestBuildComposedActionPathsMultiStageDefaultProjectionSizeAndNoiseBudget -count=1",
         "go test ./core/risk -run TestBuildActionPathsBoundsSerializedOccurrenceRefs -count=1",
         "go test ./core/risk -run TestBuildActionPathsGroupsEndpointOperationsBySpecification -count=1",
-        "go test ./core/report -run TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget -count=1"
+        "go test ./core/report -run TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget -count=1",
+        "go test ./internal/scenarios -run TestScenarioCustomerTruthAssessmentDelivery -tags=scenario -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
@@ -239,7 +268,8 @@
         "core/report.actionContractPacketTestInput:three-stage",
         "core/risk.high-fanout-multi-stage:38-paths",
         "core/risk.endpoint-specification-rollup:320-operations",
-        "core/report.multiStageReportPath:20-paths"
+        "core/report.multiStageReportPath:20-paths",
+        "scenarios/wrkr/first-offer-mixed-governance:customer-truth-assessment-delivery"
       ],
       "evidence": "Saved state, evidence JSON, endpoint-dense state, and the multi-stage Action Contract packet remain under committed byte budgets; serialized action-path occurrence references are capped while exact occurrence counts are retained, and endpoint roll-ups carry deterministic specification-level identities."
     },
@@ -272,7 +302,8 @@
         "go test ./core/report -run TestSanitizeProposedActionContractPublicRedactsV3NestedRequirements -count=1",
         "go test ./core/export/actioncontracts -run TestBuildActionContractPacketUsesRedactedArtifactIdentityRecursively -count=1",
         "go test ./core/report -run TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs -count=1",
-        "go test ./core/report -run TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs -count=1"
+        "go test ./core/report -run TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs -count=1",
+        "go test ./internal/scenarios -run TestScenarioCustomerTruthAssessmentDelivery -tags=scenario -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
@@ -280,7 +311,8 @@
         "core/report.buyerExposureBrief",
         "core/export/actioncontracts.testSnapshot",
         "core/report.TestSanitizeComposedActionPathsPublicRedactsMultiStageBoundaryAndCorrelationRefs",
-        "core/report.TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs"
+        "core/report.TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs",
+        "scenarios/wrkr/first-offer-mixed-governance:customer-truth-assessment-delivery"
       ],
       "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, fixture repo names, multi-stage trust-boundary/correlation identities, unmapped peer route references, and internal remediation attribution in selected projections."
     },
@@ -307,13 +339,15 @@
         "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
         "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1",
         "go test ./core/report -run TestActionContractPacketSizeReadabilityAndCloneStripBudgets -count=1",
-        "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1"
+        "go test ./core/report -run TestBuildActionContractPacketPreservesOrderedMultiStageReachability -count=1",
+        "go test ./internal/scenarios -run TestScenarioCustomerTruthAssessmentDelivery -tags=scenario -count=1"
       ],
       "fixture_names": [
         "internal/enterprisepressure.VariantBaseline:96-repos",
         "internal/enterprisepressure.EndpointDense:1-repo",
         "core/report.actionContractPacketTestInput",
-        "core/report.actionContractPacketTestInput:three-stage"
+        "core/report.actionContractPacketTestInput:three-stage",
+        "scenarios/wrkr/first-offer-mixed-governance:customer-truth-assessment-delivery"
       ],
       "evidence": "Canonical refs remain present while repeated endpoint, authority, and mutable-endpoint payload clones are bounded or omitted from shareable/default artifacts."
     },

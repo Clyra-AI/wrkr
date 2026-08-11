@@ -8,11 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added split buyer-lead/diagnostic-appendix Markdown output and a manifest-backed `customer-share/` assessment directory that excludes internal state, raw logs, signing keys, private join maps, and unredacted evidence. The regenerated customer-redacted sample remains 328 lines and changed from 35,461 to 36,076 bytes (+615 bytes) for explicit evidence semantics; receipts are `TestAssessWritesOutputDirectoryManifest`, `TestAssessCustomerShareUsesPairedRedactedArtifacts`, `TestRenderMarkdownPartsSeparatesBuyerLeadAndAppendix`, and `TestScenarioCustomerTruthAssessmentDelivery`.
 
 ### Changed
 
-- (none yet)
+- Localized expected generated/vendor suppression so it remains diagnostic without reducing unrelated path coverage, grouped repeated parse issues with occurrence counts, and made automatic non-interactive progress omit successful per-detector chatter while preserving failures and terminal status.
 
 ### Deprecated
 
@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- Stopped treating owner attribution alone as visible control evidence, separated explicit production-target backing from statically observed deployment surfaces, projected failures from non-core detector IDs into blocked scan quality, made composition-versus-selected-path Action Contract scope explicit, and normalized completed scan footers to 100 percent.
 
 ### Security
 

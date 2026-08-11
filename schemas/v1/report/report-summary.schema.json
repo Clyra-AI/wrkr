@@ -1542,7 +1542,8 @@
         "format": {"type": "string"},
         "message": {"type": "string"},
         "reason": {"type": "string"},
-        "recommended_action": {"type": "string"}
+        "recommended_action": {"type": "string"},
+        "occurrence_count": {"type": "integer", "minimum": 1}
       },
       "additionalProperties": false
     },

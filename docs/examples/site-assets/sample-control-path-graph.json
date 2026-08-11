@@ -13142,7 +13142,7 @@
         "source-000001",
         "source-000002"
       ],
-      "status": "partial_evidence",
+      "status": "insufficient_evidence",
       "tool_type": "ci_agent"
     },
     {
@@ -23174,12 +23174,8 @@
     ],
     "evidence_states": [
       {
-        "count": 19,
+        "count": 20,
         "kind": "insufficient_evidence"
-      },
-      {
-        "count": 1,
-        "kind": "partial_evidence"
       }
     ],
     "node_kinds": [

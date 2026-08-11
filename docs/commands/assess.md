@@ -64,6 +64,8 @@ wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --output-dir ./.tmp/wrk
 
 The command writes one output directory plus an `assessment-manifest.json` that lists stage status, command metadata, state/proof refs, report artifacts, evidence bundle refs, export pack refs, optional paired redacted artifacts, optional private join map, and optional drift artifacts.
 
+The default assessment report is split into `report/wrkr-report.md` (buyer lead) and `report/wrkr-report-appendix.md` (diagnostic appendix). The assessment also creates `customer-share/` with only the selected share-profile report, appendix, lead evidence JSON, backlog CSV, and a SHA-256 manifest. Share that directory, not the assessment root: the root intentionally retains internal state, proof, exports, logs, and optional private join material.
+
 Stage failures return the underlying stage exit code and do not publish an assessment manifest. When `--baseline` is supplied and drift is detected, `wrkr assess` still writes the manifest and returns exit code `5`.
 
 The default report template is `agent-action-bom`, the default share profile is `customer-redacted` for most templates (`public` for `public` and `customer-draft`, `design-partner` for `design-partner-summary`), the default scan profile is `assessment`, and the default evidence framework set is `soc2`.

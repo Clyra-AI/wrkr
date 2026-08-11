@@ -194,6 +194,47 @@ func RenderMarkdown(summary Summary) string {
 				firstNonEmptyValue(strings.TrimSpace(compact.ImpactStatement), "Coverage metadata was unavailable."),
 			))
 		}
+		if len(summary.ScanQuality.DetectorErrors) > 0 {
+			builder.WriteString(fmt.Sprintf("- Detector failures: %d. These surfaces are blocked and negative claims for the affected repo/detector are not authoritative.\n", len(summary.ScanQuality.DetectorErrors)))
+			limit := len(summary.ScanQuality.DetectorErrors)
+			if limit > 10 {
+				limit = 10
+			}
+			for _, detectorErr := range summary.ScanQuality.DetectorErrors[:limit] {
+				message := detectorErr.Message
+				if summary.ShareProfile != string(ShareProfileInternal) {
+					message = "details retained in internal report"
+				}
+				builder.WriteString(fmt.Sprintf("  detector=%s repo=%s code=%s class=%s message=%s\n",
+					detectorErr.Detector,
+					detectorErr.Repo,
+					detectorErr.Code,
+					detectorErr.Class,
+					message,
+				))
+			}
+		}
+		if len(summary.ScanQuality.ParseErrors) > 0 {
+			builder.WriteString(fmt.Sprintf("- Grouped parse diagnostics: %d unique issue(s).\n", len(summary.ScanQuality.ParseErrors)))
+			limit := len(summary.ScanQuality.ParseErrors)
+			if limit > 10 {
+				limit = 10
+			}
+			for _, issue := range summary.ScanQuality.ParseErrors[:limit] {
+				occurrences := issue.OccurrenceCount
+				if occurrences <= 0 {
+					occurrences = 1
+				}
+				builder.WriteString(fmt.Sprintf("  detector=%s repo=%s path=%s kind=%s occurrences=%d action=%s\n",
+					firstNonEmptyValue(issue.Detector, "unknown"),
+					issue.Repo,
+					issue.Path,
+					issue.Kind,
+					occurrences,
+					firstNonEmptyValue(issue.RecommendedAction, "debug_only"),
+				))
+			}
+		}
 		for _, claim := range groupedAbsenceClaims(summary.ScanQuality.AbsenceClaims) {
 			if strings.TrimSpace(claim.Surface) == "" {
 				continue
@@ -1168,6 +1209,38 @@ func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summa
 		summary.AgentActionBOM.Summary.DelegationReadiness.ReviewRequired,
 		firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.CoverageConfidence), scanquality.AbsenceStatusNotScanned),
 	)
+	retainedBOMItems := len(summary.AgentActionBOM.Items)
+	omittedBOMItems := summary.AgentActionBOM.Summary.TotalItems - retainedBOMItems
+	if omittedBOMItems < 0 {
+		omittedBOMItems = 0
+	}
+	fmt.Fprintf(builder, "- BOM count scope: discovered=%d retained=%d omitted=%d; control and readiness counts describe the discovered eligible BOM population.\n",
+		summary.AgentActionBOM.Summary.TotalItems,
+		retainedBOMItems,
+		omittedBOMItems,
+	)
+	retainedActionPaths := len(summary.ActionPaths)
+	omittedActionPaths := 0
+	if summary.SuppressedCounts != nil {
+		omittedActionPaths = summary.SuppressedCounts.ActionPaths
+	}
+	fmt.Fprintf(builder, "- Action-path projection scope: discovered=%d retained=%d omitted=%d.\n",
+		retainedActionPaths+omittedActionPaths,
+		retainedActionPaths,
+		omittedActionPaths,
+	)
+	if summary.ControlBacklog != nil {
+		retainedBacklog := len(summary.ControlBacklog.Items)
+		omittedBacklog := 0
+		if summary.SuppressedCounts != nil {
+			omittedBacklog = summary.SuppressedCounts.ControlBacklog
+		}
+		fmt.Fprintf(builder, "- Control-backlog scope: discovered=%d retained=%d omitted=%d; backlog readiness is a remediation queue and is not the BOM delegation-readiness denominator.\n",
+			retainedBacklog+omittedBacklog,
+			retainedBacklog,
+			omittedBacklog,
+		)
+	}
 	if summary.ScanScope != nil {
 		fmt.Fprintf(builder, "- Scanned scope: %s mode=%s repos=%d targets=%d boundary=%s\n",
 			summary.ScanScope.ScopeLabel,
@@ -1188,8 +1261,8 @@ func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summa
 	}
 	if summary.OperationalExposure != nil {
 		fmt.Fprintf(builder, "- Operational exposure: grade=%s driver=%s paths=%d\n",
-			summary.OperationalExposure.Grade,
-			summary.OperationalExposure.Driver,
+			humanizeEnum(summary.OperationalExposure.Grade),
+			humanizeEnum(summary.OperationalExposure.Driver),
 			summary.OperationalExposure.PathCount,
 		)
 	}
@@ -1319,20 +1392,27 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		buyerLeadEvidenceStateLabel("credential", view.CredentialEvidenceState),
 		markdownPrimaryViewEvidenceCompleteness(view),
 		view.EvidenceCompletenessScore,
-		risk.BuyerRecommendedControlLabel(view.RecommendedControl),
+		risk.BuyerRecommendedControlLabel(firstNonEmptyValue(view.EffectiveControl, view.RecommendedControl)),
 	)
 	if len(view.UnresolvedEvidence) > 0 {
 		fmt.Fprintf(builder, "- Unresolved evidence: %s.\n", strings.Join(view.UnresolvedEvidence, ", "))
 	}
 	if contract := strings.TrimSpace(markdownActionContract(view.RecommendedActionContract)); contract != "" {
-		fmt.Fprintf(builder, "- Recommended action contract: %s.\n", contract)
+		fmt.Fprintf(builder, "- Selected-path action contract: %s.\n", contract)
 	}
 	if view.ProposedActionContract != nil {
-		fmt.Fprintf(builder, "- Proposed Action Contract: %s; expected outcome=%s; readiness=%s; report only=%t.\n",
+		fmt.Fprintf(builder, "- Composition Action Contract: %s; expected outcome=%s; readiness=%s; report only=%t.\n",
 			strings.TrimSpace(view.ProposedActionContract.ContractID),
 			humanizeEnum(firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ExpectedOutcomeClass), strings.TrimSpace(view.ExpectedOutcome), "unknown")),
 			humanizeEnum(firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ReadinessState), "unknown")),
 			view.ProposedActionContract.ReportOnly,
+		)
+	}
+	if strings.TrimSpace(view.EffectiveControl) != "" {
+		fmt.Fprintf(builder, "- Effective recommendation: %s (scope=%s). %s.\n",
+			risk.BuyerRecommendedControlLabel(view.EffectiveControl),
+			firstNonEmptyValue(strings.TrimSpace(view.EffectiveControlScope), "selected_path"),
+			firstNonEmptyValue(strings.TrimSpace(view.EffectiveControlReason), "The selected path recommendation applies"),
 		)
 	}
 	if len(view.ProposedActionContractRefs) > 0 {

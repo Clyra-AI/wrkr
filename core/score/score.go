@@ -103,13 +103,16 @@ func SummarizeOperationalExposure(paths []risk.ActionPath) AxisSummary {
 		return summary
 	}
 
-	productionBacked := 0
+	productionTargetBacked := 0
+	deploymentSurface := 0
 	credentialBearing := 0
 	writeCapable := 0
-	deployed := 0
 	for _, path := range paths {
-		if path.ProductionWrite || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") {
-			productionBacked++
+		if path.ProductionWrite {
+			productionTargetBacked++
+		}
+		if strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") {
+			deploymentSurface++
 		}
 		if path.CredentialAccess {
 			credentialBearing++
@@ -117,30 +120,33 @@ func SummarizeOperationalExposure(paths []risk.ActionPath) AxisSummary {
 		if path.WriteCapable || path.DeployWrite || path.MergeExecute || path.PullRequestWrite {
 			writeCapable++
 		}
-		if strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") {
-			deployed++
-		}
 	}
 
 	switch {
-	case productionBacked > 0 && credentialBearing > 0:
+	case productionTargetBacked > 0 && credentialBearing > 0:
 		summary.Grade = "critical"
 		summary.Driver = "production_and_credentials"
-	case productionBacked > 0 || credentialBearing > 0:
+	case deploymentSurface > 0 && credentialBearing > 0:
+		summary.Grade = "critical"
+		summary.Driver = "delivery_surface_and_credentials"
+	case productionTargetBacked > 0 || credentialBearing > 0:
 		summary.Grade = "high"
 		summary.Driver = "credential_or_production"
-	case writeCapable > 0 || deployed > 0:
+	case deploymentSurface > 0:
+		summary.Grade = "high"
+		summary.Driver = "delivery_surface"
+	case writeCapable > 0:
 		summary.Grade = "medium"
-		summary.Driver = "write_or_runtime_capable"
+		summary.Driver = "write_capable"
 	default:
 		summary.Grade = "low"
 		summary.Driver = "review_only"
 	}
 	summary.Rationale = []string{
-		fmt.Sprintf("production_backed_paths=%d", productionBacked),
+		fmt.Sprintf("production_target_backed_paths=%d", productionTargetBacked),
+		fmt.Sprintf("deployment_surface_paths=%d", deploymentSurface),
 		fmt.Sprintf("credential_bearing_paths=%d", credentialBearing),
 		fmt.Sprintf("write_capable_paths=%d", writeCapable),
-		fmt.Sprintf("runtime_deployed_paths=%d", deployed),
 	}
 	return summary
 }

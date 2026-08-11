@@ -32,6 +32,9 @@ type reportArtifactOptions struct {
 	RecentPRReview     *reportcore.RecentPRReviewOptions
 	WriteMarkdown      bool
 	MarkdownPath       string
+	MarkdownScope      string
+	WriteAppendix      bool
+	AppendixPath       string
 	WritePDF           bool
 	PDFPath            string
 	WriteEvidenceJSON  bool
@@ -44,6 +47,7 @@ type reportArtifactOptions struct {
 type reportArtifactResult struct {
 	Summary             reportcore.Summary
 	MarkdownPath        string
+	AppendixPath        string
 	PDFPath             string
 	EvidenceJSONPath    string
 	BacklogCSVPath      string
@@ -222,11 +226,11 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 
 	markdown := reportcore.RenderMarkdown(summary)
 	pairedMarkdown := ""
-	if hasPairedSummary && (opts.WriteMarkdown || opts.WritePDF) {
+	if hasPairedSummary && (opts.WriteMarkdown || opts.WriteAppendix || opts.WritePDF) {
 		pairedMarkdown = reportcore.RenderMarkdown(pairedSummary)
 	}
 	validationMarkdown := ""
-	if opts.WriteMarkdown || opts.WritePDF {
+	if opts.WriteMarkdown || opts.WriteAppendix || opts.WritePDF {
 		validationMarkdown = markdown
 	}
 	if err := reportcore.ValidateShareableArtifacts(opts.Snapshot, summary, validationMarkdown, opts.WriteEvidenceJSON); err != nil {
@@ -234,7 +238,7 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 	}
 	if hasPairedSummary {
 		pairedValidationMarkdown := ""
-		if opts.WriteMarkdown || opts.WritePDF {
+		if opts.WriteMarkdown || opts.WriteAppendix || opts.WritePDF {
 			pairedValidationMarkdown = pairedMarkdown
 		}
 		if err := reportcore.ValidateShareableArtifacts(opts.Snapshot, pairedSummary, pairedValidationMarkdown, opts.WriteEvidenceJSON); err != nil {
@@ -242,14 +246,32 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		}
 	}
 	mdOutPath := ""
+	appendixOutPath := ""
 	if opts.WriteMarkdown {
 		path, writeErr := writePaired("markdown", opts.MarkdownPath, func(current reportcore.Summary) ([]byte, error) {
+			if strings.TrimSpace(opts.MarkdownScope) == "lead" {
+				lead, _ := reportcore.RenderMarkdownParts(current)
+				return []byte(lead), nil
+			}
 			return []byte(reportcore.RenderMarkdown(current)), nil
 		}, summary, pairedSummary)
 		if writeErr != nil {
 			return reportArtifactResult{}, writeErr
 		}
 		mdOutPath = path
+	}
+	if opts.WriteAppendix {
+		path, writeErr := writePaired("markdown_appendix", opts.AppendixPath, func(current reportcore.Summary) ([]byte, error) {
+			_, appendix := reportcore.RenderMarkdownParts(current)
+			if strings.TrimSpace(appendix) == "" {
+				return nil, fmt.Errorf("markdown appendix is available only for agent-action-bom and design-partner-summary templates")
+			}
+			return []byte(appendix), nil
+		}, summary, pairedSummary)
+		if writeErr != nil {
+			return reportArtifactResult{}, writeErr
+		}
+		appendixOutPath = path
 	}
 
 	pdfOutPath := ""
@@ -315,6 +337,7 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 	return reportArtifactResult{
 		Summary:             summary,
 		MarkdownPath:        mdOutPath,
+		AppendixPath:        appendixOutPath,
 		PDFPath:             pdfOutPath,
 		EvidenceJSONPath:    evidenceJSONPath,
 		BacklogCSVPath:      backlogCSVPath,

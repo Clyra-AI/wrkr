@@ -60,7 +60,7 @@ func TestScenarioReportOverclaim(t *testing.T) {
 		reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--md", "--md-path", mdPath, "--json"})
 
 		markdown := mustReadScenarioFile(t, mdPath)
-		if !strings.Contains(markdown, "runtime evidence not collected") {
+		if !strings.Contains(markdown, "runtime evidence not observed in this scan or imported evidence") {
 			t.Fatalf("expected static-only runtime wording, got %q", markdown)
 		}
 		assertScenarioArtifactsPassBuyerQA(t, reportPayload, map[string]string{
