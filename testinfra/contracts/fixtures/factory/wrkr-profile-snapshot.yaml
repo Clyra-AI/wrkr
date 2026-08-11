@@ -1,5 +1,5 @@
 factory_profile_ref:
-  git_commit: "8a5737d835c10e7b3bbd5f35e37023c4205d0e60"
+  git_commit: "892065759fa7dbf593474b54ff9e46309cc0bcd7"
 runtime_pins:
   language: go
   toolchain_version: "1.26.5"
