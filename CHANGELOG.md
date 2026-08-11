@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Retired Windows GitHub Actions runners and the `windows-smoke` merge gate; Linux remains merge-blocking and macOS remains a scheduled portability check.
 - Localized expected generated/vendor suppression so it remains diagnostic without reducing unrelated path coverage, grouped repeated parse issues with occurrence counts, and made automatic non-interactive progress omit successful per-detector chatter while preserving failures and terminal status.
 
 ### Deprecated

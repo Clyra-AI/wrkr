@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -36,7 +36,7 @@ jobs:
         env:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
-          if [[ "${RUNNER_OS}" != "Windows" && -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then
+          if [[ -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then
             git config --global url."https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/".insteadOf https://github.com/
             git submodule update --init --depth=1 factory
             export WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1

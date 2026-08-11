@@ -214,7 +214,6 @@ func TestPRWorkflowPathFilterContract(t *testing.T) {
 		"dorny/paths-filter@v4.0.1",
 		"security:",
 		"scan_contract:",
-		"windows:",
 		"Record lightweight-only validation",
 	} {
 		if !strings.Contains(text, fragment) {
@@ -329,9 +328,26 @@ func TestWorkflowValidationOwnershipAvoidsDuplicateRunnerLanes(t *testing.T) {
 	}
 
 	crossPlatformWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/cross-platform.yml"))
-	for _, required := range []string{"schedule:", "macos-latest", "windows-latest", "make test-fast", "make build"} {
+	for _, required := range []string{"schedule:", "macos-latest", "make test-fast", "make build"} {
 		if !strings.Contains(crossPlatformWorkflow, required) {
 			t.Fatalf("weekly cross-platform workflow missing %q", required)
+		}
+	}
+	if strings.Contains(crossPlatformWorkflow, "windows-latest") {
+		t.Fatal("weekly cross-platform workflow must not allocate Windows runners")
+	}
+}
+
+func TestWorkflowsDoNotAllocateWindowsRunners(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	for _, workflow := range listWorkflowFiles(t, repoRoot) {
+		content := strings.ToLower(mustReadFile(t, workflow))
+		for _, forbidden := range []string{"windows-latest", "runs-on: windows"} {
+			if strings.Contains(content, forbidden) {
+				t.Fatalf("workflow %s allocates a Windows runner through %q", workflow, forbidden)
+			}
 		}
 	}
 }
@@ -387,14 +403,14 @@ func TestPRMainAndReleaseWorkflowsAvoidFactorySubmoduleCheckoutByDefault(t *test
 	if !strings.Contains(mainWorkflow, "HOMEBREW_TAP_GITHUB_TOKEN") || !strings.Contains(mainWorkflow, "git submodule update --init --depth=1 factory") {
 		t.Fatal("main core lane must initialize the Factory submodule when the existing homebrew token secret is available")
 	}
-	if !strings.Contains(mainWorkflow, `if [[ "${RUNNER_OS}" != "Windows" && -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then`) {
-		t.Fatal("main core lane must skip Windows-unsafe Factory checkout and require the authoritative Factory profile only after non-Windows submodule initialization succeeds")
+	if !strings.Contains(mainWorkflow, `if [[ -n "${HOMEBREW_TAP_GITHUB_TOKEN:-}" ]]; then`) {
+		t.Fatal("main core lane must require the authoritative Factory profile only after token-backed submodule initialization succeeds")
 	}
 	if !strings.Contains(mainWorkflow, "export WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1") {
-		t.Fatal("main core lane must require the authoritative Factory profile only after the non-Windows token-backed Factory submodule checkout succeeds")
+		t.Fatal("main core lane must require the authoritative Factory profile only after token-backed Factory submodule checkout succeeds")
 	}
 	if strings.Contains(mainWorkflow, `WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE: "1"`) {
-		t.Fatal("main core lane must not require the authoritative Factory profile before the Windows-unsafe Factory checkout guard runs")
+		t.Fatal("main core lane must not require the authoritative Factory profile before the token-backed Factory checkout guard runs")
 	}
 	if strings.Contains(mainWorkflow, "WRKR_PIN_CHECK_ALLOW_MISSING_FACTORY_PROFILE") {
 		t.Fatal("main core lane must not skip Factory toolchain-pin enforcement when the snapshot contract is available")

@@ -25,7 +25,6 @@ jobs:
       python: ${{ steps.changes.outputs.python }}
       scan_contract: ${{ steps.changes.outputs.scan_contract }}
       security: ${{ steps.changes.outputs.security }}
-      windows: ${{ steps.changes.outputs.windows }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
@@ -93,18 +92,6 @@ jobs:
               - 'go.sum'
               - 'Makefile'
               - 'scripts/run_codeql.sh'
-              - '.github/workflows/**'
-            windows:
-              - '**/*.go'
-              - 'go.mod'
-              - 'go.sum'
-              - 'Makefile'
-              - 'cmd/**'
-              - 'core/**'
-              - 'internal/**'
-              - 'testinfra/**'
-              - 'scenarios/**'
-              - 'scripts/**/*.sh'
               - '.github/workflows/**'
 
       - name: Setup Python
@@ -296,26 +283,3 @@ jobs:
           mkdir -p .tmp
           go run ./cmd/wrkr scan --path scenarios/wrkr/scan-diff-no-noise/input/local-repos --json --quiet > .tmp/scan-contract.json
           test -s .tmp/scan-contract.json
-
-  windows-smoke:
-    name: windows-smoke
-    runs-on: windows-latest
-    needs: wave-sequence
-    if: needs.wave-sequence.outputs.windows == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6.0.2
-
-      - name: Setup Go
-        uses: actions/setup-go@v6.3.0
-        with:
-          go-version-file: go.mod
-          check-latest: false
-
-      - name: Build and test smoke
-        shell: bash
-        run: |
-          mkdir -p .tmp
-          go build -o .tmp/wrkr ./cmd/wrkr
-          mapfile -t packages < <(scripts/first_party_go_packages.sh)
-          go test "${packages[@]}" -count=1 -timeout=20m

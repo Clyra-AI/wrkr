@@ -3,7 +3,6 @@
     "codeql-security",
     "fast-lane",
     "scan-contract",
-    "wave-sequence",
-    "windows-smoke"
+    "wave-sequence"
   ]
 }
