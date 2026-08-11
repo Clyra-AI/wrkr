@@ -142,7 +142,7 @@ func TestRenderMarkdownNamesProposedActionContractAsReportOnly(t *testing.T) {
 	if !strings.Contains(markdown, "Composition stages: source:release -> privileged sink:production.") {
 		t.Fatalf("expected bounded composition stage map, got %q", markdown)
 	}
-	if !strings.Contains(markdown, "Proposed Action Contract: pac-1234; expected outcome=production deploy; readiness=needs evidence; report only=true.") {
+	if !strings.Contains(markdown, "Composition Action Contract: pac-1234; expected outcome=production deploy; readiness=needs evidence; report only=true.") {
 		t.Fatalf("expected proposed Action Contract summary, got %q", markdown)
 	}
 	if strings.Contains(markdown, "Wrkr enforces") {

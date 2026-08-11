@@ -50,6 +50,26 @@ func TestClosureRequirementsForUnknownOwnerAndApproval(t *testing.T) {
 	}
 }
 
+func TestOwnerEvidenceAloneDoesNotResolveVisibleControl(t *testing.T) {
+	t.Parallel()
+
+	paths := DecorateEvidenceContext([]ActionPath{{
+		PathID:                "apc-owner-only",
+		Org:                   "acme",
+		Repo:                  "platform",
+		Location:              ".github/workflows/release.yml",
+		WriteCapable:          true,
+		DeployWrite:           true,
+		OwnerEvidenceState:    EvidenceStateInferred,
+		ApprovalEvidenceState: EvidenceStateUnknown,
+		ProofEvidenceState:    EvidenceStateUnknown,
+		RuntimeEvidenceState:  EvidenceStateUnknown,
+	}}, nil)
+	if got := paths[0].ControlResolutionState; got != ControlResolutionStateNoVisibleControl {
+		t.Fatalf("owner attribution is not control evidence; got %q", got)
+	}
+}
+
 func TestClosureRequirementsForExpiredEvidenceAndRuntimeGap(t *testing.T) {
 	t.Parallel()
 
@@ -244,8 +264,8 @@ func TestEvidenceCompletenessSummaryCountsReducedCoverageWithoutUnsupportedSurfa
 	summary := BuildEvidenceCompletenessSummary(paths)
 	if summary == nil {
 		t.Fatal("expected completeness summary")
-	} else if summary.ReducedCoveragePathCount != 1 {
-		t.Fatalf("expected reduced coverage path count to include detector-only reduction, got %+v", summary)
+	} else if summary.ReducedCoveragePathCount != 0 {
+		t.Fatalf("expected generated-only suppression not to reduce unrelated path coverage, got %+v", summary)
 	}
 }
 

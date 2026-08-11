@@ -562,7 +562,7 @@ func RemediationForActionPath(path ActionPath) string {
 		case EvidenceStateContradictory:
 			return "Owner evidence is contradictory for this " + pathSurfaceLabel(path) + "; resolve the conflict, record one explicit owner, and rerun the scan before approving or expanding it."
 		default:
-			return "Owner evidence is unknown for this " + pathSurfaceLabel(path) + "; assign an explicit owner, attach linked ownership evidence, and rerun the scan before approving or expanding it."
+			return "Owner evidence was not observed in this scan or imported evidence for this " + pathSurfaceLabel(path) + "; assign an explicit owner, attach linked ownership evidence, and rerun the scan before approving or expanding it."
 		}
 	}
 	if path.ControlPriority == ControlPriorityInventoryHygiene || deriveGovernFirstModel(path).controlPriority == ControlPriorityInventoryHygiene {

@@ -50,6 +50,7 @@ type assessArtifacts struct {
 	RuntimeArtifactPath      string            `json:"runtime_artifact_path,omitempty"`
 	RuntimeArtifactKind      string            `json:"runtime_artifact_kind,omitempty"`
 	ReportMarkdownPath       string            `json:"report_markdown_path,omitempty"`
+	ReportAppendixPath       string            `json:"report_appendix_path,omitempty"`
 	ReportEvidenceJSONPath   string            `json:"report_evidence_json_path,omitempty"`
 	BacklogCSVPath           string            `json:"backlog_csv_path,omitempty"`
 	PairedArtifactPaths      map[string]string `json:"paired_artifact_paths,omitempty"`
@@ -64,6 +65,8 @@ type assessArtifacts struct {
 	TicketPayloadPath        string            `json:"ticket_payload_path,omitempty"`
 	DriftJSONPath            string            `json:"drift_json_path,omitempty"`
 	DriftSummaryMDPath       string            `json:"drift_summary_md_path,omitempty"`
+	CustomerShareDir         string            `json:"customer_share_dir,omitempty"`
+	CustomerShareManifest    string            `json:"customer_share_manifest,omitempty"`
 }
 
 type assessCommandMetadata struct {
@@ -210,6 +213,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	}
 
 	reportMDPath := filepath.Join(resolvedOutputDir, "report", "wrkr-report.md")
+	reportAppendixPath := filepath.Join(resolvedOutputDir, "report", "wrkr-report-appendix.md")
 	reportEvidenceJSONPath := filepath.Join(resolvedOutputDir, "report", "wrkr-report-evidence.json")
 	backlogCSVPath := filepath.Join(resolvedOutputDir, "report", "wrkr-control-backlog.csv")
 	evidenceOutputDir := filepath.Join(resolvedOutputDir, "evidence")
@@ -286,6 +290,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 		"--template", string(template),
 		"--share-profile", string(shareProfile),
 		"--md", "--md-path", reportMDPath,
+		"--md-scope", "lead", "--md-appendix", "--md-appendix-path", reportAppendixPath,
 		"--evidence-json", "--evidence-json-path", reportEvidenceJSONPath,
 		"--csv-backlog", "--csv-backlog-path", backlogCSVPath,
 		"--top", strconv.Itoa(*top),
@@ -475,6 +480,9 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	if value, _ := reportPayload["md_path"].(string); value != "" {
 		artifacts.ReportMarkdownPath = relativeAssessPath(resolvedOutputDir, value)
 	}
+	if value, _ := reportPayload["appendix_md_path"].(string); value != "" {
+		artifacts.ReportAppendixPath = relativeAssessPath(resolvedOutputDir, value)
+	}
 	if value, _ := reportPayload["evidence_json_path"].(string); value != "" {
 		artifacts.ReportEvidenceJSONPath = relativeAssessPath(resolvedOutputDir, value)
 	}
@@ -483,14 +491,16 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	}
 	if rawPaths, ok := reportPayload["artifact_paths"].(map[string]any); ok {
 		pairedPaths := map[string]string{}
+		pairedSuffix := "_" + strings.ReplaceAll(string(pairedShareProfile), "-", "_")
 		for key, raw := range rawPaths {
 			value, _ := raw.(string)
 			switch key {
 			case "private_join_map":
 				artifacts.PrivateJoinMapPath = relativeAssessPath(resolvedOutputDir, value)
-			case "markdown", "pdf", "evidence_json", "backlog_csv":
-				continue
 			default:
+				if strings.TrimSpace(string(pairedShareProfile)) == "" || !strings.HasSuffix(key, pairedSuffix) {
+					continue
+				}
 				pairedPaths[key] = relativeAssessPath(resolvedOutputDir, value)
 			}
 		}
@@ -504,6 +514,12 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 		Artifact:  artifacts.ReportMarkdownPath,
 		Artifact2: artifacts.ReportEvidenceJSONPath,
 	}
+	shareDir, shareManifest, shareErr := buildAssessmentCustomerShare(resolvedOutputDir, shareProfile, pairedShareProfile, artifacts)
+	if shareErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("build customer share bundle: %v", shareErr), exitRuntime)
+	}
+	artifacts.CustomerShareDir = relativeAssessPath(resolvedOutputDir, shareDir)
+	artifacts.CustomerShareManifest = relativeAssessPath(resolvedOutputDir, shareManifest)
 
 	manifestPayload := assessManifest{
 		SchemaVersion: "v1",

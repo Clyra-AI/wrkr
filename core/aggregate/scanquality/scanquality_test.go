@@ -44,6 +44,72 @@ func TestBuildScanQualityReportsGeneratedSuppressionAndParseErrors(t *testing.T)
 	if report.ParseErrors[0].RecommendedAction != "suppress" {
 		t.Fatalf("expected suppress action for generated parse issue, got %+v", report.ParseErrors[0])
 	}
+	if report.CompactSummary == nil || report.CompactSummary.CoverageConfidence != CoverageConfidenceComplete {
+		t.Fatalf("expected generated-only noise to remain localized without reducing global coverage, got %+v", report.CompactSummary)
+	}
+}
+
+func TestScanQualityGroupsRepeatedParseIssues(t *testing.T) {
+	t.Parallel()
+
+	findings := make([]model.Finding, 0, 3)
+	for range 3 {
+		findings = append(findings, model.Finding{
+			FindingType: "parse_error",
+			Location:    ".gitmodules",
+			Repo:        "platform",
+			Org:         "acme",
+			ParseError:  &model.ParseError{Kind: "missing_submodule", Path: ".gitmodules", Detector: "dependency", Message: "submodule checkout unavailable"},
+		})
+	}
+	report := Build(Input{Mode: "governance", Findings: findings})
+	if len(report.ParseErrors) != 1 || report.ParseErrors[0].OccurrenceCount != 3 {
+		t.Fatalf("expected one grouped parse issue with three occurrences, got %+v", report.ParseErrors)
+	}
+	if report.CompactSummary == nil || report.CompactSummary.ParseFailureCount != 3 {
+		t.Fatalf("expected occurrence-aware parse failure count, got %+v", report.CompactSummary)
+	}
+}
+
+func TestGeneratedSuppressionDoesNotReduceUnrelatedRepoCompleteness(t *testing.T) {
+	t.Parallel()
+
+	report := &Report{Detectors: []DetectorHealth{{
+		Org:             "acme",
+		Repo:            "payments",
+		Detector:        "dependency",
+		Status:          "reduced",
+		CoverageReasons: []string{"generated_suppression"},
+		SuppressedFiles: 12,
+	}}}
+	compact := BuildCompactCoverageSummary(report)
+	if compact.CoverageConfidence != CoverageConfidenceComplete || compact.ReducedDetectorCount != 0 {
+		t.Fatalf("expected expected generated suppression to stay diagnostic, got %+v", compact)
+	}
+	if signals := CompletenessSignalsForRepo(report, "acme", "payments"); signals.ReducedCoverage {
+		t.Fatalf("expected generated-only suppression not to reduce unrelated path coverage, got %+v", signals)
+	}
+}
+
+func TestDetectorErrorOutsideBuiltinsCreatesBlockedHealth(t *testing.T) {
+	t.Parallel()
+
+	report := Build(Input{
+		Mode:   "governance",
+		Scopes: []detect.Scope{{Org: "acme", Repo: "platform", Root: t.TempDir()}},
+		DetectorErrors: []detect.DetectorError{{
+			Detector: "agentcustom",
+			Org:      "acme",
+			Repo:     "platform",
+			Code:     "parse_failed",
+			Class:    "detector",
+			Message:  "custom declaration could not be parsed",
+		}},
+	})
+	health := findDetectorHealth(t, report, "agentcustom")
+	if health.Status != "blocked" || report.CompactSummary == nil || report.CompactSummary.BlockedDetectorCount != 1 {
+		t.Fatalf("expected non-builtin detector failure to block its coverage surface, got health=%+v compact=%+v", health, report.CompactSummary)
+	}
 }
 
 func TestDeepModeDoesNotReportSuppressedPathSet(t *testing.T) {
@@ -182,8 +248,8 @@ func TestCompletenessSignalsForRepoCollectsReducedCoverageAndUnsupportedSurfaces
 	if !signals.ReducedCoverage {
 		t.Fatalf("expected reduced coverage signals, got %+v", signals)
 	}
-	if len(signals.ReducedDetectors) != 1 || signals.ReducedDetectors[0] != "mcp" {
-		t.Fatalf("expected reduced detector signal, got %+v", signals)
+	if len(signals.ReducedDetectors) != 0 {
+		t.Fatalf("expected generated-only detector suppression to remain localized, got %+v", signals)
 	}
 	if len(signals.UnsupportedSurfaces) != 1 || signals.UnsupportedSurfaces[0] != SurfaceMCPServer {
 		t.Fatalf("expected unsupported surface signal, got %+v", signals)

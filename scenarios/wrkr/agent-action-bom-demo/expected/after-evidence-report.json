@@ -327,14 +327,14 @@
     "missing_policy_items": 0,
     "missing_proof_items": 0,
     "operational_exposure": {
-      "driver": "production_and_credentials",
+      "driver": "delivery_surface_and_credentials",
       "grade": "critical",
       "path_count": 7,
       "rationale": [
-        "production_backed_paths=2",
+        "production_target_backed_paths=0",
+        "deployment_surface_paths=2",
         "credential_bearing_paths=1",
-        "write_capable_paths=5",
-        "runtime_deployed_paths=2"
+        "write_capable_paths=5"
       ]
     },
     "primary_view": {
@@ -432,7 +432,7 @@
           "tier:production_or_customer_impact"
         ],
         "recommended_control": "block_standing_credential",
-        "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not found and path-specific proof verified.",
+        "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not observed in this scan or imported evidence and path-specific proof verified.",
         "target_class": "production_impacting"
       },
       "unresolved_evidence": [

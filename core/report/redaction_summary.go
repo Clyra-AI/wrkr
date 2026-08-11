@@ -1231,6 +1231,10 @@ func sanitizeEvidenceDecisionsWithConfig(in []evidencepolicy.Decision, config Re
 	out := make([]evidencepolicy.Decision, 0, len(in))
 	for _, item := range in {
 		copyItem := item
+		if config.Has(RedactionProviders) {
+			copyItem.SelectedSourceType = shareableEvidenceSourceType(copyItem.SelectedSourceType)
+			copyItem.SelectedSource = copyItem.SelectedSourceType
+		}
 		copyItem.SelectedEvidenceRefs = maybeRedactStringSlice(copyItem.SelectedEvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		if evidenceDecisionRequiresOwnerRedaction(copyItem) {
 			copyItem.SelectedValue = maybeRedactOwner(copyItem.SelectedValue, config)
@@ -1243,6 +1247,10 @@ func sanitizeEvidenceDecisionsWithConfig(in []evidencepolicy.Decision, config Re
 			copyItem.RejectedCandidates = make([]evidencepolicy.Candidate, 0, len(copyItem.RejectedCandidates))
 			for _, candidate := range item.RejectedCandidates {
 				copyCandidate := candidate
+				if config.Has(RedactionProviders) {
+					copyCandidate.SourceType = shareableEvidenceSourceType(copyCandidate.SourceType)
+					copyCandidate.Source = copyCandidate.SourceType
+				}
 				copyCandidate.EvidenceRefs = maybeRedactStringSlice(copyCandidate.EvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos))
 				if evidenceCandidateRequiresOwnerRedaction(copyItem, copyCandidate) {
 					copyCandidate.Value = maybeRedactOwner(copyCandidate.Value, config)
@@ -1257,6 +1265,31 @@ func sanitizeEvidenceDecisionsWithConfig(in []evidencepolicy.Decision, config Re
 		out = append(out, copyItem)
 	}
 	return out
+}
+
+func shareableEvidenceSourceType(value string) string {
+	normalized := evidencepolicy.NormalizeSourceType(value)
+	switch normalized {
+	case evidencepolicy.SourceTypeProviderExport,
+		evidencepolicy.SourceTypeGitHubTeamExport,
+		evidencepolicy.SourceTypeBackstageExport,
+		evidencepolicy.SourceTypeTicketExport,
+		evidencepolicy.SourceTypeSignedDeclaration,
+		evidencepolicy.SourceTypeCustomerOwnerMap,
+		evidencepolicy.SourceTypeRepoPolicy,
+		evidencepolicy.SourceTypePolicyConfig,
+		evidencepolicy.SourceTypeCodeowners,
+		evidencepolicy.SourceTypeCustomOwnerMap,
+		evidencepolicy.SourceTypeServiceCatalog,
+		evidencepolicy.SourceTypeBackstageCatalog,
+		evidencepolicy.SourceTypeAppCatalog,
+		evidencepolicy.SourceTypeGitHubMetadata,
+		evidencepolicy.SourceTypeRepoFallback,
+		evidencepolicy.SourceTypeRuntime:
+		return normalized
+	default:
+		return evidencepolicy.SourceTypeUnknown
+	}
 }
 
 func maybeRedactEvidenceRefSlice(values []string, config RedactionConfig) []string {

@@ -150,7 +150,8 @@ func newScanProgressReporter(opts scanProgressReporterOptions) *scanProgressRepo
 		opts.StartedAt = time.Now().UTC()
 	}
 	resolvedMode, notice := resolveScanProgressMode(opts.RequestedMode, opts.JSONOutput, opts.Stderr)
-	renderer := newScanProgressRenderer(resolvedMode, opts.Stderr)
+	compactEvents := opts.RequestedMode == scanProgressModeAuto && resolvedMode == scanProgressModeEvents
+	renderer := newScanProgressRenderer(resolvedMode, opts.Stderr, compactEvents)
 	return &scanProgressReporter{
 		mode:              resolvedMode,
 		renderer:          renderer,
@@ -556,6 +557,9 @@ func (r *scanProgressReporter) Flush() {
 func (r *scanProgressReporter) Finish(footer scanProgressFooter) {
 	if r == nil {
 		return
+	}
+	if strings.TrimSpace(footer.Status) == state.ScanStatusCompleted {
+		footer.ProgressPercent = 100
 	}
 	r.renderAndFlush(r.snapshot(), scanProgressUpdate{
 		Kind:        "footer",

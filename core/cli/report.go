@@ -59,6 +59,7 @@ type reportPayload struct {
 	SuppressedCounts                 *reportcore.SuppressedCounts  `json:"suppressed_counts,omitempty"`
 	Summary                          reportcore.Summary            `json:"summary"`
 	MDPath                           string                        `json:"md_path,omitempty"`
+	AppendixMDPath                   string                        `json:"appendix_md_path,omitempty"`
 	PDFPath                          string                        `json:"pdf_path,omitempty"`
 	EvidenceJSONPath                 string                        `json:"evidence_json_path,omitempty"`
 	BacklogCSVPath                   string                        `json:"backlog_csv_path,omitempty"`
@@ -92,6 +93,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	pdfPath := fs.String("pdf-path", "wrkr-report.pdf", "pdf output path")
 	md := fs.Bool("md", false, "write a deterministic markdown summary")
 	mdPath := fs.String("md-path", "wrkr-report.md", "markdown output path")
+	mdScope := fs.String("md-scope", "full", "markdown output scope [full|lead]")
+	mdAppendix := fs.Bool("md-appendix", false, "write the diagnostic markdown appendix separately")
+	mdAppendixPath := fs.String("md-appendix-path", "wrkr-report-appendix.md", "markdown appendix output path")
 	evidenceJSON := fs.Bool("evidence-json", false, "write a deterministic JSON evidence bundle")
 	evidenceJSONPath := fs.String("evidence-json-path", "wrkr-report-evidence.json", "JSON evidence bundle output path")
 	evidenceJSONScope := fs.String("evidence-json-scope", "lead", "Agent Action BOM evidence bundle scope [lead|full]")
@@ -161,6 +165,12 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if scope := strings.TrimSpace(*evidenceJSONScope); scope != "" && scope != "lead" && scope != "full" {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--evidence-json-scope must be lead or full", exitInvalidInput)
+	}
+	if scope := strings.TrimSpace(*mdScope); scope != "full" && scope != "lead" {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--md-scope must be full or lead", exitInvalidInput)
+	}
+	if *mdAppendix && template != reportcore.TemplateAgentActionBOM && template != reportcore.TemplateDesignPartnerSummary {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--md-appendix requires agent-action-bom or design-partner-summary", exitInvalidInput)
 	}
 	if template == reportcore.TemplateActionContractPacket {
 		if strings.TrimSpace(*contractID) == "" {
@@ -257,6 +267,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		}(),
 		WriteMarkdown:     *md,
 		MarkdownPath:      *mdPath,
+		MarkdownScope:     strings.TrimSpace(*mdScope),
+		WriteAppendix:     *mdAppendix,
+		AppendixPath:      *mdAppendixPath,
 		WritePDF:          *pdf,
 		PDFPath:           *pdfPath,
 		WriteEvidenceJSON: *evidenceJSON,
@@ -350,6 +363,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	payload.MDPath = artifacts.MarkdownPath
+	payload.AppendixMDPath = artifacts.AppendixPath
 	payload.PDFPath = artifacts.PDFPath
 	payload.EvidenceJSONPath = artifacts.EvidenceJSONPath
 	payload.BacklogCSVPath = artifacts.BacklogCSVPath
@@ -531,6 +545,9 @@ func reportArtifactPathMap(artifacts reportArtifactResult) map[string]string {
 	paths := map[string]string{}
 	if artifacts.MarkdownPath != "" {
 		paths["markdown"] = artifacts.MarkdownPath
+	}
+	if artifacts.AppendixPath != "" {
+		paths["markdown_appendix"] = artifacts.AppendixPath
 	}
 	if artifacts.PDFPath != "" {
 		paths["pdf"] = artifacts.PDFPath

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -343,6 +344,49 @@ func TestScanProgressFlushesNewlineBeforeExplain(t *testing.T) {
 	})
 	if !strings.Contains(errOut.String(), "\nscan status=") {
 		t.Fatalf("expected bar renderer to flush a newline before the final footer, got %q", errOut.String())
+	}
+}
+
+func TestCompletedScanFooterNormalizesProgressToOneHundred(t *testing.T) {
+	t.Parallel()
+
+	errOut := newLiveBuffer()
+	progress := newScanProgressReporter(scanProgressReporterOptions{
+		RequestedMode: scanProgressModePlain,
+		Stderr:        errOut,
+		StartedAt:     time.Unix(0, 0).UTC(),
+		TargetMode:    "org",
+		TargetValue:   "acme",
+	})
+	progress.Finish(scanProgressFooter{Status: state.ScanStatusCompleted, ProgressPercent: 92})
+	if !strings.Contains(errOut.String(), "progress=100%") {
+		t.Fatalf("expected completed footer to normalize terminal progress, got %q", errOut.String())
+	}
+}
+
+func TestAutoJSONProgressCompactsSuccessfulDetectorEvents(t *testing.T) {
+	t.Parallel()
+
+	var errOut bytes.Buffer
+	progress := newScanProgressReporter(scanProgressReporterOptions{
+		RequestedMode: scanProgressModeAuto,
+		JSONOutput:    true,
+		Stderr:        &errOut,
+		StartedAt:     time.Unix(0, 0).UTC(),
+		TargetMode:    "org",
+		TargetValue:   "acme",
+	})
+	event := detect.DetectorProgressEvent{DetectorID: "ciagent", Index: 1, Total: 2, Scope: detect.Scope{Repo: "platform"}}
+	progress.DetectorStart(event)
+	progress.DetectorComplete(event)
+	event.DetectorID = "agentcustom"
+	event.Index = 2
+	progress.DetectorError(event)
+	if strings.Contains(errOut.String(), "detector=ciagent") {
+		t.Fatalf("expected auto non-interactive progress to suppress successful detector chatter, got %q", errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "detector=agentcustom") || !strings.Contains(errOut.String(), "status=failed") {
+		t.Fatalf("expected compact progress to retain detector failures, got %q", errOut.String())
 	}
 }
 

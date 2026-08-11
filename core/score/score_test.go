@@ -3,6 +3,7 @@ package score
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -96,6 +97,47 @@ func TestSummarizeOperationalExposureSeparatesHighImpactPaths(t *testing.T) {
 	}
 	if summary.Driver != "production_and_credentials" {
 		t.Fatalf("expected production_and_credentials driver, got %+v", summary)
+	}
+}
+
+func TestSummarizeOperationalExposureDoesNotCallDeploymentSurfaceProductionBacked(t *testing.T) {
+	t.Parallel()
+
+	summary := SummarizeOperationalExposure([]risk.ActionPath{{
+		CredentialAccess: true,
+		DeploymentStatus: "deployed",
+	}})
+	if summary.Grade != "critical" || summary.Driver != "delivery_surface_and_credentials" {
+		t.Fatalf("expected credential-bearing delivery surface to remain critical, got %+v", summary)
+	}
+	if !slices.Contains(summary.Rationale, "production_target_backed_paths=0") || !slices.Contains(summary.Rationale, "deployment_surface_paths=1") {
+		t.Fatalf("expected explicit production and inferred delivery counts to stay separate, got %+v", summary.Rationale)
+	}
+}
+
+func TestSummarizeOperationalExposureGradesEachEvidenceBasis(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		path   risk.ActionPath
+		grade  string
+		driver string
+	}{
+		{name: "credential", path: risk.ActionPath{CredentialAccess: true}, grade: "high", driver: "credential_or_production"},
+		{name: "production target", path: risk.ActionPath{ProductionWrite: true}, grade: "high", driver: "credential_or_production"},
+		{name: "deployment surface", path: risk.ActionPath{DeploymentStatus: "deployed"}, grade: "high", driver: "delivery_surface"},
+		{name: "write capable", path: risk.ActionPath{WriteCapable: true}, grade: "medium", driver: "write_capable"},
+		{name: "review only", path: risk.ActionPath{}, grade: "low", driver: "review_only"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			summary := SummarizeOperationalExposure([]risk.ActionPath{test.path})
+			if summary.Grade != test.grade || summary.Driver != test.driver {
+				t.Fatalf("expected grade=%s driver=%s, got %+v", test.grade, test.driver, summary)
+			}
+		})
 	}
 }
 

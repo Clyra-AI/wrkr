@@ -220,6 +220,9 @@ func TestAgentActionBOMPrimaryViewSelectsHighestRiskComposition(t *testing.T) {
 	if view.ExpectedOutcome != "production_deploy" || view.ProposedControl != risk.RecommendedControlBlockStandingCredential {
 		t.Fatalf("expected composition outcome/control summary, got %+v", view)
 	}
+	if view.EffectiveControl != risk.RecommendedControlBlockStandingCredential || view.EffectiveControlScope != "composition" {
+		t.Fatalf("expected stricter composition control to be the explicit effective recommendation, got %+v", view)
+	}
 	if len(view.ClosureRequirements) != 1 || view.ClosureRequirements[0].ID != "closure-release-prod" {
 		t.Fatalf("expected composition closure requirements, got %+v", view.ClosureRequirements)
 	}

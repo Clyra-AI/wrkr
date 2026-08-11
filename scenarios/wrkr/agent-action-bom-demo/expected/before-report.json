@@ -24,6 +24,7 @@
     "empty_state_reasons": [
       "approval_evidence_unknown_paths_present",
       "confirmed_action_paths_present",
+      "control_evidence_unknown_paths_present",
       "control_first_paths_present",
       "credential_access_paths_present",
       "high_review_burden_paths_present",
@@ -36,7 +37,7 @@
     ],
     "empty_state_status": "not_eligible",
     "evidence_completeness": {
-      "average_total_score": 59,
+      "average_total_score": 48,
       "axis_scores": [
         {
           "axis": "discovery",
@@ -71,9 +72,9 @@
           "axis": "control",
           "reasons": [
             "constraint_evidence:missing",
-            "control_resolution:detected_control"
+            "control_resolution:no_visible_control"
           ],
-          "score": 84
+          "score": 19
         },
         {
           "axis": "runtime_evidence",
@@ -102,7 +103,7 @@
         "confidence_lane:likely_action_path",
         "confidence_lane:semantic_review_candidate",
         "constraint_evidence:missing",
-        "control_resolution:detected_control",
+        "control_resolution:no_visible_control",
         "credential:inferred",
         "credential:verified",
         "owner:inferred",
@@ -281,22 +282,22 @@
       "evidence_packs": 0,
       "governed_agents_workflows": 5,
       "governed_paths": 4,
-      "unknown_control_paths": 0,
-      "verified_control_paths": 5
+      "unknown_control_paths": 5,
+      "verified_control_paths": 0
     },
     "likely_action_path_items": 2,
     "missing_approval_items": 5,
-    "missing_policy_items": 0,
+    "missing_policy_items": 5,
     "missing_proof_items": 5,
     "operational_exposure": {
-      "driver": "production_and_credentials",
+      "driver": "delivery_surface_and_credentials",
       "grade": "critical",
       "path_count": 5,
       "rationale": [
-        "production_backed_paths=1",
+        "production_target_backed_paths=0",
+        "deployment_surface_paths=1",
         "credential_bearing_paths=1",
-        "write_capable_paths=4",
-        "runtime_deployed_paths=1"
+        "write_capable_paths=4"
       ]
     },
     "primary_view": {
@@ -321,8 +322,8 @@
         "decision_trace:dt-6dbcfb4c7927"
       ],
       "delegation_readiness_state": "blocked",
-      "evidence_completeness_label": "partial_evidence",
-      "evidence_completeness_score": 63,
+      "evidence_completeness_label": "insufficient_evidence",
+      "evidence_completeness_score": 52,
       "path_id": "apc-49d0b638e7b5",
       "path_map": {
         "action": "credential_access,deploy,execute,read,write",
@@ -394,11 +395,12 @@
           "tier:production_or_customer_impact"
         ],
         "recommended_control": "block_standing_credential",
-        "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not found and path-specific proof not found.",
+        "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not observed in this scan or imported evidence and path-specific proof not observed in this scan or imported evidence.",
         "target_class": "production_impacting"
       },
       "unresolved_evidence": [
         "approval",
+        "control",
         "proof"
       ]
     },

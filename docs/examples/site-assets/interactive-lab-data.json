@@ -34,7 +34,7 @@
           "closure=remediate repo_cluster=single_repo credential_authority=standing"
         ],
         "top_example_refs": [
-          "path-3d4294dea973"
+          "path-d8a32b03bfbe"
         ]
       },
       {
@@ -68,8 +68,8 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-36a561abd3e5",
-          "path-b1beb4bbd8ad"
+          "path-b88958d152e4",
+          "path-c649e6fc0751"
         ]
       },
       {
@@ -103,9 +103,9 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-5e74203c9ef9",
-          "path-6570aca51ab1",
-          "path-868e45a637fe"
+          "path-1195da0ea12a",
+          "path-290b855685f0",
+          "path-b37fd1fb35db"
         ]
       },
       {
@@ -139,8 +139,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-84f171cab980",
-          "path-b3bb3a28a9a6"
+          "path-3320524e9d8b",
+          "path-9a63ae1ff385"
         ]
       },
       {
@@ -174,8 +174,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-ac130052c789",
-          "path-bf95ca34171f"
+          "path-657e8f01fb27",
+          "path-817b5d6cee8a"
         ]
       },
       {
@@ -209,8 +209,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-9f02eb0f17d7",
-          "path-d5d0c4cfffdc"
+          "path-b01f85e6eedd",
+          "path-f11a9a04a8ef"
         ]
       },
       {
@@ -244,7 +244,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
         ],
         "top_example_refs": [
-          "path-d2f2834909d1"
+          "path-cef45c234d2b"
         ]
       },
       {
@@ -278,7 +278,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-5532c97b62fe"
+          "path-3f0563797704"
         ]
       },
       {
@@ -312,7 +312,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-5532c97b62fe"
+          "path-3f0563797704"
         ]
       },
       {
@@ -346,7 +346,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-746fc559895f"
+          "path-f005c7e614e6"
         ]
       },
       {
@@ -380,7 +380,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-3ae029f79c6d"
+          "path-0e9d8b96a8b9"
         ]
       },
       {
@@ -414,7 +414,7 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-81386ae88268"
+          "path-4c914547d5e3"
         ]
       },
       {
@@ -448,7 +448,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
         ],
         "top_example_refs": [
-          "path-9383e93f1437"
+          "path-a3073e1e58fe"
         ]
       }
     ],
@@ -465,8 +465,8 @@
     "evidence_packs": 0,
     "governed_agents_workflows": 20,
     "governed_paths": 17,
-    "unknown_control_paths": 0,
-    "verified_control_paths": 20
+    "unknown_control_paths": 20,
+    "verified_control_paths": 0
   },
   "tool_type_breakdown": [
     {
@@ -550,9 +550,9 @@
   "top_action_paths": [
     {
       "action_path_type": "agent_instruction_surface",
-      "control_resolution_state": "detected_control",
-      "location": "loc-6b4267e28a32",
-      "path_id": "path-f7ea11b281a1",
+      "control_resolution_state": "no_visible_control",
+      "location": "loc-fde10181ef1f",
+      "path_id": "path-f1c876900c71",
       "recommended_action": "control",
       "repo": "repo-e71d162b5169",
       "risk_zone": "external_egress",
@@ -560,9 +560,9 @@
     },
     {
       "action_path_type": "agent_instruction_surface",
-      "control_resolution_state": "detected_control",
-      "location": "loc-b964a904cea7",
-      "path_id": "path-87b357b9194b",
+      "control_resolution_state": "no_visible_control",
+      "location": "loc-37b2a756439e",
+      "path_id": "path-9fda68ffb932",
       "recommended_action": "control",
       "repo": "repo-bbde90294b6d",
       "risk_zone": "external_egress",
@@ -570,9 +570,9 @@
     },
     {
       "action_path_type": "ci_cd_workflow",
-      "control_resolution_state": "detected_control",
-      "location": "loc-a4978e022c20",
-      "path_id": "path-28553f6fa1bf",
+      "control_resolution_state": "no_visible_control",
+      "location": "loc-9e951e3f815c",
+      "path_id": "path-f949f607e6ba",
       "recommended_action": "proof",
       "repo": "repo-8970d41f8fa1",
       "risk_zone": "credential_bearing",
@@ -580,9 +580,9 @@
     },
     {
       "action_path_type": "agent_instruction_surface",
-      "control_resolution_state": "detected_control",
-      "location": "loc-f1cc49528d35",
-      "path_id": "path-ce3d97844a4d",
+      "control_resolution_state": "no_visible_control",
+      "location": "loc-ebb09dc97a1c",
+      "path_id": "path-b9eca67fe2b3",
       "recommended_action": "proof",
       "repo": "repo-8b08b69ec4bb",
       "risk_zone": "external_egress",
@@ -590,9 +590,9 @@
     },
     {
       "action_path_type": "agent_instruction_surface",
-      "control_resolution_state": "detected_control",
-      "location": "loc-348362f4c694",
-      "path_id": "path-741d452c639f",
+      "control_resolution_state": "no_visible_control",
+      "location": "loc-faad71d4cd35",
+      "path_id": "path-3c0d45b0525c",
       "recommended_action": "proof",
       "repo": "repo-e4eb0f9929f8",
       "risk_zone": "external_egress",
