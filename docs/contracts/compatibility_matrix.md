@@ -60,3 +60,10 @@ Ignore unknown optional fields, but fail on missing required fields and schema v
 ### How do I pin compatibility in CI pipelines?
 
 Validate exported artifacts against the intended schema version and assert expected exit-code behavior for contract-critical commands. For Action Contract interoperability, run `scripts/generate_action_contract_conformance.sh --check`, then configure the external Gait/Axym consumer entrypoints and run `scripts/test_action_contract_interop.sh`. Missing consumers return dependency-missing exit `7`; a Wrkr-local stub is not a passing release receipt.
+
+## Additive execution-truth contracts
+
+- `credential_authority` adds typed evidence stage, existence, binding, and lifetime state plus a separate lifetime kind. Existing booleans remain readable compatibility projections; old untyped state cannot promote a confirmed standing-authority claim.
+- `execution_relationships[]` adds stable typed relationship IDs, caller/callee, origin, resolution state, confidence, evidence refs, and truncation reasons.
+- `scan_quality_version=2` adds detector-owned surface coverage and a reconciliation ledger. Readers must continue accepting v1 and ignore unknown additive v2 fields.
+- `policy/execution-topology.schema.json` is a new optional local input. It does not change existing command behavior when omitted.

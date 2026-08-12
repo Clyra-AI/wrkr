@@ -5,11 +5,78 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
+	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/ingest"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
+
+func TestPublicAndCustomRedactionSanitizeExecutionRelationshipsRecursively(t *testing.T) {
+	t.Parallel()
+
+	relationship := model.ExecutionRelationship{
+		RelationshipID:  "rel-private",
+		Kind:            "github_reusable_workflow",
+		Caller:          "private/repo/.github/workflows/caller.yml",
+		Callee:          "private/shared/.github/workflows/release.yml",
+		Origin:          "private/shared/.github/workflows/release.yml",
+		ResolutionState: "resolved_declared",
+		Confidence:      "medium",
+		EvidenceRefs:    []string{"private/repo:.github/workflows/caller.yml"},
+	}
+	paths := []risk.ActionPath{{
+		PathID:                 "path-private",
+		ExecutionRelationships: []model.ExecutionRelationship{relationship},
+		ActionLineage:          &risk.ActionLineage{ExecutionRelationships: []model.ExecutionRelationship{relationship}},
+	}}
+
+	public := sanitizeActionPathsPublicWithContractRefs(paths, nil, nil)
+	custom := sanitizeActionPathsWithConfig(paths, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionRepos, RedactionPaths, RedactionGraphRefs, RedactionProofRefs}))
+	for name, sanitized := range map[string][]risk.ActionPath{"public": public, "custom": custom} {
+		payload, err := json.Marshal(sanitized)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(payload), "private/") || strings.Contains(string(payload), "rel-private") {
+			t.Fatalf("%s relationship redaction leaked private execution topology: %s", name, payload)
+		}
+	}
+}
+
+func TestRepositoryOnlyRedactionSanitizesCompositeExecutionLocations(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionRepos})
+	got := sanitizeExecutionRelationshipsWithConfig([]model.ExecutionRelationship{{
+		Kind: "github_reusable_workflow", Caller: ".github/workflows/caller.yml", Callee: "acme/shared:.github/workflows/release.yml", Origin: "acme/shared:.github/workflows/release.yml", ResolutionState: "resolved_declared", EvidenceRefs: []string{"execution_relationship:acme/shared:.github/workflows/release.yml"},
+	}}, config)
+	payload, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(payload), "acme/shared") {
+		t.Fatalf("repository-only redaction leaked topology repository: %s", payload)
+	}
+	if !strings.Contains(got[0].Callee, ":.github/workflows/release.yml") {
+		t.Fatalf("repository-only redaction should preserve the non-repository path: %+v", got[0])
+	}
+}
+
+func TestCustomRedactionSanitizesScanQualitySurfaceScopes(t *testing.T) {
+	t.Parallel()
+
+	input := &scanquality.Report{
+		AbsenceClaims:   []scanquality.AbsenceClaim{{Org: "private-org", Repo: "private-repo", Surface: "mcp", Status: "unknown"}},
+		SurfaceCoverage: []detect.SurfaceCoverage{{Org: "private-org", Repo: "private-repo", Surface: "ci", Detector: "ciagent"}},
+	}
+	redacted := sanitizeScanQualityWithConfig(input, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionRepos}))
+	if redacted.AbsenceClaims[0].Org == "private-org" || redacted.AbsenceClaims[0].Repo == "private-repo" || redacted.SurfaceCoverage[0].Org == "private-org" || redacted.SurfaceCoverage[0].Repo == "private-repo" {
+		t.Fatalf("custom repository redaction leaked scan-quality scope: %+v", redacted)
+	}
+}
 
 func TestSanitizeComposedActionPathsPublicKeepsTransitionStageRefsAligned(t *testing.T) {
 	t.Parallel()

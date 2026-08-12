@@ -132,6 +132,59 @@ func TestBuildControlBacklogSplitsSignalClassesAndSortsDeterministically(t *test
 	}
 }
 
+func TestMergeCredentialAuthorityPrefersKnownMetadata(t *testing.T) {
+	t.Parallel()
+
+	unknown := &agginventory.CredentialAuthority{
+		ExistenceEvidenceState: agginventory.AuthorityEvidenceUnknown,
+		BindingEvidenceState:   agginventory.AuthorityEvidenceUnknown,
+		LifetimeEvidenceState:  agginventory.AuthorityEvidenceUnknown,
+		LifetimeKind:           agginventory.CredentialLifetimeUnknown,
+		CredentialKind:         agginventory.CredentialKindUnknown,
+		AccessType:             agginventory.CredentialAccessTypeUnknown,
+	}
+	known := &agginventory.CredentialAuthority{
+		ExistenceEvidenceState:         agginventory.AuthorityEvidenceVerified,
+		BindingEvidenceState:           agginventory.AuthorityEvidenceVerified,
+		LifetimeEvidenceState:          agginventory.AuthorityEvidenceVerified,
+		LifetimeKind:                   agginventory.CredentialLifetimeStanding,
+		CredentialKind:                 agginventory.CredentialKindStaticSecret,
+		AccessType:                     agginventory.CredentialAccessTypeStanding,
+		CredentialReferencedByWorkflow: true,
+	}
+
+	merged := mergeCredentialAuthority(unknown, known)
+	if merged.LifetimeKind != agginventory.CredentialLifetimeStanding || merged.CredentialKind != agginventory.CredentialKindStaticSecret || merged.AccessType != agginventory.CredentialAccessTypeStanding {
+		t.Fatalf("known authority metadata was discarded by an earlier unknown value: %+v", merged)
+	}
+}
+
+func TestMergeCredentialAuthorityRejectsConflictingKnownLifetimes(t *testing.T) {
+	t.Parallel()
+
+	base := &agginventory.CredentialAuthority{
+		EvidenceStage:          agginventory.EvidenceStageEffectiveAuthority,
+		ExistenceEvidenceState: agginventory.AuthorityEvidenceVerified,
+		BindingEvidenceState:   agginventory.AuthorityEvidenceVerified,
+		CredentialKind:         agginventory.CredentialKindStaticSecret,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+	}
+	standing := agginventory.CloneCredentialAuthority(base)
+	standing.LifetimeKind = agginventory.CredentialLifetimeStanding
+	standing.LifetimeEvidenceState = agginventory.AuthorityEvidenceDeclared
+	jit := agginventory.CloneCredentialAuthority(base)
+	jit.LifetimeKind = agginventory.CredentialLifetimeJIT
+	jit.LifetimeEvidenceState = agginventory.AuthorityEvidenceVerified
+
+	merged := mergeCredentialAuthority(standing, jit)
+	if merged.LifetimeKind != agginventory.CredentialLifetimeUnknown || merged.LifetimeEvidenceState != agginventory.AuthorityEvidenceContradictory {
+		t.Fatalf("conflicting lifetime records must fail closed: %+v", merged)
+	}
+	if agginventory.EffectiveStandingAuthority(merged) {
+		t.Fatalf("conflicting lifetime records must not synthesize standing authority: %+v", merged)
+	}
+}
+
 func TestWritePathClassifiesPRWriteSecretBearingWorkflow(t *testing.T) {
 	t.Parallel()
 

@@ -73,6 +73,31 @@ func TestFreezeGateRunnerRejectsSourceChangedAfterReceipt(t *testing.T) {
 	}
 }
 
+func TestFreezeGateRunnerHashesDirtyTrackedDeletionAsCommittedAbsence(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot, receiptPath := initializeFreezeGateFixture(t)
+	if err := os.Remove(filepath.Join(fixtureRoot, "guarded.txt")); err != nil {
+		t.Fatalf("remove guarded source: %v", err)
+	}
+	digest := strings.TrimSpace(runFreezeGateCommand(t, fixtureRoot,
+		"--receipt", receiptPath,
+		"--print-content-digest",
+	))
+	if digest == "" {
+		t.Fatal("expected digest for dirty tracked deletion")
+	}
+	runGitForFreezeGate(t, fixtureRoot, "add", "-u")
+	runGitForFreezeGate(t, fixtureRoot, "commit", "-q", "-m", "delete guarded source")
+	committedDigest := strings.TrimSpace(runFreezeGateCommand(t, fixtureRoot,
+		"--receipt", receiptPath,
+		"--print-content-digest",
+	))
+	if digest != committedDigest {
+		t.Fatalf("dirty deletion digest must equal committed absence: dirty=%s committed=%s", digest, committedDigest)
+	}
+}
+
 func initializeFreezeGateFixture(t *testing.T) (string, string) {
 	t.Helper()
 
@@ -83,15 +108,23 @@ func initializeFreezeGateFixture(t *testing.T) (string, string) {
 	if err := os.WriteFile(filepath.Join(root, "guarded.txt"), guardedContent, 0o644); err != nil {
 		t.Fatalf("write guarded source: %v", err)
 	}
+	stableContent := []byte("stable source\n")
+	if err := os.WriteFile(filepath.Join(root, "stable.txt"), stableContent, 0o644); err != nil {
+		t.Fatalf("write stable source: %v", err)
+	}
 	digest := sha256.New()
 	_, _ = digest.Write([]byte("guarded.txt"))
 	_, _ = digest.Write([]byte{0})
 	_, _ = digest.Write(guardedContent)
 	_, _ = digest.Write([]byte{0})
+	_, _ = digest.Write([]byte("stable.txt"))
+	_, _ = digest.Write([]byte{0})
+	_, _ = digest.Write(stableContent)
+	_, _ = digest.Write([]byte{0})
 	receipt := map[string]any{
 		"validation_contract_version": 2,
 		"validated_content_sha256":    hex.EncodeToString(digest.Sum(nil)),
-		"validation_scope_paths":      []string{"guarded.txt"},
+		"validation_scope_paths":      []string{"guarded.txt", "stable.txt"},
 		"status":                      "green",
 		"artifact_size_deltas": []map[string]any{{
 			"artifact":           "fixture",
@@ -121,7 +154,7 @@ func initializeFreezeGateFixture(t *testing.T) (string, string) {
 	runGitForFreezeGate(t, root, "init", "-q")
 	runGitForFreezeGate(t, root, "config", "user.name", "Freeze Gate Test")
 	runGitForFreezeGate(t, root, "config", "user.email", "freeze-gate@example.test")
-	runGitForFreezeGate(t, root, "add", "go.mod", "gate_test.go", "guarded.txt", "receipt.json")
+	runGitForFreezeGate(t, root, "add", "go.mod", "gate_test.go", "guarded.txt", "stable.txt", "receipt.json")
 	runGitForFreezeGate(t, root, "commit", "-q", "-m", "fixture")
 	return root, receiptPath
 }
@@ -138,6 +171,15 @@ func runFreezeGate(t *testing.T, fixtureRoot string, args ...string) (string, st
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	return stdout.String(), stderr.String(), err
+}
+
+func runFreezeGateCommand(t *testing.T, fixtureRoot string, args ...string) string {
+	t.Helper()
+	stdout, stderr, err := runFreezeGate(t, fixtureRoot, args...)
+	if err != nil {
+		t.Fatalf("freeze gate command failed: %v stdout=%q stderr=%q", err, stdout, stderr)
+	}
+	return stdout
 }
 
 func runGitForFreezeGate(t *testing.T, root string, args ...string) string {

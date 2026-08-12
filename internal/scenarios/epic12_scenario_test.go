@@ -43,14 +43,21 @@ func TestScenario_AgentRelationshipCorrelation(t *testing.T) {
 	if !ok || len(agents) == 0 {
 		t.Fatalf("expected inventory.agents entries, got %v", inventory["agents"])
 	}
-	firstAgent, ok := agents[0].(map[string]any)
-	if !ok {
-		t.Fatalf("unexpected inventory agent shape: %T", agents[0])
+	var mcpAgent map[string]any
+	for _, raw := range agents {
+		agent, ok := raw.(map[string]any)
+		if ok && agent["framework"] == "mcp_client" && agent["symbol"] == "release_coordinator" {
+			mcpAgent = agent
+			break
+		}
 	}
-	if firstAgent["deployment_status"] != "deployed" {
-		t.Fatalf("expected deployment_status=deployed, got %v", firstAgent["deployment_status"])
+	if mcpAgent == nil {
+		t.Fatalf("expected release_coordinator MCP agent, got %v", agents)
 	}
-	boundTools := toStringSlice(firstAgent["bound_tools"])
+	if mcpAgent["deployment_status"] != "deployed" {
+		t.Fatalf("expected deployment_status=deployed, got %v", mcpAgent["deployment_status"])
+	}
+	boundTools := toStringSlice(mcpAgent["bound_tools"])
 	for _, required := range []string{"mcp.server.deploy", "shell.exec"} {
 		if !slices.Contains(boundTools, required) {
 			t.Fatalf("expected bound tool %q in %v", required, boundTools)

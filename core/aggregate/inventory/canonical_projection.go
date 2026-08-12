@@ -273,7 +273,9 @@ func HydrateCanonicalProjectionDetails(in *Inventory) {
 		if len(entry.MutableEndpointSemantics) == 0 && len(entry.MutableEndpointSemanticRefs) > 0 {
 			entry.MutableEndpointSemantics = resolver.ResolveMutableEndpointSemantics(entry.MutableEndpointSemanticRefs, nil)
 		}
-		if entry.CredentialAuthority == nil && strings.TrimSpace(entry.CredentialAuthorityRef) != "" {
+		if entry.CredentialAuthority != nil {
+			entry.CredentialAuthority = NormalizeCredentialAuthority(entry.CredentialAuthority)
+		} else if strings.TrimSpace(entry.CredentialAuthorityRef) != "" {
 			entry.CredentialAuthority = resolver.ResolveCredentialAuthority(entry.CredentialAuthorityRef, nil)
 		}
 		if len(entry.AuthorityBindings) == 0 && len(entry.AuthorityBindingRefs) > 0 {

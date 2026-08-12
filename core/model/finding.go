@@ -38,25 +38,38 @@ type LocationRange struct {
 	EndLine   int `json:"end_line"`
 }
 
+type ExecutionRelationship struct {
+	RelationshipID    string   `json:"relationship_id" yaml:"relationship_id"`
+	Kind              string   `json:"kind" yaml:"kind"`
+	Caller            string   `json:"caller" yaml:"caller"`
+	Callee            string   `json:"callee" yaml:"callee"`
+	Origin            string   `json:"origin" yaml:"origin"`
+	ResolutionState   string   `json:"resolution_state" yaml:"resolution_state"`
+	Confidence        string   `json:"confidence" yaml:"confidence"`
+	EvidenceRefs      []string `json:"evidence_refs,omitempty" yaml:"evidence_refs,omitempty"`
+	TruncationReasons []string `json:"truncation_reasons,omitempty" yaml:"truncation_reasons,omitempty"`
+}
+
 // Finding is the canonical detector/policy output contract.
 type Finding struct {
-	FindingType     string         `json:"finding_type"`
-	RuleID          string         `json:"rule_id,omitempty"`
-	CheckResult     string         `json:"check_result,omitempty"`
-	PolicyOutcomeID string         `json:"policy_outcome_id,omitempty"`
-	Severity        string         `json:"severity"`
-	DiscoveryMethod string         `json:"discovery_method"`
-	Remediation     string         `json:"remediation,omitempty"`
-	ToolType        string         `json:"tool_type"`
-	Location        string         `json:"location"`
-	LocationRange   *LocationRange `json:"location_range,omitempty"`
-	Repo            string         `json:"repo,omitempty"`
-	Org             string         `json:"org"`
-	Detector        string         `json:"detector,omitempty"`
-	Permissions     []string       `json:"permissions,omitempty"`
-	Autonomy        string         `json:"autonomy,omitempty"`
-	Evidence        []Evidence     `json:"evidence,omitempty"`
-	ParseError      *ParseError    `json:"parse_error,omitempty"`
+	FindingType            string                  `json:"finding_type"`
+	RuleID                 string                  `json:"rule_id,omitempty"`
+	CheckResult            string                  `json:"check_result,omitempty"`
+	PolicyOutcomeID        string                  `json:"policy_outcome_id,omitempty"`
+	Severity               string                  `json:"severity"`
+	DiscoveryMethod        string                  `json:"discovery_method"`
+	Remediation            string                  `json:"remediation,omitempty"`
+	ToolType               string                  `json:"tool_type"`
+	Location               string                  `json:"location"`
+	LocationRange          *LocationRange          `json:"location_range,omitempty"`
+	Repo                   string                  `json:"repo,omitempty"`
+	Org                    string                  `json:"org"`
+	Detector               string                  `json:"detector,omitempty"`
+	Permissions            []string                `json:"permissions,omitempty"`
+	Autonomy               string                  `json:"autonomy,omitempty"`
+	Evidence               []Evidence              `json:"evidence,omitempty"`
+	ExecutionRelationships []ExecutionRelationship `json:"execution_relationships,omitempty"`
+	ParseError             *ParseError             `json:"parse_error,omitempty"`
 }
 
 func NormalizeFinding(item Finding) Finding {
@@ -76,6 +89,7 @@ func NormalizeFinding(item Finding) Finding {
 	item.Autonomy = strings.TrimSpace(item.Autonomy)
 	item.Permissions = normalizeStrings(item.Permissions)
 	item.Evidence = normalizeEvidence(item.Evidence)
+	item.ExecutionRelationships = NormalizeExecutionRelationships(item.ExecutionRelationships)
 	if item.ParseError != nil {
 		item.ParseError.Kind = strings.TrimSpace(item.ParseError.Kind)
 		item.ParseError.Format = strings.TrimSpace(item.ParseError.Format)
@@ -84,6 +98,43 @@ func NormalizeFinding(item Finding) Finding {
 		item.ParseError.Message = strings.TrimSpace(item.ParseError.Message)
 	}
 	return item
+}
+
+func NormalizeExecutionRelationships(in []ExecutionRelationship) []ExecutionRelationship {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]ExecutionRelationship, 0, len(in))
+	seen := map[string]struct{}{}
+	for _, item := range in {
+		item.RelationshipID = strings.TrimSpace(item.RelationshipID)
+		item.Kind = strings.TrimSpace(item.Kind)
+		item.Caller = strings.TrimSpace(item.Caller)
+		item.Callee = strings.TrimSpace(item.Callee)
+		item.Origin = strings.TrimSpace(item.Origin)
+		item.ResolutionState = strings.TrimSpace(item.ResolutionState)
+		item.Confidence = strings.TrimSpace(item.Confidence)
+		item.EvidenceRefs = normalizeStrings(item.EvidenceRefs)
+		item.TruncationReasons = normalizeStrings(item.TruncationReasons)
+		if item.Kind == "" || item.Caller == "" || item.Callee == "" || item.ResolutionState == "" {
+			continue
+		}
+		key := strings.Join([]string{item.RelationshipID, item.Kind, item.Caller, item.Callee, item.Origin, item.ResolutionState}, "|")
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left := strings.Join([]string{out[i].RelationshipID, out[i].Kind, out[i].Caller, out[i].Callee, out[i].ResolutionState}, "|")
+		right := strings.Join([]string{out[j].RelationshipID, out[j].Kind, out[j].Caller, out[j].Callee, out[j].ResolutionState}, "|")
+		return left < right
+	})
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func SortFindings(findings []Finding) {

@@ -90,6 +90,29 @@ func TestScanJSONOrgProgressEmitsToStderrOnly(t *testing.T) {
 	}
 }
 
+func TestSynchronizedScanWriterPreservesProgressProviders(t *testing.T) {
+	t.Parallel()
+
+	underlying := &liveBuffer{
+		capabilities:      scanProgressCapabilities{Interactive: true, SupportsBar: true},
+		heartbeatInterval: 25 * time.Millisecond,
+	}
+	expectedCapabilities := detectScanProgressCapabilities(underlying)
+	wrapped := newSynchronizedScanWriter(underlying)
+	if got := detectScanProgressCapabilities(wrapped); got != expectedCapabilities {
+		t.Fatalf("capabilities changed through synchronized writer: got %+v want %+v", got, expectedCapabilities)
+	}
+	if got := scanProgressHeartbeatInterval(wrapped); got != underlying.heartbeatInterval {
+		t.Fatalf("heartbeat interval changed through synchronized writer: got %s want %s", got, underlying.heartbeatInterval)
+	}
+	if _, err := wrapped.Write([]byte("progress\n")); err != nil {
+		t.Fatal(err)
+	}
+	if got := underlying.String(); got != "progress\n" {
+		t.Fatalf("unexpected synchronized output %q", got)
+	}
+}
+
 func TestHostedProgressPendingAfterFailedMaterialization(t *testing.T) {
 	t.Parallel()
 

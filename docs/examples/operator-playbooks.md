@@ -166,3 +166,9 @@ Use lifecycle transitions and proof-chain history to track approval and revocati
 - FR13: posture score
 
 Reference scenario suites in `internal/scenarios/` and coverage mapping in `internal/scenarios/coverage_map.json`.
+
+## External execution topology
+
+Use `--execution-topology` when a local source reference depends on registration outside the selected repositories. Typical examples are Jenkins global shared-library aliases and API gateway/runtime registrations. Keep the file local, versioned, reviewable, and secret-free. A mapping advances relationship resolution to `resolved_declared`; it does not advance runtime or control evidence.
+
+Jenkins analysis is static and bounded. Wrkr recognizes direct credentials, SSH agents, approvals, shared-library aliases, and resolvable local loads. It never executes Groovy or contacts a Jenkins controller. Dynamic interpolation, unmapped aliases, cycles, and depth/fanout limits remain unresolved with explicit reason codes.

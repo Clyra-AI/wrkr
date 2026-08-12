@@ -12,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -95,6 +96,7 @@ func sanitizeActionPathsWithConfigAndContractRefs(in []risk.ActionPath, config R
 		copyItem.ReviewRationale = maybeRedactCompositeLabel(copyItem.ReviewRationale, config)
 		copyItem.ConfigSource = maybeRedactLocationLike(copyItem.ConfigSource, config)
 		copyItem.OccurrenceRefs = maybeRedactStringSlice(copyItem.OccurrenceRefs, "path", config.Has(RedactionPaths) || config.Has(RedactionRepos))
+		copyItem.ExecutionRelationships = sanitizeExecutionRelationshipsWithConfig(copyItem.ExecutionRelationships, config)
 		copyItem.AttackPathRefs = maybeRedactStringSlice(copyItem.AttackPathRefs, "attack", config.Has(RedactionGraphRefs))
 		copyItem.SourceFindingKeys = maybeRedactStringSlice(copyItem.SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
 		copyItem.ControlEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.ControlEvidenceRefs, config)
@@ -965,6 +967,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].ReviewRationale = maybeRedactCompositeLabel(copyBOM.Items[idx].ReviewRationale, config)
 		copyBOM.Items[idx].ConfigSource = maybeRedactLocationLike(copyBOM.Items[idx].ConfigSource, config)
 		copyBOM.Items[idx].OccurrenceRefs = maybeRedactStringSlice(copyBOM.Items[idx].OccurrenceRefs, "path", config.Has(RedactionPaths) || config.Has(RedactionRepos))
+		copyBOM.Items[idx].ExecutionRelationships = sanitizeExecutionRelationshipsWithConfig(copyBOM.Items[idx].ExecutionRelationships, config)
 		copyBOM.Items[idx].ProofRefs = maybeRedactStringSlice(copyBOM.Items[idx].ProofRefs, "proof", config.Has(RedactionProofRefs))
 		copyBOM.Items[idx].RuntimeSessionRefs = maybeRedactStringSlice(copyBOM.Items[idx].RuntimeSessionRefs, "session", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		for itemIdx := range copyBOM.Items[idx].ObservedChangedFiles {
@@ -1445,6 +1448,7 @@ func sanitizeActionLineageWithConfig(in *risk.ActionLineage, config RedactionCon
 		return nil
 	}
 	copyLineage := risk.CloneActionLineage(in)
+	copyLineage.ExecutionRelationships = sanitizeExecutionRelationshipsWithConfig(copyLineage.ExecutionRelationships, config)
 	for idx := range copyLineage.Segments {
 		if config.Has(RedactionGraphRefs) {
 			copyLineage.Segments[idx].SegmentID = redactValue("segment", copyLineage.Segments[idx].SegmentID, 8)
@@ -1459,6 +1463,45 @@ func sanitizeActionLineageWithConfig(in *risk.ActionLineage, config RedactionCon
 		copyLineage.Segments[idx].Label = maybeRedactCompositeLabel(copyLineage.Segments[idx].Label, config)
 	}
 	return copyLineage
+}
+
+func sanitizeExecutionRelationshipsWithConfig(in []model.ExecutionRelationship, config RedactionConfig) []model.ExecutionRelationship {
+	out := model.NormalizeExecutionRelationships(in)
+	for idx := range out {
+		if config.Has(RedactionGraphRefs) {
+			out[idx].RelationshipID = redactValue("relationship", out[idx].RelationshipID, 8)
+		}
+		out[idx].Caller = maybeRedactExecutionLocation(out[idx].Caller, config)
+		out[idx].Callee = maybeRedactExecutionLocation(out[idx].Callee, config)
+		out[idx].Origin = maybeRedactExecutionOrigin(out[idx].Origin, config)
+		out[idx].EvidenceRefs = maybeRedactStringSlice(out[idx].EvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionRepos) || config.Has(RedactionPaths))
+		out[idx].TruncationReasons = cloneStrings(out[idx].TruncationReasons)
+	}
+	return out
+}
+
+func maybeRedactExecutionOrigin(value string, config RedactionConfig) string {
+	switch strings.TrimSpace(value) {
+	case "source_declared", "customer_topology", "resolver_receipt":
+		return strings.TrimSpace(value)
+	default:
+		return maybeRedactExecutionLocation(value, config)
+	}
+}
+
+func maybeRedactExecutionLocation(value string, config RedactionConfig) string {
+	value = maybeRedactFilesystemValue(value, config)
+	if config.Has(RedactionPaths) {
+		return redactValue("loc", value, 8)
+	}
+	if !config.Has(RedactionRepos) {
+		return strings.TrimSpace(value)
+	}
+	parts := strings.SplitN(strings.TrimSpace(value), ":", 2)
+	if len(parts) == 2 && strings.TrimSpace(parts[0]) != "" {
+		return redactValue("repo", parts[0], 6) + ":" + parts[1]
+	}
+	return redactValue("loc", value, 8)
 }
 
 func sanitizeScanQualityWithConfig(in *scanquality.Report, config RedactionConfig) *scanquality.Report {
@@ -1483,6 +1526,14 @@ func sanitizeScanQualityWithConfig(in *scanquality.Report, config RedactionConfi
 	for idx := range copyReport.DetectorErrors {
 		copyReport.DetectorErrors[idx].Org = maybeRedactOrg(copyReport.DetectorErrors[idx].Org, config)
 		copyReport.DetectorErrors[idx].Repo = maybeRedactRepo(copyReport.DetectorErrors[idx].Repo, config)
+	}
+	for idx := range copyReport.AbsenceClaims {
+		copyReport.AbsenceClaims[idx].Org = maybeRedactOrg(copyReport.AbsenceClaims[idx].Org, config)
+		copyReport.AbsenceClaims[idx].Repo = maybeRedactRepo(copyReport.AbsenceClaims[idx].Repo, config)
+	}
+	for idx := range copyReport.SurfaceCoverage {
+		copyReport.SurfaceCoverage[idx].Org = maybeRedactOrg(copyReport.SurfaceCoverage[idx].Org, config)
+		copyReport.SurfaceCoverage[idx].Repo = maybeRedactRepo(copyReport.SurfaceCoverage[idx].Repo, config)
 	}
 	return copyReport
 }

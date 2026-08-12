@@ -7,10 +7,6 @@
 ## Executive Rollup
 
 - Summary: 13 grouped exposures across 20 action paths.
-- credential access with target scope production impacting: 1 path; critical severity; review queue priority; remediate closure.
-  Evidence: confirmed path: action path detected, single repository scope; inferred relationship: owner inferred, production impact from built-in heuristics; unresolved context: evidence state unknown; contradictions consistent. Examples: path-31990a09.
-  Recommendation: replace or reduce standing credential authority on these paths first.
-  Rationale: 1 credential access path grouped by production impacting and unknown evidence | closure: remediate repo cluster: single repo credential authority: standing.
 - deploy with target scope developer productivity: 2 paths; critical severity; control first priority; remediate closure.
   Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred, production impact from built-in heuristics; unresolved context: evidence state unknown; contradictions consistent. Examples: path-2f2bda2d, path-31e098e8.
   Recommendation: resolve credential authority, then remediate the highest-impact paths first.
@@ -27,6 +23,10 @@
   Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-049802e2, path-fa61c8c4.
   Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
   Rationale: 2 read paths grouped by unknown and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
+- read with target scope test demo sandbox: 2 paths; high severity; review queue priority; attach evidence closure.
+  Evidence: confirmed path: single repository scope; inferred relationship: action relationship, owner inferred; unresolved context: evidence state unknown; contradictions consistent. Examples: path-45689901, path-e20cb15e.
+  Recommendation: attach or import approval, proof, or runtime evidence before making a control claim.
+  Rationale: 2 read paths grouped by test demo sandbox and unknown evidence | closure: attach evidence repo cluster: single repo credential authority: unknown.
 - 8 additional exposure groups are retained in the JSON evidence and appendix exports.
 
 ## Workflow Chain Highlights
@@ -43,11 +43,11 @@
   Evidence: approval evidence not observed in this scan or imported evidence; path-specific proof not observed in this scan or imported evidence; runtime evidence not observed in this scan or imported evidence; session not collected; control evidence not observed in this scan or imported evidence; owner evidence inferred; insufficient evidence coverage.
   Recommendation: attach scoped approval evidence for this agent instruction surface before allowing deploy/egress/execute against developer-productivity systems.
   Explanation: The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- Path path-31990a09: CI/CD workflow in repo-eb0de2 via loc-415e1600; target production impacting; autonomy prod or customer impacting; readiness blocked.
-  Authority: credential-9d82507e | workflow | standing; blast radius production impacting authority; boundary report only.
+- Path path-31990a09: CI/CD workflow in repo-eb0de2 via loc-415e1600; target production impacting; autonomy prod or customer impacting; readiness review required.
+  Authority: credential-9d82507e | workflow; blast radius production impacting authority; boundary report only.
   Evidence: approval evidence not observed in this scan or imported evidence; path-specific proof not observed in this scan or imported evidence; runtime evidence not observed in this scan or imported evidence; session not collected; control evidence not observed in this scan or imported evidence; owner evidence inferred; insufficient evidence coverage.
-  Recommendation: replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access.
-  Explanation: This path is already blocked with standing credential metadata, so replacement or JIT reduction should lead before correlation work.
+  Recommendation: attach scoped approval evidence for this CI/CD workflow path before allowing credential_access/execute/read against production-impacting targets.
+  Explanation: The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
 - Path path-445e7c6c: agent instruction surface in repo-10e08a via loc-d5d3368a; target unknown; autonomy sensitive code or infra; readiness review required.
   Authority: no credential authority linked; blast radius unknown; boundary report only.
   Evidence: approval evidence not observed in this scan or imported evidence; path-specific proof not observed in this scan or imported evidence; runtime evidence not observed in this scan or imported evidence; session not collected; control evidence not observed in this scan or imported evidence; owner evidence inferred; insufficient evidence coverage.
@@ -102,9 +102,20 @@
 ## Scan Quality
 
 - Mode: governance
-- Coverage summary: confidence=complete reduced_detectors=0 parse_failures=0 suppressed_generated_files=0 blocked_detectors=0 unsupported_declarations=0 impact=Coverage for scanned inputs was complete enough to support scoped negative claims.
-- mcp_server absence_status=not_found_with_complete_coverage across 2 repo(s) reasons=detector:mcp=complete,detector:webmcp=complete,mcp:no_candidate_inputs,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
-- mcp_server absence_status=not_found_with_complete_coverage reasons=detector:mcp=complete,detector:webmcp=complete,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
+- Coverage summary: confidence=complete reduced_detectors=0 parse_failures=0 suppressed_generated_files=5 blocked_detectors=0 unsupported_declarations=0 impact=Coverage for scanned inputs was complete enough to support scoped negative claims.
+- Evidence receipt: observed=135 findings; normalized=21 facts; bound=0 bindings; confirmed=1 paths; candidate=16 paths; unresolved=3 paths; ledger_valid=false
+- Surface api specification: discovered=0 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface mcp server: discovered=2 files selected=2 files parsed=2 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface non human identity: discovered=2 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface webmcp: discovered=0 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface api specification: discovered=0 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface mcp server: discovered=1 files selected=1 files parsed=1 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface non human identity: discovered=0 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface webmcp: discovered=0 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface api specification: discovered=0 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface mcp server: discovered=0 files selected=0 files parsed=0 files partial=0 unsupported=0 resolved=0 relationships unresolved=0 relationships
+- Surface details: 11 additional receipt(s) remain in JSON.
+- mcp_server absence_status=not_found_with_complete_coverage across 3 repo(s) reasons=detector:mcp=complete,detector:webmcp=complete impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
 
 ## Control Backlog
 
@@ -115,10 +126,6 @@
 - repo-0f9c7c loc-f32a51ab owner=owner-1cb36bca queue=control_first visibility=primary action=remediate sla=7d closure=Assign explicit owner evidence for this instruction surface and attach a linked owner record before approving or expanding it. remediation=Attach the missing policy or proof reference for this exact instruction surface and rescan so governance coverage is no longer inferred from the global chain.
   completeness=insufficient evidence coverage(47)
   closure_requirements=clr-dd3d2bfb:Assign explicit owner evidence for this instruction surface and attach a linked owner record before approving or expanding it. | clr-82c20c33:Attach approval evidence for this exact instruction surface with scope and expiry before treating it as governed. | clr-6e629ae6:Attach a path-specific policy or proof reference for this exact instruction surface and rescan so proof is no longer inferred or absent. | clr-a8c0516b:Prove the deployment or branch-protection constraint for this path before treating delivery controls as verified. | clr-879c7a9f:Collect runtime evidence for this instruction surface and correlate it back to the saved path before treating runtime claims as verified.
-  lifecycle_queue=approval_evidence_not_found severity=high credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
-- repo-eb0de2 loc-415e1600 owner=owner-80965586 queue=control_first visibility=primary action=remediate sla=7d closure=Assign explicit owner evidence for this workflow path and attach a linked owner record before approving or expanding it. remediation=Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius.
-  completeness=insufficient evidence coverage(49)
-  closure_requirements=clr-469eb423:Assign explicit owner evidence for this workflow path and attach a linked owner record before approving or expanding it. | clr-0d765f48:Collect runtime evidence for this workflow path and correlate it back to the saved path before treating runtime claims as verified. | clr-5f624338:Prove the deployment or branch-protection constraint for this path before treating delivery controls as verified. | clr-905d4fce:Attach approval evidence for this exact workflow path with scope and expiry before treating it as governed. | clr-3b2f2d68:Attach a path-specific policy or proof reference for this exact workflow path and rescan so proof is no longer inferred or absent.
   lifecycle_queue=approval_evidence_not_found severity=high credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
 - repo-10e08a loc-e026f56c owner=owner-c115ecf5 queue=control_first visibility=primary action=attach_evidence sla=14d closure=Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. remediation=Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.
   completeness=insufficient evidence coverage(48)
@@ -148,43 +155,57 @@
   completeness=insufficient evidence coverage(45)
   closure_requirements=clr-18a11361:Assign explicit owner evidence for this instruction surface and attach a linked owner record before approving or expanding it. | clr-3f80bca6:Attach approval evidence for this exact instruction surface with scope and expiry before treating it as governed. | clr-d05b814c:Attach a path-specific policy or proof reference for this exact instruction surface and rescan so proof is no longer inferred or absent. | clr-1b9565c2:Collect runtime evidence for this instruction surface and correlate it back to the saved path before treating runtime claims as verified.
   lifecycle_queue=approval_evidence_not_found severity=medium credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
+- repo-8b2df8 loc-d7e67997 owner=owner-abe8a52e queue=control_first visibility=primary action=attach_evidence sla=14d closure=Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. remediation=Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.
+  completeness=insufficient evidence coverage(46)
+  closure_requirements=clr-b26fea82:Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. | clr-5cea0e3f:Attach approval evidence for this exact path with scope and expiry before treating it as governed. | clr-b6f09a3d:Attach a path-specific policy or proof reference for this exact path and rescan so proof is no longer inferred or absent. | clr-f00e0000:Collect runtime evidence for this path and correlate it back to the saved path before treating runtime claims as verified.
+  lifecycle_queue=approval_evidence_not_found severity=medium credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
 
 ## Scan Quality Appendix
 
 - mcp status=complete attempted=2 parsed=2 partial=0 suppressed=0 failures=0 reasons=
-- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
+- nonhumanidentity status=reduced attempted=0 parsed=0 partial=0 suppressed=2 failures=0 reasons=
+- openapi status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
 - dependency status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
 - mcp status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
-- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
-- mcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
-- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
+- nonhumanidentity status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- openapi status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- mcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- nonhumanidentity status=reduced attempted=0 parsed=0 partial=0 suppressed=1 failures=0 reasons=
+- openapi status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
 - mcp status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
-- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
+- nonhumanidentity status=reduced attempted=0 parsed=0 partial=0 suppressed=2 failures=0 reasons=
+- openapi status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
 - ciagent status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
-- mcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
-- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
+- mcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- nonhumanidentity status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
+- openapi status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
+- webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=
 
 ## CISO control backlog summary (headline_posture)
 
 - posture score 51.98 (F)
 - profile status fail at 43.75%
-- tools=20 write_capable=3 credential_access=1 exec_capable=5
+- tools=21 write_capable=3 credential_access=1 exec_capable=5
 - bundled framework mappings stay available; profile compliance reflects only controls evidenced in the current deterministic scan state
 - report scope stays at static posture and offline-verifiable proof; it does not claim runtime observation or control-layer enforcement
-- security_visibility reference=initial_scan unknown_to_security_tools=20 unknown_to_security_agents=20 unknown_to_security_write_capable_agents=3
+- security_visibility reference=initial_scan unknown_to_security_tools=21 unknown_to_security_agents=21 unknown_to_security_write_capable_agents=3
 - 22 findings map to EU Artificial Intelligence Act ARTICLE-12 (Record-Keeping)
 - 32 findings map to EU Artificial Intelligence Act ARTICLE-14 (Human Oversight)
 - coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts
 - production targets builtin_inferred; default claim scope is write_capable=3
 - source_privacy deployment_mode=local_only retention=ephemeral retained=false raw_source_in_artifacts=false serialized_locations=filesystem cleanup_status=not_applicable
-- control_path_graph version=1 nodes=546 edges=508
+- control_path_graph version=1 nodes=563 edges=559
 - control_path_graph nodes[action_capability]=23
 - control_path_graph nodes[agent]=20
 - control_path_graph nodes[agent_team]=20
 - control_path_graph nodes[approval_identity]=20
 - control_path_graph nodes[asset_identity]=20
 - control_path_graph nodes[control_path]=20
-- control_path_graph nodes[credential]=1
+- control_path_graph nodes[credential]=18
 - control_path_graph nodes[deployment_path]=20
 - control_path_graph nodes[evidence_identity]=20
 - control_path_graph nodes[execution_identity]=20
@@ -204,10 +225,10 @@
 - control_path_graph edges[agent_team_uses_tool]=20
 - control_path_graph edges[approval_authorizes_deploy]=20
 - control_path_graph edges[checks_gate_approval]=20
-- control_path_graph edges[credential_authorizes_workflow]=1
+- control_path_graph edges[credential_authorizes_workflow]=18
 - control_path_graph edges[deploy_affects_asset]=20
 - control_path_graph edges[evidence_proves_outcome]=20
-- control_path_graph edges[execution_uses_credential]=1
+- control_path_graph edges[execution_uses_credential]=18
 - control_path_graph edges[human_delegates_task]=20
 - control_path_graph edges[path_enables_action]=23
 - control_path_graph edges[path_executes_workflow]=20
@@ -219,26 +240,26 @@
 - control_path_graph edges[repo_produces_pull_request]=20
 - control_path_graph edges[request_to_human]=20
 - control_path_graph edges[task_executed_by_agent_team]=20
-- control_path_graph edges[tool_uses_credential]=1
+- control_path_graph edges[tool_uses_credential]=18
 - control_path_graph edges[workflow_changes_repo]=20
 - control_path_graph edges[workflow_in_repo]=20
 
 Impact: profile compliance is failing and introduces immediate governance risk
 Action: resolve failing or missing controls, regenerate evidence, and rerun scan with the same deterministic inputs
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=148
 
 ## Top governance control backlog items (top_prioritized_risks)
 
 - #1 8.20 likely_action_path [critical] lane=likely_action_path action=control state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-f27ac6f3
 - #2 8.20 likely_action_path [critical] lane=likely_action_path action=control state=approval_required zone=external_egress review=critical repo=repo-0f9c7c location=loc-f32a51ab
-- #3 10.00 confirmed_action_path [critical] lane=confirmed_action_path action=proof state=block_recommended zone=credential_bearing review=critical repo=repo-eb0de2 location=loc-415e1600
+- #3 10.00 confirmed_action_path [high] lane=confirmed_action_path action=proof state=approval_required zone=credential_bearing review=critical repo=repo-eb0de2 location=loc-415e1600
 - #4 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
 - #5 10.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
 - attack paths: none generated because the saved static graph did not include attack-path joins for the current high-impact action paths; review the governable action paths separately.
 
 Impact: top 5 risks concentrate the highest blast-radius findings
 Action: work highest score first and apply deterministic least-privilege remediation
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=148
 
 ## Risk and approval movement (change_since_previous)
 
@@ -248,11 +269,11 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 
 Impact: change deltas remain within expected deterministic variance
 Action: continue baseline comparison on every governance scan cadence
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=148
 
 ## Executive ownership and approval actions (lifecycle_actions)
 
-- identities=20 pending_action=40 under_review=0 revoked=0 deprecated=0
+- identities=21 pending_action=42 under_review=0 revoked=0 deprecated=0
 - gap approval_evidence_not_found severity=high repo=repo-10e08a location=loc-0db9f46c
 - gap approval_evidence_not_found severity=high repo=repo-10e08a location=loc-f27ac6f3
 - gap approval_evidence_not_found severity=high repo=repo-0f9c7c location=loc-f32a51ab
@@ -273,6 +294,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 - gap approval_evidence_not_found severity=medium repo=repo-1cf387 location=loc-315161dd
 - gap approval_evidence_not_found severity=medium repo=repo-1cf387 location=loc-e98d5093
 - gap approval_evidence_not_found severity=medium repo=repo-eb0de2 location=loc-227c2c26
+- gap approval_evidence_not_found severity=medium repo=repo-eb0de2 location=loc-415e1600
 - gap owner_inferred severity=medium repo=repo-10e08a location=loc-e026f56c
 - gap owner_inferred severity=medium repo=repo-10e08a location=loc-0db9f46c
 - gap owner_inferred severity=medium repo=repo-10e08a location=loc-f27ac6f3
@@ -293,36 +315,37 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
 - gap owner_inferred severity=medium repo=repo-1cf387 location=loc-e98d5093
 - gap owner_inferred severity=medium repo=repo-eb0de2 location=loc-227c2c26
 - gap owner_inferred severity=medium repo=repo-eb0de2 location=loc-415e1600
+- gap owner_inferred severity=medium repo=repo-eb0de2 location=loc-415e1600
 - transition agent-b5d97428 ->discovered (first_seen)
 - transition agent-7736d637 ->discovered (first_seen)
 - transition agent-897dbff8 ->discovered (first_seen)
 - transition agent-b29c45ca ->discovered (first_seen)
 - transition agent-2d482eed ->discovered (first_seen)
 
-Impact: 40 identities require lifecycle approval/review/revocation handling
+Impact: 42 identities require lifecycle approval/review/revocation handling
 Action: prioritize under_review and revoked identities before enabling additional autonomy
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=148
 
 ## Evidence and proof verification (proof_verification_footer)
 
 - chain_path=redacted://proof-chain.json
 - head_hash=sha256:demo-proof-head
-- record_count=146
+- record_count=148
 - record_type decision_trace=11
-- record_type lifecycle_transition=20
+- record_type lifecycle_transition=21
 - record_type risk_assessment=52
-- record_type scan_finding=63
+- record_type scan_finding=64
 
 Impact: proof chain references are attached for deterministic traceability
 Action: preserve chain path and head hash when distributing this artifact
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=148
 
 ## Next executive control actions (next_actions)
 
 - review govern-first path path-31e098e8 in repo-10e08a:loc-f27ac6f3 (action=control score=8.20)
-- review 40 lifecycle records requiring approval/review/revocation action
+- review 42 lifecycle records requiring approval/review/revocation action
 - verify proof chain integrity before sharing artifacts externally
 
 Impact: deterministic next actions focus operators on highest leverage controls
 Action: execute checklist items in order and rescan to confirm posture improvement
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=146
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=148

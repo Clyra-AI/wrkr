@@ -158,6 +158,10 @@ func TestScanQualityReportsReducedCoverageForParseFailures(t *testing.T) {
 	report := Build(Input{
 		Mode:   "governance",
 		Scopes: []detect.Scope{{Org: "acme", Repo: "app", Root: root}},
+		SurfaceCoverage: []detect.SurfaceCoverage{{
+			Surface: "webmcp", Org: "acme", Repo: "app", Detector: "webmcp",
+			Discovered: 1, Selected: 1, Attempted: 1, Partial: 1,
+		}},
 		Findings: []model.Finding{{
 			FindingType: "parse_error",
 			Location:    ".mcp.json",

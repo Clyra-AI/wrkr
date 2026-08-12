@@ -27,15 +27,40 @@ func IsLocalMachineScope(scope Scope) bool {
 
 // Options toggles optional detector behavior.
 type Options struct {
-	Enrich   bool
-	ScanMode string
-	Progress DetectorProgressReporter
+	Enrich            bool
+	ScanMode          string
+	Progress          DetectorProgressReporter
+	WorkflowCatalogs  map[string]any
+	ExecutionTopology any
 }
 
 // Detector emits canonical findings for one repo scope.
 type Detector interface {
 	ID() string
 	Detect(context.Context, Scope, Options) ([]model.Finding, error)
+}
+
+type SurfaceCoverage struct {
+	Surface       string   `json:"surface"`
+	Org           string   `json:"org,omitempty"`
+	Repo          string   `json:"repo,omitempty"`
+	Detector      string   `json:"detector"`
+	ParserVersion string   `json:"parser_version,omitempty"`
+	Discovered    int      `json:"discovered"`
+	Selected      int      `json:"selected"`
+	Attempted     int      `json:"attempted"`
+	Parsed        int      `json:"parsed"`
+	Partial       int      `json:"partial,omitempty"`
+	Unsupported   int      `json:"unsupported,omitempty"`
+	Suppressed    int      `json:"suppressed,omitempty"`
+	Resolved      int      `json:"resolved,omitempty"`
+	Unresolved    int      `json:"unresolved,omitempty"`
+	Findings      int      `json:"findings,omitempty"`
+	ReasonCodes   []string `json:"reason_codes,omitempty"`
+}
+
+type SurfaceCoverageReporter interface {
+	SurfaceCoverage(Scope, Options) []SurfaceCoverage
 }
 
 type DetectorProgressEvent struct {
@@ -68,8 +93,9 @@ type DetectorError struct {
 
 // RunResult contains deterministic findings and non-fatal detector errors.
 type RunResult struct {
-	Findings       []model.Finding `json:"findings"`
-	DetectorErrors []DetectorError `json:"detector_errors,omitempty"`
+	Findings        []model.Finding   `json:"findings"`
+	DetectorErrors  []DetectorError   `json:"detector_errors,omitempty"`
+	SurfaceCoverage []SurfaceCoverage `json:"surface_coverage,omitempty"`
 }
 
 func NewRegistry() *Registry {
@@ -113,10 +139,37 @@ func (r *Registry) Run(ctx context.Context, scopes []Scope, options Options) (Ru
 	}
 	sort.Strings(ids)
 
+	var result RunResult
+	var err error
 	if options.Progress == nil && len(sortedScopes) > 1 {
-		return r.runParallel(ctx, sortedScopes, ids, options)
+		result, err = r.runParallel(ctx, sortedScopes, ids, options)
+	} else {
+		result, err = r.runSerial(ctx, sortedScopes, ids, options)
 	}
-	return r.runSerial(ctx, sortedScopes, ids, options)
+	if err != nil {
+		return result, err
+	}
+	result.SurfaceCoverage = r.collectSurfaceCoverage(sortedScopes, ids, options)
+	return result, nil
+}
+
+func (r *Registry) collectSurfaceCoverage(scopes []Scope, ids []string, options Options) []SurfaceCoverage {
+	out := []SurfaceCoverage{}
+	for _, scope := range scopes {
+		for _, id := range ids {
+			reporter, ok := r.detectors[id].(SurfaceCoverageReporter)
+			if !ok {
+				continue
+			}
+			out = append(out, reporter.SurfaceCoverage(scope, options)...)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left := strings.Join([]string{out[i].Org, out[i].Repo, out[i].Surface, out[i].Detector}, "|")
+		right := strings.Join([]string{out[j].Org, out[j].Repo, out[j].Surface, out[j].Detector}, "|")
+		return left < right
+	})
+	return out
 }
 
 func (r *Registry) runSerial(ctx context.Context, sortedScopes []Scope, ids []string, options Options) (RunResult, error) {

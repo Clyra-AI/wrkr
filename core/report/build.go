@@ -358,6 +358,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
 	ApplySummaryCaps(&summary)
+	updateReportProjectionLedgers(&summary, rawActionPaths)
 	summary.ActionPaths = risk.StripCanonicalProjectionDetails(risk.BackfillCanonicalProjectionRefs(summary.ActionPaths, in.Snapshot.Inventory))
 	summary.ActionPathToControlFirst = risk.StripActionPathToControlFirstCanonicalProjectionDetails(
 		risk.BackfillActionPathToControlFirstCanonicalProjectionRefs(summary.ActionPathToControlFirst, in.Snapshot.Inventory),
@@ -365,6 +366,40 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	summary.SuppressedCounts = outputsignal.MergeSuppressedCounts(in.Snapshot.SuppressedCounts, summary.SuppressedCounts)
 
 	return summary, nil
+}
+
+func updateReportProjectionLedgers(summary *Summary, rawActionPaths []risk.ActionPath) {
+	if summary == nil {
+		return
+	}
+	totalEligiblePaths := countEligibleActionPaths(rawActionPaths)
+	displayedPaths := countEligibleActionPaths(summary.ActionPaths)
+	suppressedPaths := totalEligiblePaths - displayedPaths
+	scanquality.UpdateReportProjection(summary.ScanQuality, displayedPaths, suppressedPaths)
+	if summary.AgentActionBOM != nil {
+		displayedBOMItems := countEligibleAgentActionBOMItems(summary.AgentActionBOM.Items)
+		scanquality.UpdateReportProjection(summary.AgentActionBOM.ScanQuality, displayedBOMItems, totalEligiblePaths-displayedBOMItems)
+	}
+}
+
+func countEligibleActionPaths(paths []risk.ActionPath) int {
+	count := 0
+	for _, path := range paths {
+		if risk.IsActionPathEligible(path) {
+			count++
+		}
+	}
+	return count
+}
+
+func countEligibleAgentActionBOMItems(items []AgentActionBOMItem) int {
+	count := 0
+	for _, item := range items {
+		if item.ActionPathEligible {
+			count++
+		}
+	}
+	return count
 }
 
 func shareProfileRequiresRedaction(profile ShareProfile) bool {
@@ -1696,9 +1731,11 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		copyBacklog.Items[idx].ClosureActions = risk.CloneClosureActions(risk.BuildClosureActionsForPath(path))
 		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(path.EvidenceCompleteness)
 		copyBacklog.Items[idx].ClosureCriteria = risk.ClosureCriteriaText(copyBacklog.Items[idx].ClosureRequirements, strings.TrimSpace(item.ClosureCriteria))
-		copyBacklog.Items[idx].Queue = queueForActionPath(path)
-		copyBacklog.Items[idx].FindingVisibility = visibilityForQueue(copyBacklog.Items[idx].Queue)
-		copyBacklog.Items[idx].Remediation = risk.RemediationForActionPath(path)
+		if item.GovernanceDisposition == nil || strings.TrimSpace(item.GovernanceDisposition.Status) != controlbacklog.GovernanceStatusActive {
+			copyBacklog.Items[idx].Queue = queueForActionPath(path)
+			copyBacklog.Items[idx].FindingVisibility = visibilityForQueue(copyBacklog.Items[idx].Queue)
+			copyBacklog.Items[idx].Remediation = risk.RemediationForActionPath(path)
+		}
 		if copyBacklog.Items[idx].CredentialProvenance == nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(path.CredentialProvenance)
 		}
@@ -1776,13 +1813,25 @@ func mergeBacklogGovernance(base, overlay *controlbacklog.Backlog) *controlbackl
 		if key := strings.TrimSpace(overlayItem.Repo) + "|" + strings.TrimSpace(overlayItem.Path); key != "|" {
 			seenOverlayRepoPaths[key] = struct{}{}
 		}
-		current.GovernanceDisposition = overlayItem.GovernanceDisposition
-		current.LifecycleQueue = overlayItem.LifecycleQueue
+		baseExplicitlyGoverned := hasExplicitBacklogMutationGovernance(current)
+		overlayRefreshesDisposition := overlayItem.GovernanceDisposition != nil &&
+			strings.TrimSpace(overlayItem.GovernanceDisposition.Status) != controlbacklog.GovernanceStatusActive
+		if current.GovernanceDisposition == nil || overlayRefreshesDisposition {
+			current.GovernanceDisposition = overlayItem.GovernanceDisposition
+		}
+		if overlayRefreshesDisposition {
+			baseExplicitlyGoverned = false
+		}
+		if current.LifecycleQueue == nil {
+			current.LifecycleQueue = overlayItem.LifecycleQueue
+		}
 		if overlayItem.GovernanceDisposition != nil || overlayItem.LifecycleQueue != nil {
-			current.Queue = firstNonEmptyValue(strings.TrimSpace(overlayItem.Queue), strings.TrimSpace(current.Queue))
-			current.FindingVisibility = firstNonEmptyValue(strings.TrimSpace(overlayItem.FindingVisibility), strings.TrimSpace(current.FindingVisibility))
-			current.SecurityVisibility = firstNonEmptyValue(strings.TrimSpace(overlayItem.SecurityVisibility), strings.TrimSpace(current.SecurityVisibility))
-			current.Remediation = firstNonEmptyValue(strings.TrimSpace(overlayItem.Remediation), strings.TrimSpace(current.Remediation))
+			if !baseExplicitlyGoverned {
+				current.Queue = firstNonEmptyValue(strings.TrimSpace(overlayItem.Queue), strings.TrimSpace(current.Queue))
+				current.FindingVisibility = firstNonEmptyValue(strings.TrimSpace(overlayItem.FindingVisibility), strings.TrimSpace(current.FindingVisibility))
+				current.SecurityVisibility = firstNonEmptyValue(strings.TrimSpace(overlayItem.SecurityVisibility), strings.TrimSpace(current.SecurityVisibility))
+				current.Remediation = firstNonEmptyValue(strings.TrimSpace(overlayItem.Remediation), strings.TrimSpace(current.Remediation))
+			}
 			current.EvidenceGaps = uniqueStrings(append(append([]string(nil), current.EvidenceGaps...), overlayItem.EvidenceGaps...))
 		}
 		copyBacklog.Items[idx] = current
@@ -1802,6 +1851,21 @@ func mergeBacklogGovernance(base, overlay *controlbacklog.Backlog) *controlbackl
 	}
 	copyBacklog.Summary = controlbacklog.SummarizeItems(copyBacklog.Items)
 	return &copyBacklog
+}
+
+func hasExplicitBacklogMutationGovernance(item controlbacklog.Item) bool {
+	if item.GovernanceDisposition != nil {
+		return strings.TrimSpace(item.GovernanceDisposition.Status) == controlbacklog.GovernanceStatusActive
+	}
+	if item.LifecycleQueue != nil {
+		return true
+	}
+	switch strings.TrimSpace(item.Queue) {
+	case controlbacklog.QueueAcceptedRisk, controlbacklog.QueueInventoryHygiene:
+		return true
+	default:
+		return false
+	}
 }
 
 func actionPathSeverity(path risk.ActionPath) string {
@@ -2017,6 +2081,7 @@ func sanitizeActionPathsPublicWithContractRefs(in []risk.ActionPath, proposedCon
 		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
 		copyItem.ConfigSource = redactValue("loc", copyItem.ConfigSource, 8)
 		copyItem.OccurrenceRefs = redactStringSlice(copyItem.OccurrenceRefs, "path")
+		copyItem.ExecutionRelationships = sanitizeExecutionRelationshipsPublic(copyItem.ExecutionRelationships)
 		copyItem.AttackPathRefs = redactStringSlice(copyItem.AttackPathRefs, "attack")
 		copyItem.SourceFindingKeys = redactStringSlice(copyItem.SourceFindingKeys, "finding")
 		copyItem.ControlEvidenceRefs = redactStringSlice(copyItem.ControlEvidenceRefs, "evidence")
@@ -2411,6 +2476,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].ReviewRationale = redactValue("review", copyBOM.Items[idx].ReviewRationale, 8)
 		copyBOM.Items[idx].ConfigSource = redactValue("loc", copyBOM.Items[idx].ConfigSource, 8)
 		copyBOM.Items[idx].OccurrenceRefs = redactStringSlice(copyBOM.Items[idx].OccurrenceRefs, "path")
+		copyBOM.Items[idx].ExecutionRelationships = sanitizeExecutionRelationshipsPublic(copyBOM.Items[idx].ExecutionRelationships)
 		copyBOM.Items[idx].ProofRefs = redactStringSlice(copyBOM.Items[idx].ProofRefs, "proof")
 		copyBOM.Items[idx].RuntimeSessionRefs = redactStringSlice(copyBOM.Items[idx].RuntimeSessionRefs, "session")
 		copyBOM.Items[idx].ObservedChangedFiles = redactStringSlice(copyBOM.Items[idx].ObservedChangedFiles, "file")
@@ -2891,6 +2957,7 @@ func sanitizeActionLineagePublic(in *risk.ActionLineage) *risk.ActionLineage {
 		return nil
 	}
 	copyLineage := risk.CloneActionLineage(in)
+	copyLineage.ExecutionRelationships = sanitizeExecutionRelationshipsPublic(copyLineage.ExecutionRelationships)
 	for idx := range copyLineage.Segments {
 		copyLineage.Segments[idx].SegmentID = redactValue("segment", copyLineage.Segments[idx].SegmentID, 8)
 		copyLineage.Segments[idx].Label = redactValue("label", copyLineage.Segments[idx].Label, 8)
@@ -2899,6 +2966,10 @@ func sanitizeActionLineagePublic(in *risk.ActionLineage) *risk.ActionLineage {
 		copyLineage.Segments[idx].EvidenceRefs = redactStringSlice(copyLineage.Segments[idx].EvidenceRefs, "evidence")
 	}
 	return copyLineage
+}
+
+func sanitizeExecutionRelationshipsPublic(in []model.ExecutionRelationship) []model.ExecutionRelationship {
+	return sanitizeExecutionRelationshipsWithConfig(in, ResolveRedactionConfig(ShareProfileCustomerRedacted, nil))
 }
 
 func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {
@@ -2920,6 +2991,16 @@ func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {
 	copyReport.DetectorErrors = append([]detect.DetectorError(nil), in.DetectorErrors...)
 	copyReport.Detectors = append([]scanquality.DetectorHealth(nil), in.Detectors...)
 	copyReport.AbsenceClaims = append([]scanquality.AbsenceClaim(nil), in.AbsenceClaims...)
+	copyReport.SurfaceCoverage = append([]detect.SurfaceCoverage(nil), in.SurfaceCoverage...)
+	for idx := range copyReport.SurfaceCoverage {
+		copyReport.SurfaceCoverage[idx].ReasonCodes = append([]string(nil), in.SurfaceCoverage[idx].ReasonCodes...)
+	}
+	if in.ReconciliationLedger != nil {
+		ledger := *in.ReconciliationLedger
+		ledger.Stages = append([]scanquality.ReconciliationStage(nil), in.ReconciliationLedger.Stages...)
+		ledger.Errors = append([]string(nil), in.ReconciliationLedger.Errors...)
+		copyReport.ReconciliationLedger = &ledger
+	}
 	return &copyReport
 }
 
@@ -2949,6 +3030,10 @@ func sanitizeScanQualityPublic(in *scanquality.Report) *scanquality.Report {
 	for idx := range copyReport.AbsenceClaims {
 		copyReport.AbsenceClaims[idx].Org = redactValue("org", copyReport.AbsenceClaims[idx].Org, 6)
 		copyReport.AbsenceClaims[idx].Repo = redactValue("repo", copyReport.AbsenceClaims[idx].Repo, 6)
+	}
+	for idx := range copyReport.SurfaceCoverage {
+		copyReport.SurfaceCoverage[idx].Org = redactValue("org", copyReport.SurfaceCoverage[idx].Org, 6)
+		copyReport.SurfaceCoverage[idx].Repo = redactValue("repo", copyReport.SurfaceCoverage[idx].Repo, 6)
 	}
 	return copyReport
 }

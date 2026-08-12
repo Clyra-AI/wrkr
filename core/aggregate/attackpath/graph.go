@@ -935,7 +935,7 @@ func prepareControlPathEndpointMetadata(path ControlPathInput) ControlPathInput 
 
 func controlCredentialNode(pathID string, path ControlPathInput, org string, repo string, toolType string, location string) *ControlPathNode {
 	provenance := agginventory.NormalizeCredentialProvenance(path.CredentialProvenance)
-	if provenance == nil && !path.CredentialAccess {
+	if provenance == nil && !path.CredentialAccess && strings.TrimSpace(path.CredentialAuthorityRef) == "" && path.CredentialAuthority == nil {
 		return nil
 	}
 	label := "unknown_credential"

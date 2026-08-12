@@ -19,9 +19,11 @@ type buyerExposureBrief struct {
 }
 
 type buyerExposureGroup struct {
-	Outcome      string
-	Primary      AgentActionBOMItem
-	RelatedCount int
+	Outcome        string
+	Primary        AgentActionBOMItem
+	RelatedCount   int
+	BoundCount     int
+	ConfirmedCount int
 }
 
 func buildBuyerExposureBrief(summary Summary) buyerExposureBrief {
@@ -50,13 +52,21 @@ func groupBuyerExposureItems(items []AgentActionBOMItem, confirmed bool) []buyer
 		key := strings.Join([]string{outcome, buyerExposureControlFamily(item)}, "\x00")
 		if idx, ok := indexByKey[key]; ok {
 			groups[idx].RelatedCount++
+			groups[idx].BoundCount += buyerExposureBoundCount(item)
+			groups[idx].ConfirmedCount += buyerExposureConfirmedCount(item)
 			if buyerExposureItemLess(item, groups[idx].Primary) {
 				groups[idx].Primary = item
 			}
 			continue
 		}
 		indexByKey[key] = len(groups)
-		groups = append(groups, buyerExposureGroup{Outcome: outcome, Primary: item, RelatedCount: 1})
+		groups = append(groups, buyerExposureGroup{
+			Outcome:        outcome,
+			Primary:        item,
+			RelatedCount:   1,
+			BoundCount:     buyerExposureBoundCount(item),
+			ConfirmedCount: buyerExposureConfirmedCount(item),
+		})
 	}
 	sort.SliceStable(groups, func(i, j int) bool {
 		left := buyerExposurePriority(groups[i].Primary)
@@ -73,6 +83,20 @@ func groupBuyerExposureItems(items []AgentActionBOMItem, confirmed bool) []buyer
 		return groups[i].Primary.Location < groups[j].Primary.Location
 	})
 	return groups
+}
+
+func buyerExposureBoundCount(item AgentActionBOMItem) int {
+	if bomItemBindingState(item) == risk.ActionBindingStateBound {
+		return 1
+	}
+	return 0
+}
+
+func buyerExposureConfirmedCount(item AgentActionBOMItem) int {
+	if buyerExposureConfirmed(item) {
+		return 1
+	}
+	return 0
 }
 
 func buyerExposureControlFamily(item AgentActionBOMItem) string {
@@ -230,13 +254,17 @@ func renderBuyerExposureGroup(builder *strings.Builder, number int, group buyerE
 		buyerExposureTarget(item),
 		buyerExposureOwner(item),
 	)
+	if inherited := buyerExposureInheritedOrigin(item); inherited != "" {
+		fmt.Fprintf(builder, "   Inherited origin: %s.\n", inherited)
+	}
 	if candidate {
 		builder.WriteString("   Relationship: inferred from static source correlation; validate the executable binding before treating this as confirmed.\n")
 	} else {
 		builder.WriteString("   Relationship: confirmed static configuration-backed action path.\n")
 	}
 	fmt.Fprintf(builder, "   Evidence: repository configuration observed in this scan (freshness: current scan); %s.\n", buyerExposureEvidenceSummary(item))
-	fmt.Fprintf(builder, "   Required control: %s. Closure evidence: %s.\n", buyerExposureControl(item), buyerExposureClosureEvidence(item))
+	fmt.Fprintf(builder, "   Required control: %s. Closure evidence: %s. Evidence receipt: observed=%d paths; bound=%d paths; confirmed=%d paths; displayed=1 outcome group.\n",
+		buyerExposureControl(item), buyerExposureClosureEvidence(item), group.RelatedCount, group.BoundCount, group.ConfirmedCount)
 	if group.RelatedCount > 1 {
 		fmt.Fprintf(builder, "   Related paths collapsed: %d.\n", group.RelatedCount-1)
 	}
@@ -247,6 +275,22 @@ func buyerExposureWorkflow(item AgentActionBOMItem) string {
 }
 
 func buyerExposureCredential(item AgentActionBOMItem) string {
+	for _, binding := range item.AuthorityBindings {
+		if binding != nil && strings.TrimSpace(binding.Subject) != "" {
+			subject := humanizeAuthorityText(binding.Subject)
+			kind := buyerExposureCredentialKind(item)
+			if kind != "" {
+				return subject + " (" + kind + ")"
+			}
+			if item.CredentialAccess {
+				return subject + " (credential reference)"
+			}
+			return subject
+		}
+	}
+	if item.CredentialProvenance != nil && strings.TrimSpace(item.CredentialProvenance.Subject) != "" {
+		return humanizeAuthorityText(item.CredentialProvenance.Subject)
+	}
 	if item.CredentialAuthority != nil && strings.TrimSpace(item.CredentialAuthority.CredentialKind) != "" {
 		return humanizeAuthorityText(item.CredentialAuthority.CredentialKind)
 	}
@@ -260,6 +304,29 @@ func buyerExposureCredential(item AgentActionBOMItem) string {
 		return "credential reference observed; authority details unresolved"
 	}
 	return "no credential reference observed"
+}
+
+func buyerExposureCredentialKind(item AgentActionBOMItem) string {
+	if item.CredentialAuthority != nil && strings.TrimSpace(item.CredentialAuthority.CredentialKind) != "" {
+		return humanizeAuthorityText(item.CredentialAuthority.CredentialKind)
+	}
+	if item.CredentialProvenance != nil && strings.TrimSpace(item.CredentialProvenance.CredentialKind) != "" {
+		return humanizeAuthorityText(item.CredentialProvenance.CredentialKind)
+	}
+	return ""
+}
+
+func buyerExposureInheritedOrigin(item AgentActionBOMItem) string {
+	for _, relationship := range item.ExecutionRelationships {
+		switch strings.TrimSpace(relationship.ResolutionState) {
+		case "resolved_local", "resolved_declared":
+			origin := firstNonEmptyValue(strings.TrimSpace(relationship.Callee), strings.TrimSpace(relationship.Origin))
+			if origin != "" {
+				return humanizeEnum(firstNonEmptyValue(strings.TrimSpace(relationship.Kind), "reusable execution")) + " from " + origin
+			}
+		}
+	}
+	return ""
 }
 
 func buyerExposureTarget(item AgentActionBOMItem) string {

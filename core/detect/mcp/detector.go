@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -21,11 +22,25 @@ import (
 
 const detectorID = "mcp"
 
-type Detector struct{}
+type Detector struct {
+	mu       sync.Mutex
+	coverage map[string]detect.SurfaceCoverage
+}
 
-func New() Detector { return Detector{} }
+func New() *Detector { return &Detector{coverage: map[string]detect.SurfaceCoverage{}} }
 
-func (Detector) ID() string { return detectorID }
+func (*Detector) ID() string { return detectorID }
+
+func (d *Detector) SurfaceCoverage(scope detect.Scope, _ detect.Options) []detect.SurfaceCoverage {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	receipt, ok := d.coverage[scope.Root]
+	if !ok {
+		return nil
+	}
+	receipt.ReasonCodes = append([]string(nil), receipt.ReasonCodes...)
+	return []detect.SurfaceCoverage{receipt}
+}
 
 type serverDef struct {
 	Command          string            `json:"command" yaml:"command" toml:"command"`
@@ -53,7 +68,7 @@ type mcpDoc struct {
 var pinRE = regexp.MustCompile(`@[0-9]+`)
 var packageRE = regexp.MustCompile(`(@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)(?:@([A-Za-z0-9._-]+))?`)
 
-func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
+func (d *Detector) Detect(ctx context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -69,6 +84,8 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 		return nil, policyErr
 	}
 	findings := make([]model.Finding, 0)
+	receipt := detect.SurfaceCoverage{Surface: "mcp_server", Org: scope.Org, Repo: scope.Repo, Detector: detectorID, ParserVersion: "2"}
+	processedLocations := map[string]struct{}{}
 	paths := []string{
 		".mcp.json",
 		".cursor/mcp.json",
@@ -83,6 +100,11 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 	for _, rel := range paths {
 		exists, fileErr := detect.FileExistsWithinRoot(detectorID, scope.Root, rel)
 		if fileErr != nil {
+			receipt.Discovered++
+			receipt.Selected++
+			receipt.Attempted++
+			receipt.Partial++
+			receipt.ReasonCodes = append(receipt.ReasonCodes, "blocked_path")
 			findings = append(findings, model.Finding{
 				FindingType: "parse_error",
 				Severity:    model.SeverityMedium,
@@ -98,8 +120,13 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 		if !exists {
 			continue
 		}
+		receipt.Discovered++
+		receipt.Selected++
+		receipt.Attempted++
+		processedLocations[rel] = struct{}{}
 		doc, parseErr := parseMCPDocument(scope.Root, rel)
 		if parseErr != nil {
+			receipt.Partial++
 			findings = append(findings, model.Finding{
 				FindingType: "parse_error",
 				Severity:    model.SeverityMedium,
@@ -112,6 +139,7 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 			})
 			continue
 		}
+		receipt.Parsed++
 		for _, name := range sortedServerNames(doc.MCPServers) {
 			server := doc.MCPServers[name]
 			transport := inferTransport(server)
@@ -193,9 +221,32 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 		}
 	}
 
-	findings = append(findings, detectAdditionalCandidates(scope, options)...)
+	additional := detectAdditionalCandidates(scope, options)
+	findings = append(findings, additional...)
+	for _, finding := range additional {
+		location := strings.TrimSpace(finding.Location)
+		if _, ok := processedLocations[location]; !ok {
+			processedLocations[location] = struct{}{}
+			receipt.Discovered++
+			receipt.Selected++
+			receipt.Attempted++
+			receipt.Parsed++
+		}
+		for _, evidence := range finding.Evidence {
+			if evidence.Key == "unsupported_declaration_reason" && strings.TrimSpace(evidence.Value) != "" {
+				receipt.Unsupported++
+			}
+		}
+	}
 
 	model.SortFindings(findings)
+	receipt.Findings = len(findings)
+	d.mu.Lock()
+	if d.coverage == nil {
+		d.coverage = map[string]detect.SurfaceCoverage{}
+	}
+	d.coverage[scope.Root] = receipt
+	d.mu.Unlock()
 	return findings, nil
 }
 

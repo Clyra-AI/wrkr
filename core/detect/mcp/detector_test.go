@@ -40,6 +40,41 @@ func TestDetectMCPServersAndTrustSignals(t *testing.T) {
 	}
 }
 
+func TestUnsafeMCPConfigReducesSurfaceCoverage(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside.json")
+	if err := os.WriteFile(outside, []byte(`{"mcpServers":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, ".mcp.json")); err != nil {
+		t.Fatal(err)
+	}
+	detector := New()
+	scope := detect.Scope{Org: "local", Repo: "unsafe-mcp", Root: root}
+	findings, err := detector.Detect(context.Background(), scope, detect.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 || findings[0].ParseError == nil || findings[0].ParseError.Kind != "unsafe_path" {
+		t.Fatalf("expected unsafe-path parse finding, got %+v", findings)
+	}
+	coverage := detector.SurfaceCoverage(scope, detect.Options{})
+	if len(coverage) != 1 || coverage[0].Attempted != 1 || coverage[0].Partial != 1 || !sliceContains(coverage[0].ReasonCodes, "blocked_path") {
+		t.Fatalf("unsafe MCP candidate must reduce coverage: %+v", coverage)
+	}
+}
+
+func sliceContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 

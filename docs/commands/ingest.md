@@ -10,6 +10,8 @@ wrkr ingest --state ./.wrkr/last-scan.json --input codex-session.json --json
 
 `ingest` stores deterministic local evidence beside the saved scan state without mutating scan truth.
 
+Use imported evidence to advance claims that source scanning cannot prove: credential existence and lifetime, path-to-credential binding, branch or environment enforcement, approvals, runtime execution, action outcomes, and control effectiveness. Importing evidence never rewrites the original source observation; reports retain its producer, freshness, matching decision, and evidence refs.
+
 ## Flags
 
 - `--json`

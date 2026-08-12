@@ -203,6 +203,20 @@ func TestReadFileWithinRootRejectsSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestFileSizeWithinRootReturnsSizeWithoutReading(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "large.json")
+	if err := os.WriteFile(path, []byte("123456"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	size, parseErr := FileSizeWithinRoot("detector", root, "large.json")
+	if parseErr != nil || size != 6 {
+		t.Fatalf("unexpected file size: size=%d err=%+v", size, parseErr)
+	}
+}
+
 func TestReadFileWithinRootHandlesDanglingSymlinkDeterministically(t *testing.T) {
 	t.Parallel()
 

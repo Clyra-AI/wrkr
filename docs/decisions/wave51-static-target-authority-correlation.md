@@ -79,3 +79,7 @@ Acceptance criteria:
   treating them as binding proof
 - production-adjacent context can remain visible without promoting the static
   surface into a governable action path
+
+## API lineage extension
+
+OpenAPI generator/spec/consumer/runtime relationships remain separate from credential and target bindings. Schema declarations and example fields cannot create non-human identities or authority. A topology-declared runtime relation is `resolved_declared` context only and does not satisfy runtime-evidence or control-effectiveness predicates.

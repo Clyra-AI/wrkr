@@ -1,7 +1,7 @@
 {
   "schema_id": "https://wrkr.dev/schemas/v1/report/action-contract-packet.schema.json",
   "schema_version": "1",
-  "packet_id": "pacpkt-40fed5cc19ab2a94",
+  "packet_id": "pacpkt-2e28c194780c02a4",
   "template": "action-contract-packet",
   "section_order": [
     "identity",
@@ -17,11 +17,11 @@
     "next_step"
   ],
   "identity": {
-    "artifact_id": "paca-265592b5dbd0d72a",
-    "contract_id": "pac-41a7ec90cf9f0ba4",
+    "artifact_id": "paca-1a7a86d7bd99bde3",
+    "contract_id": "pac-6203900dbd87492c",
     "contract_family_id": "pacf-7320bf2d792fead5",
-    "contract_content_digest": "sha256:71b895cc687f3014ca6513fd0c9960554cddaa1ffd0f56dedfebe732e5523448",
-    "canonical_content_digest": "sha256:265592b5dbd0d72aedbad7c2aa89e0d72e2e81b013e4c372de58a83c4b94d371",
+    "contract_content_digest": "sha256:4d82d12fa7e18176a67aaa4f99e95e37e77620637da0707994baf3bca6bcb63c",
+    "canonical_content_digest": "sha256:1a7a86d7bd99bde3319d3e9bb2aeb6750e83269096b75b0f678d709bf4488fbe",
     "contract_version": "3",
     "revision": 1,
     "share_profile": "internal",
@@ -30,8 +30,8 @@
       "saved_scan:v1"
     ],
     "creation_evidence": [
-      "wch-b994b4ec715e",
-      "wch-bd1e152cd6ba"
+      "wch-86520c168374",
+      "wch-b994b4ec715e"
     ]
   },
   "path": {
@@ -91,12 +91,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:affected_system_owner:unknown"
@@ -111,12 +111,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:business_owner:missing",
@@ -133,12 +133,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:credential_subject_constraint:unknown"
@@ -148,18 +148,18 @@
       "requirement_id": "pacr-5f4c3be74d16d164",
       "kind": "delegation_root",
       "required_constraint": "delegation_root:required",
-      "observed_value": "authority-bfc23b0d135943e8",
+      "observed_value": "authority-16b128ce8beb8f5d",
       "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:delegation_root:unknown"
@@ -175,12 +175,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:originating_intent:unknown"
@@ -195,12 +195,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:permitted_agent_role:missing",
@@ -217,12 +217,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:policy_authority:unknown"
@@ -237,12 +237,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:requester_identity:missing",
@@ -258,12 +258,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "authority:separation_of_duties:missing",
@@ -278,7 +278,7 @@
       "pacr-90cd47595b50fd75",
       "pacr-e8811b91b1070f48"
     ],
-    "evidence_state": "contradictory",
+    "evidence_state": "unknown",
     "freshness_state": "unknown",
     "activation_grant": false
   },
@@ -287,26 +287,25 @@
       "requirement_id": "pacp-52a1722ed9d740d8",
       "kind": "credential_mode",
       "required_constraint": "credential_mode:ephemeral",
-      "observed_value": "standing",
-      "observed_result": "standing",
+      "observed_value": "ephemeral",
+      "observed_result": "ephemeral",
       "acceptable_producers": [
         "credential_authority"
       ],
       "max_age": "PT24H",
-      "evidence_state": "contradictory",
+      "evidence_state": "unknown",
       "freshness_state": "unknown",
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
-        "precondition:credential_mode:contradictory",
         "precondition:credential_mode:unknown"
       ]
     },
@@ -324,12 +323,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:effect_contract:missing",
@@ -352,12 +351,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:environment:unknown"
@@ -378,12 +377,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:expected_effect:unknown"
@@ -403,12 +402,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:forbidden_effect:missing",
@@ -430,12 +429,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:freshness:not_fresh",
@@ -446,8 +445,8 @@
       "requirement_id": "pacp-cdd5cc5e32af09a8",
       "kind": "policy_digest",
       "required_constraint": "policy_digest:required",
-      "observed_value": "sha256:50519becedfa4f4347fe4eb0fa94b9897d01b2dc8925d86d3df9b11b71bc4598",
-      "observed_result": "sha256:50519becedfa4f4347fe4eb0fa94b9897d01b2dc8925d86d3df9b11b71bc4598",
+      "observed_value": "sha256:1057c2fa56dde48644e6c09d42387511eea5625dd3608a987bb75df97928f899",
+      "observed_result": "sha256:1057c2fa56dde48644e6c09d42387511eea5625dd3608a987bb75df97928f899",
       "acceptable_producers": [
         "control_declaration",
         "gait_policy"
@@ -458,12 +457,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:policy_digest:unknown"
@@ -484,12 +483,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:producer:missing",
@@ -511,12 +510,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:required_check:missing",
@@ -537,12 +536,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:sandbox:missing",
@@ -564,12 +563,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:target:unknown"
@@ -589,12 +588,12 @@
       "evidence_refs": [
         ".gait/policy.yaml",
         "approval_status=unapproved",
-        "authority_standing:true",
         "baseline:discovered_surface",
         "binding_subject:cloud_admin_key",
         "binding_subject:workflow_kubernetes_deploy",
         "credential_access:true",
-        "credential_likely_scope:cloud_or_infra_access"
+        "credential_likely_scope:cloud_or_infra_access",
+        "credential_reference_observed"
       ],
       "reason_codes": [
         "precondition:validation_contract:missing",
@@ -611,34 +610,37 @@
     ]
   },
   "confirmation_requirement": {
-    "mode": "not_required",
-    "required": false,
-    "evidence_state": "verified",
+    "mode": "explicit_confirmation",
+    "required": true,
+    "evidence_state": "unknown",
     "freshness_state": "unknown",
     "reason_codes": [
-      "confirmation:not_required"
+      "confirmation:evidence_missing",
+      "confirmation:required"
     ]
   },
   "approval_requirement": {
-    "required": false,
+    "required": true,
     "approver_roles": [
       "control_owner",
       "security_reviewer"
     ],
-    "minimum_approvals": 0,
+    "minimum_approvals": 2,
     "separation_of_duties": [
       "requester_must_not_approve"
     ],
-    "scope_digest": "sha256:3cb670b9d41a021f39fccf53f98c2e10a985ede456ad1bd387d072555397cb0d",
+    "scope_digest": "sha256:02767c5dadfb5de3e3ea000fddc537b4f55af824fa0013320607ccbac3a043f3",
     "validity_window": "PT24H",
     "reapproval_triggers": [
       "contract_content_change",
       "scope_digest_change"
     ],
-    "evidence_state": "verified",
+    "evidence_state": "unknown",
     "freshness_state": "unknown",
     "reason_codes": [
-      "approval:not_required"
+      "approval:evidence_missing",
+      "approval:required",
+      "approval:scope_digest_missing"
     ]
   },
   "compensation_requirement": {
@@ -658,6 +660,17 @@
     ]
   },
   "evidence_gaps": [
+    {
+      "requirement_id": "approval",
+      "kind": "approval",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
+        "approval:evidence_missing",
+        "approval:required",
+        "approval:scope_digest_missing"
+      ]
+    },
     {
       "requirement_id": "pacr-e5cba36563e4deaa",
       "kind": "authority:affected_system_owner",
@@ -744,12 +757,21 @@
       ]
     },
     {
-      "requirement_id": "pacp-52a1722ed9d740d8",
-      "kind": "precondition:credential_mode",
-      "evidence_state": "contradictory",
+      "requirement_id": "confirmation",
+      "kind": "confirmation",
+      "evidence_state": "unknown",
       "freshness_state": "unknown",
       "reason_codes": [
-        "precondition:credential_mode:contradictory",
+        "confirmation:evidence_missing",
+        "confirmation:required"
+      ]
+    },
+    {
+      "requirement_id": "pacp-52a1722ed9d740d8",
+      "kind": "precondition:credential_mode",
+      "evidence_state": "unknown",
+      "freshness_state": "unknown",
+      "reason_codes": [
         "precondition:credential_mode:unknown"
       ]
     },
@@ -884,114 +906,114 @@
     "buyer_label": "possible static reachability; not observed execution"
   },
   "next_step": {
-    "action": "Resolve pacr-e5cba36563e4deaa before requesting a Gait activation decision.",
-    "reason": "authority:affected_system_owner remains unknown",
+    "action": "Resolve approval before requesting a Gait activation decision.",
+    "reason": "approval remains unknown",
     "owner": "contract owner"
   },
   "truncations": [
     {
       "field": "authority_requirements.pacr-151dc49115e7affb.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-1f937b8a35c72658.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-5f4c3be74d16d164.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-77d5c0d0e259d142.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-90cd47595b50fd75.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-caf2d346e179c9a0.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-d5b4fdcb8f458b5e.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-e5cba36563e4deaa.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "authority_requirements.pacr-e8811b91b1070f48.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-2bf0afbc3a43823b.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-2db95af791369cd2.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-3ac68c1d671df0b2.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-52a1722ed9d740d8.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-78ab14f4d77657a0.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-795a0d9562f842df.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-7bf8d1910bc3fd7c.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-9957f68f70a09db9.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-cdd5cc5e32af09a8.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-ce44d5bc8d88f3e9.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-e63bfaadbc62c1f8.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     },
     {
       "field": "readiness_checks.pacp-ef4ee50d2abca2ee.evidence_refs",
-      "omitted_count": 42,
+      "omitted_count": 40,
       "reason": "item_cap"
     }
   ],

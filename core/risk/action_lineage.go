@@ -10,10 +10,12 @@ import (
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/attribution"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 type ActionLineage struct {
-	Segments []ActionLineageSegment `json:"segments,omitempty"`
+	Segments               []ActionLineageSegment        `json:"segments,omitempty"`
+	ExecutionRelationships []model.ExecutionRelationship `json:"execution_relationships,omitempty"`
 }
 
 type ActionLineageSegment struct {
@@ -30,7 +32,7 @@ func CloneActionLineage(in *ActionLineage) *ActionLineage {
 	if in == nil {
 		return nil
 	}
-	out := &ActionLineage{Segments: make([]ActionLineageSegment, 0, len(in.Segments))}
+	out := &ActionLineage{Segments: make([]ActionLineageSegment, 0, len(in.Segments)), ExecutionRelationships: model.NormalizeExecutionRelationships(in.ExecutionRelationships)}
 	for _, segment := range in.Segments {
 		out.Segments = append(out.Segments, ActionLineageSegment{
 			SegmentID:    strings.TrimSpace(segment.SegmentID),
@@ -139,7 +141,7 @@ func buildActionLineage(path ActionPath, index controlPathLineageIndex) *ActionL
 		newLineageSegment(pathID, "proof", proofLineageLabel(path), proofLineageStatus(path), proofNodeIDs, matchingEdgeIDsForNodeIDs(edges, "path_governed_by", proofNodeIDs), append([]string(nil), path.PolicyEvidenceRefs...)),
 		newLineageSegment(pathID, "evidence", evidenceLineageLabel(path), evidenceLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodeEvidenceIdentity, "evidence"), matchingEdgeIDs(edges, aggattack.ControlPathEdgeEvidenceProvesOutcome), evidenceLineageEvidence(path)),
 	}
-	return &ActionLineage{Segments: segments}
+	return &ActionLineage{Segments: segments, ExecutionRelationships: model.NormalizeExecutionRelationships(path.ExecutionRelationships)}
 }
 
 func newLineageSegment(pathID, kind, label, status string, nodeIDs, edgeIDs, evidenceRefs []string) ActionLineageSegment {
@@ -287,9 +289,13 @@ func credentialLineageStatus(path ActionPath) string {
 			}
 			return "referenced_only"
 		}
+		if path.CredentialAuthority.CredentialReferencedByWorkflow {
+			return "referenced_only"
+		}
+		return "unresolved"
 	}
 	if path.CredentialAccess || path.CredentialProvenance != nil {
-		return "present"
+		return "unresolved"
 	}
 	return "missing"
 }

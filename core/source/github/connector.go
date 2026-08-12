@@ -765,6 +765,9 @@ func isSparseDetectorCandidate(normalized, base string) bool {
 	if isSparseAgentCardPath(base) {
 		return true
 	}
+	if isSparseExecutionLineagePath(normalized, base) {
+		return true
+	}
 
 	for _, prefix := range []string{
 		".claude/",
@@ -795,6 +798,58 @@ func isSparseDetectorCandidate(normalized, base string) bool {
 		}
 	}
 	return false
+}
+
+func isSparseExecutionLineagePath(rel, base string) bool {
+	if isSparseOwnedGeneratedSpecPath(rel, base) {
+		return true
+	}
+	if shouldSkipMaterializedTraversal(rel) {
+		return false
+	}
+	if strings.HasPrefix(rel, ".github/actions/") && (base == "action.yml" || base == "action.yaml") {
+		return true
+	}
+	if strings.HasSuffix(rel, ".groovy") &&
+		(strings.HasPrefix(rel, "vars/") || strings.HasPrefix(rel, "src/") || strings.HasPrefix(rel, "jenkins/") || strings.HasPrefix(rel, "scripts/") || strings.HasPrefix(rel, "pipelines/") ||
+			strings.Contains(rel, "/vars/") || strings.Contains(rel, "/src/") || strings.Contains(rel, "/jenkins/") || strings.Contains(rel, "/scripts/") || strings.Contains(rel, "/pipelines/")) {
+		return true
+	}
+	if strings.Contains(base, "openapi") || strings.Contains(base, "swagger") || strings.Contains(base, "api-hub") || strings.Contains(base, "api_hub") {
+		switch path.Ext(rel) {
+		case ".json", ".yaml", ".yml", ".js", ".ts", ".tsx", ".jsx", ".html":
+			return true
+		}
+	}
+	ext := path.Ext(rel)
+	if ext != ".json" && ext != ".yaml" && ext != ".yml" {
+		return false
+	}
+	for _, prefix := range []string{"api/", "apis/", "contracts/", "openapi/", "proto-spec/", "api-spec/", "api-specs/", "specs/", "specifications/api/", "swagger/"} {
+		if strings.HasPrefix(rel, prefix) || strings.Contains(rel, "/"+prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func isSparseOwnedGeneratedSpecPath(rel, base string) bool {
+	parts := strings.Split(strings.Trim(strings.ToLower(filepath.ToSlash(rel)), "/"), "/")
+	ownedGenerated, apiContext := false, false
+	for _, part := range parts {
+		switch part {
+		case "node_modules", "vendor", ".venv", ".pnpm", ".pnpm-store", ".yarn", ".docusaurus", ".next", ".nuxt", ".cache":
+			return false
+		case "build", "dist", "generated", "generated-sdk", "generated-sdks", "target":
+			ownedGenerated = true
+		case "api", "apis", "openapi", "swagger", "spec", "specs", "proto-spec":
+			apiContext = true
+		}
+	}
+	ext := path.Ext(rel)
+	structured := ext == ".json" || ext == ".yaml" || ext == ".yml"
+	nameSignalsSpec := strings.Contains(base, "openapi") || strings.Contains(base, "swagger") || strings.Contains(base, "api-hub") || strings.Contains(base, "api_hub")
+	return ownedGenerated && structured && (apiContext || nameSignalsSpec)
 }
 
 func isSparseCompiledActionPath(rel string) bool {

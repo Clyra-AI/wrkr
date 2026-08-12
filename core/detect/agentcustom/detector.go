@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
@@ -68,7 +69,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	}
 
 	findings := make([]model.Finding, 0)
-	workspaceSignals, err := detectWorkspaceSignals(scope)
+	workspaceSignals, err := detectWorkspaceSignals(scope, options)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +155,7 @@ func parseConfig(root, rel, format string) (declaration, *model.ParseError) {
 	return parsed, nil
 }
 
-func detectWorkspaceSignals(scope detect.Scope) (signalSet, error) {
+func detectWorkspaceSignals(scope detect.Scope, options detect.Options) (signalSet, error) {
 	signals := signalSet{Names: map[string]struct{}{}}
 
 	for _, rel := range []string{"AGENTS.md", "AGENTS.override.md", "CLAUDE.md", ".claude/CLAUDE.md"} {
@@ -180,26 +181,19 @@ func detectWorkspaceSignals(scope detect.Scope) (signalSet, error) {
 		signals.Names["skill_pack_surface"] = struct{}{}
 	}
 
-	workflowFiles, err := detect.Glob(scope.Root, ".github/workflows/*")
+	catalog, err := workflowcap.CatalogFor(scope.Root, options)
 	if err != nil {
 		return signalSet{}, err
 	}
-	jenkinsfileExists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "Jenkinsfile")
-	if parseErr != nil {
-		return signalSet{}, detect.ParseErrorAsError(parseErr)
-	}
-	if jenkinsfileExists {
-		workflowFiles = append(workflowFiles, "Jenkinsfile")
-	}
+	workflowFiles := catalog.EntrypointPaths()
 	sort.Strings(workflowFiles)
 
 	for _, rel := range workflowFiles {
-		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
-		if parseErr != nil {
-			return signalSet{}, detect.ParseErrorAsError(parseErr)
+		entry, ok := catalog.Lookup(rel)
+		if !ok || entry.ParseError != nil {
+			continue
 		}
-		lower := strings.ToLower(string(payload))
-		if strings.Contains(lower, "codex --full-auto") || strings.Contains(lower, "claude -p") || strings.Contains(lower, "claude code -p") || strings.Contains(lower, "gait eval --script") {
+		if entry.Result.Headless {
 			signals.Names["headless_agent_runtime"] = struct{}{}
 			break
 		}

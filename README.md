@@ -18,6 +18,10 @@ Wrkr reports control posture as evidence states, not as blanket absence claims a
 - `target_class` and `action_path_type` keep production-adjacent, internal-tooling, CI/CD, plain-source, AI-assisted, and agent-framework paths separate so buyer-facing output only uses agent wording when the path is actually agentic.
 - coverage-qualified absence and runtime absence fields such as `not_found_with_complete_coverage`, `not_found_with_reduced_coverage`, `not_collected`, and `missing_required` keep static-only scans from overclaiming missing runtime controls or unsupported negative findings.
 
+Wrkr uses the evidence ladder `observation -> reference -> binding -> effective authority -> control -> proof`. A workflow secret or environment reference proves only that the reference exists in source. It does not prove that a credential is active, usable by that path, standing, production-reaching, or what control state governs it. New scans expose typed credential existence, binding, and lifetime evidence; confirmed standing authority requires all three.
+
+Reusable workflow and API relationships are explicit and bounded. Local GitHub reusable workflows/composite actions, GitLab includes, Azure templates, Jenkins shared libraries/local loads, and API generator/spec/consumer declarations carry typed resolution receipts. Use `--execution-topology` for customer-declared aliases that source alone cannot resolve. A topology mapping proves the declared relationship, not runtime execution or control effectiveness.
+
 ## Install
 
 ### Homebrew
@@ -58,6 +62,12 @@ review the top workflow/action path before widening to org-scale inventory.
 wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
 wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md
 wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --evidence-json --evidence-json-path ./.tmp/focused-agent-action-bom-evidence.json
+```
+
+For Jenkins shared libraries, workflow aliases, or API runtime mappings registered outside the repository, add a local topology declaration:
+
+```bash
+wrkr scan --path ./your-repos --profile assessment --execution-topology ./execution-topology.yaml --state ./.wrkr/last-scan.json
 ```
 
 Use this when you want the shortest route from "what can this workflow change?"

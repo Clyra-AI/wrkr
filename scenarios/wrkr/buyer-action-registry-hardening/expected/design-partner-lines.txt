@@ -1,6 +1,6 @@
 # Wrkr Design Partner Summary
 
-- Generated at: 2026-08-08T11:23:10Z
+- Generated at: 2026-08-12T13:17:03Z
 - Template: design-partner-summary
 - Share profile: design-partner
 - Boundary: static posture from saved scan state only; no live runtime observation, endpoint probing, or control-layer enforcement
@@ -11,12 +11,12 @@
 - To complete the next review, provide repository-local external-control evidence or run `wrkr ingest --state <state> --input <external-control-evidence.json> --json` with owner, branch-protection, required-check, protected-environment, deployment-approval, or proof records; then rerun the report.
 ## Confirmed Exposures
 
-- Scan quality: complete coverage for the scanned source. Findings remain static observations, not runtime-control verification.
+- Scan quality: reduced coverage. Positive static observations remain visible; this scan cannot support an absence-of-exposure or safe-control conclusion.
 1. Credential to consequential action
-   Workflow: loc-cd78127f. Credential reference: standing secret reference. Target: production impacting. Likely owner: owner-920a23be.
+   Workflow: loc-cd78127f. Credential reference: credential-f96282fd. Target: production impacting. Likely owner: owner-920a23be.
    Relationship: confirmed static configuration-backed action path.
    Evidence: repository configuration observed in this scan (freshness: current scan); approval: not observed in this scan or imported evidence (source: none; freshness: unknown); owner: owner evidence verified (source: CODEOWNERS; freshness: unknown); target: not observed in this scan or imported evidence (source: none; freshness: unknown); proof: not observed in this scan or imported evidence (source: none; freshness: unknown).
-   Required control: block standing credential. Closure evidence: Attach policy or proof reference; Reduce standing credential scope; Request runtime evidence [needs_runtime_evidence]; Declare controlled path [declared_controlled].
+   Required control: approval required. Closure evidence: Declare approved credential use [declared_controlled]; Attach policy or proof reference; Request runtime evidence [needs_runtime_evidence]; Declare controlled path [declared_controlled]. Evidence receipt: observed=1 paths; bound=1 paths; confirmed=1 paths; displayed=1 outcome group.
 
 ## Validate Next
 
@@ -24,13 +24,25 @@ Candidate: Workflow mutation to deploy or release
    Workflow: loc-d5d3368a. Credential reference: no credential authority linked. Target: customer data adjacent. Likely owner: owner-f9ae3305.
    Relationship: inferred from static source correlation; validate the executable binding before treating this as confirmed.
    Evidence: repository configuration observed in this scan (freshness: current scan); approval: not observed in this scan or imported evidence (source: none; freshness: unknown); owner: owner evidence inferred (source: repository metadata; freshness: unknown); target: target evidence verified (source: scan-derived classification; freshness: current scan); proof: not observed in this scan or imported evidence (source: none; freshness: unknown).
-   Required control: security review. Closure evidence: Declare repo owner; Attach policy or proof reference; Request runtime evidence [needs_runtime_evidence]; Declare controlled path [declared_controlled].
+   Required control: security review. Closure evidence: Declare repo owner; Attach policy or proof reference; Request runtime evidence [needs_runtime_evidence]; Declare controlled path [declared_controlled]. Evidence receipt: observed=2 paths; bound=1 paths; confirmed=0 paths; displayed=1 outcome group.
    Related paths collapsed: 1.
 Candidate: Workflow to consequential action
    Workflow: loc-a54ff182. Credential reference: no credential authority linked. Target: test demo sandbox. Likely owner: owner-f9ae3305.
    Relationship: inferred from static source correlation; validate the executable binding before treating this as confirmed.
    Evidence: repository configuration observed in this scan (freshness: current scan); approval: not observed in this scan or imported evidence (source: none; freshness: unknown); owner: owner evidence inferred (source: repository metadata; freshness: unknown); target: not observed in this scan or imported evidence (source: none; freshness: unknown); proof: not observed in this scan or imported evidence (source: none; freshness: unknown).
-   Required control: security review. Closure evidence: Declare repo owner; Declare non-production target; Attach policy or proof reference; Request runtime evidence [needs_runtime_evidence].
+   Required control: security review. Closure evidence: Declare repo owner; Declare non-production target; Attach policy or proof reference; Request runtime evidence [needs_runtime_evidence]. Evidence receipt: observed=1 paths; bound=0 paths; confirmed=0 paths; displayed=1 outcome group.
+
+## Customer Validation Worksheet
+
+| Path | Validate next | Closure evidence |
+|---|---|---|
+| `path-588e0505` | confirm the runtime executor and effective permissions; provide required-review or deployment-approval evidence; provide path-specific closure proof | Import path-scoped evidence, then rescan. |
+| `path-7951e0d3` | confirm the runtime executor and effective permissions; provide required-review or deployment-approval evidence; provide path-specific closure proof | Import path-scoped evidence, then rescan. |
+| `path-875fc144` | confirm the runtime executor and effective permissions; provide required-review or deployment-approval evidence; provide path-specific closure proof | Import path-scoped evidence, then rescan. |
+| `path-a20283a7` | confirm the actual target and environment; confirm the runtime executor and effective permissions; provide required-review or deployment-approval evidence; provide path-specific closure proof | Import path-scoped evidence, then rescan. |
+| `path-b6d2e2e5` | confirm the actual target and environment; confirm the runtime executor and effective permissions; provide required-review or deployment-approval evidence; provide path-specific closure proof | Import path-scoped evidence, then rescan. |
+| `path-e7260696` | confirm the runtime executor and effective permissions; provide required-review or deployment-approval evidence; provide path-specific closure proof | Import path-scoped evidence, then rescan. |
+| `path-f55df33d` | confirm credential existence, path binding, and lifetime; confirm the actual target and environment; confirm the runtime executor and effective permissions; provide required-review or deployment-approval evidence; provide path-specific closure proof | Import path-scoped evidence, then rescan. |
 
 ## Known Limits
 

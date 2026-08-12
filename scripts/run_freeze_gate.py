@@ -58,7 +58,14 @@ def receipt_content_digest(repo_root: Path, receipt_path: Path, receipt: dict[st
         if rel == receipt_rel:
             continue
         path = repo_root / rel
-        if path.is_symlink() or not path.is_file():
+        if path.is_symlink():
+            raise ValueError(f"receipt validation scope contains a non-regular file: {rel}")
+        # A dirty implementation branch can replace generated tracked artifacts.
+        # Skipping a tracked deletion yields the same digest as the eventual commit,
+        # while still changing a receipt that previously included that file.
+        if not path.exists():
+            continue
+        if not path.is_file():
             raise ValueError(f"receipt validation scope contains a non-regular file: {rel}")
         payload = path.read_bytes()
         digest.update(rel.encode("utf-8"))

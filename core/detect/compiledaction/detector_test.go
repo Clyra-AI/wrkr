@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
@@ -53,7 +54,7 @@ jobs:
 	}
 }
 
-func TestDetectCompiledActionWorkflowParseErrorIsExplicit(t *testing.T) {
+func TestDetectCompiledActionDoesNotDuplicateCatalogParseError(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -69,11 +70,95 @@ func TestDetectCompiledActionWorkflowParseErrorIsExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("detect compiled action: %v", err)
 	}
-	if len(findings) != 1 {
-		t.Fatalf("expected one parse_error finding, got %+v", findings)
+	if len(findings) != 0 {
+		t.Fatalf("compiled-action projection must not duplicate the catalog-owned parser outcome, got %+v", findings)
 	}
-	if findings[0].FindingType != "parse_error" {
-		t.Fatalf("expected parse_error finding, got %+v", findings[0])
+}
+
+func TestDetectStandaloneCompiledActionsAndScripts(t *testing.T) {
+	root := t.TempDir()
+	writeCompiledAction(t, root, "agent-plans/release.agent-script.json", `{"steps":[{"tool":"gait.eval.script"}],"risk_classes":["release"],"approval_source":"security"}`)
+	writeCompiledAction(t, root, "workflows/empty.json", `{}`)
+	writeCompiledAction(t, root, ".claude/scripts/release.sh", "#!/bin/sh\necho release\n")
+
+	detector := New()
+	if detector.ID() != detectorID {
+		t.Fatalf("unexpected detector id %q", detector.ID())
+	}
+	findings, err := detector.Detect(context.Background(), detect.Scope{Repo: "service", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect standalone actions: %v", err)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("expected script and compiled action findings, got %+v", findings)
+	}
+	if findings[0].Org != "local" && findings[1].Org != "local" {
+		t.Fatalf("expected local org fallback, got %+v", findings)
+	}
+	foundEval := false
+	for _, finding := range findings {
+		if evidenceValue(finding, "validation_requirement") == "review_eval_config" {
+			foundEval = true
+		}
+	}
+	if !foundEval {
+		t.Fatalf("expected gait validation evidence, got %+v", findings)
+	}
+}
+
+func TestDetectStandaloneParseErrorAndScopeBoundaries(t *testing.T) {
+	root := t.TempDir()
+	writeCompiledAction(t, root, "agent-plans/bad.agent-script.json", `{`)
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect malformed action: %v", err)
+	}
+	if len(findings) != 1 || findings[0].FindingType != "parse_error" || findings[0].ParseError == nil {
+		t.Fatalf("expected parse error finding, got %+v", findings)
+	}
+	if findings[0].ParseError.Format != "json" {
+		t.Fatalf("unexpected parse error: %+v", findings[0].ParseError)
+	}
+	if findings, err := New().Detect(context.Background(), detect.Scope{Root: root, TargetMode: "my_setup"}, detect.Options{}); err != nil || len(findings) != 0 {
+		t.Fatalf("local machine scope must be skipped: findings=%+v err=%v", findings, err)
+	}
+	if _, err := New().Detect(context.Background(), detect.Scope{Root: filepath.Join(root, "missing")}, detect.Options{}); err == nil {
+		t.Fatal("expected invalid root failure")
+	}
+}
+
+func TestCompiledActionHelpers(t *testing.T) {
+	if !isEmptyAction(actionDoc{}) {
+		t.Fatal("expected empty action")
+	}
+	if isEmptyAction(actionDoc{ToolSequence: []string{"codex"}}) {
+		t.Fatal("expected non-empty action")
+	}
+	if !workflowResultRelevant(workflowcap.Result{ExecutionRelationships: []model.ExecutionRelationship{{Kind: "workflow_call"}}}) {
+		t.Fatal("expected relationship to make workflow relevant")
+	}
+	if !workflowResultRelevant(workflowcap.Result{Evidence: []model.Evidence{{Key: "delivery_harness", Value: "compiled_action"}}}) {
+		t.Fatal("expected delivery evidence to make workflow relevant")
+	}
+	if workflowResultRelevant(workflowcap.Result{Evidence: []model.Evidence{{Key: "other", Value: "value"}}}) {
+		t.Fatal("unexpected relevant workflow")
+	}
+	if got := uniqueStrings([]string{"b", "", "a", "b"}); len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("unexpected unique strings: %+v", got)
+	}
+	if uniqueStrings(nil) != nil || uniqueStrings([]string{" "}) != nil {
+		t.Fatal("expected empty unique strings to be nil")
+	}
+}
+
+func writeCompiledAction(t *testing.T, root, rel, payload string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 

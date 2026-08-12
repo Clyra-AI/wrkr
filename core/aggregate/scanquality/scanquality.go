@@ -10,7 +10,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
-const ReportVersion = "1"
+const ReportVersion = "2"
 
 const (
 	SurfaceMCPServer                      = "mcp_server"
@@ -33,15 +33,30 @@ const (
 )
 
 type Report struct {
-	ScanQualityVersion string                  `json:"scan_quality_version"`
-	Mode               string                  `json:"mode"`
-	CompactSummary     *CompactCoverageSummary `json:"compact_summary,omitempty"`
-	Detectors          []DetectorHealth        `json:"detectors,omitempty"`
-	SuppressedPaths    []SuppressedPath        `json:"suppressed_paths,omitempty"`
-	ParseErrors        []ParseIssue            `json:"parse_errors,omitempty"`
-	DetectorErrors     []detect.DetectorError  `json:"detector_errors,omitempty"`
-	AbsenceClaims      []AbsenceClaim          `json:"absence_claims,omitempty"`
-	HostedCoverage     *HostedCoverage         `json:"hosted_coverage,omitempty"`
+	ScanQualityVersion   string                   `json:"scan_quality_version"`
+	Mode                 string                   `json:"mode"`
+	CompactSummary       *CompactCoverageSummary  `json:"compact_summary,omitempty"`
+	Detectors            []DetectorHealth         `json:"detectors,omitempty"`
+	SuppressedPaths      []SuppressedPath         `json:"suppressed_paths,omitempty"`
+	ParseErrors          []ParseIssue             `json:"parse_errors,omitempty"`
+	DetectorErrors       []detect.DetectorError   `json:"detector_errors,omitempty"`
+	AbsenceClaims        []AbsenceClaim           `json:"absence_claims,omitempty"`
+	HostedCoverage       *HostedCoverage          `json:"hosted_coverage,omitempty"`
+	SurfaceCoverage      []detect.SurfaceCoverage `json:"surface_coverage,omitempty"`
+	ReconciliationLedger *ReconciliationLedger    `json:"reconciliation_ledger,omitempty"`
+}
+
+type ReconciliationStage struct {
+	StageID string `json:"stage_id"`
+	Unit    string `json:"unit"`
+	Count   int    `json:"count"`
+}
+
+type ReconciliationLedger struct {
+	Version string                `json:"version"`
+	Stages  []ReconciliationStage `json:"stages"`
+	Valid   bool                  `json:"valid"`
+	Errors  []string              `json:"errors,omitempty"`
 }
 
 type HostedCoverage struct {
@@ -178,10 +193,20 @@ type ParseIssue struct {
 }
 
 type Input struct {
-	Mode           string
-	Scopes         []detect.Scope
-	Findings       []model.Finding
-	DetectorErrors []detect.DetectorError
+	Mode                 string
+	Scopes               []detect.Scope
+	Findings             []model.Finding
+	DetectorErrors       []detect.DetectorError
+	SurfaceCoverage      []detect.SurfaceCoverage
+	NormalizedFacts      int
+	Bindings             int
+	EffectiveAuthorities int
+	EligiblePaths        int
+	ConfirmedPaths       int
+	CandidatePaths       int
+	UnresolvedPaths      int
+	DisplayedPaths       int
+	SuppressedPathsCount int
 }
 
 func Build(input Input) Report {
@@ -189,6 +214,7 @@ func Build(input Input) Report {
 		ScanQualityVersion: ReportVersion,
 		Mode:               normalizeMode(input.Mode),
 		DetectorErrors:     cloneDetectorErrors(input.DetectorErrors),
+		SurfaceCoverage:    cloneSurfaceCoverage(input.SurfaceCoverage),
 	}
 	if report.Mode != "deep" {
 		report.SuppressedPaths = collectSuppressedPaths(input.Scopes)
@@ -196,9 +222,109 @@ func Build(input Input) Report {
 	report.ParseErrors = collectParseIssues(input.Findings)
 	report.Detectors = collectDetectorHealth(input)
 	report.AbsenceClaims = buildAbsenceClaims(input, report.Detectors)
+	report.ReconciliationLedger = buildReconciliationLedger(input)
 	compact := BuildCompactCoverageSummary(&report)
 	report.CompactSummary = &compact
 	return report
+}
+
+func buildReconciliationLedger(input Input) *ReconciliationLedger {
+	discovered, selected, parsed := 0, 0, 0
+	for _, receipt := range input.SurfaceCoverage {
+		discovered += receipt.Discovered
+		selected += receipt.Selected
+		parsed += receipt.Parsed
+	}
+	ledger := &ReconciliationLedger{Version: "1", Stages: []ReconciliationStage{
+		{StageID: "source_discovered", Unit: "files", Count: discovered},
+		{StageID: "source_selected", Unit: "files", Count: selected},
+		{StageID: "source_parsed", Unit: "files", Count: parsed},
+		{StageID: "observations", Unit: "findings", Count: len(input.Findings)},
+		{StageID: "normalized_facts", Unit: "facts", Count: input.NormalizedFacts},
+		{StageID: "authority_bindings", Unit: "bindings", Count: input.Bindings},
+		{StageID: "effective_authorities", Unit: "authorities", Count: input.EffectiveAuthorities},
+		{StageID: "eligible_paths", Unit: "paths", Count: input.EligiblePaths},
+		{StageID: "confirmed_paths", Unit: "paths", Count: input.ConfirmedPaths},
+		{StageID: "candidate_paths", Unit: "paths", Count: input.CandidatePaths},
+		{StageID: "unresolved_paths", Unit: "paths", Count: input.UnresolvedPaths},
+		{StageID: "displayed_paths", Unit: "paths", Count: input.DisplayedPaths},
+		{StageID: "suppressed_paths", Unit: "paths", Count: input.SuppressedPathsCount},
+	}}
+	ledger.Errors = validateReconciliationLedger(ledger, input.SurfaceCoverage)
+	ledger.Valid = len(ledger.Errors) == 0
+	return ledger
+}
+
+func UpdateReportProjection(report *Report, displayedPaths, suppressedPaths int) {
+	if report == nil || report.ReconciliationLedger == nil {
+		return
+	}
+	if displayedPaths < 0 {
+		displayedPaths = 0
+	}
+	if suppressedPaths < 0 {
+		suppressedPaths = 0
+	}
+	setLedgerStage(report.ReconciliationLedger, "displayed_paths", "paths", displayedPaths)
+	setLedgerStage(report.ReconciliationLedger, "suppressed_paths", "paths", suppressedPaths)
+	report.ReconciliationLedger.Errors = validateReconciliationLedger(report.ReconciliationLedger, report.SurfaceCoverage)
+	report.ReconciliationLedger.Valid = len(report.ReconciliationLedger.Errors) == 0
+}
+
+func setLedgerStage(ledger *ReconciliationLedger, stageID, unit string, count int) {
+	for index := range ledger.Stages {
+		if ledger.Stages[index].StageID == stageID {
+			ledger.Stages[index].Unit = unit
+			ledger.Stages[index].Count = count
+			return
+		}
+	}
+	ledger.Stages = append(ledger.Stages, ReconciliationStage{StageID: stageID, Unit: unit, Count: count})
+	sort.Slice(ledger.Stages, func(i, j int) bool { return ledger.Stages[i].StageID < ledger.Stages[j].StageID })
+}
+
+func validateReconciliationLedger(ledger *ReconciliationLedger, coverage []detect.SurfaceCoverage) []string {
+	errorsOut := []string{}
+	for _, receipt := range coverage {
+		if receipt.Selected > receipt.Discovered {
+			errorsOut = append(errorsOut, "surface_selected_exceeds_discovered:"+receipt.Surface)
+		}
+		if receipt.Attempted > receipt.Selected {
+			errorsOut = append(errorsOut, "surface_attempted_exceeds_selected:"+receipt.Surface)
+		}
+		if receipt.Parsed > receipt.Attempted {
+			errorsOut = append(errorsOut, "surface_parsed_exceeds_attempted:"+receipt.Surface)
+		}
+	}
+	counts := map[string]int{}
+	for _, stage := range ledger.Stages {
+		counts[stage.StageID] = stage.Count
+		if stage.Count < 0 {
+			errorsOut = append(errorsOut, "negative_stage_count:"+stage.StageID)
+		}
+	}
+	if counts["authority_bindings"] > 0 && counts["normalized_facts"] == 0 {
+		errorsOut = append(errorsOut, "bindings_without_normalized_facts")
+	}
+	if counts["effective_authorities"] > 0 && counts["authority_bindings"] == 0 {
+		errorsOut = append(errorsOut, "effective_authority_without_binding")
+	}
+	if counts["displayed_paths"] > counts["eligible_paths"] {
+		errorsOut = append(errorsOut, "displayed_paths_exceed_eligible_paths")
+	}
+	if counts["displayed_paths"]+counts["suppressed_paths"] != counts["eligible_paths"] {
+		errorsOut = append(errorsOut, "projected_paths_do_not_reconcile")
+	}
+	sort.Strings(errorsOut)
+	return errorsOut
+}
+
+func cloneSurfaceCoverage(in []detect.SurfaceCoverage) []detect.SurfaceCoverage {
+	out := append([]detect.SurfaceCoverage(nil), in...)
+	for index := range out {
+		out[index].ReasonCodes = append([]string(nil), in[index].ReasonCodes...)
+	}
+	return out
 }
 
 func BuildCompactCoverageSummary(report *Report) CompactCoverageSummary {
@@ -579,13 +705,22 @@ func collectDetectorHealth(input Input) []DetectorHealth {
 	positiveIndex := buildPositivePathIndex(input.Findings)
 	detectorErrorCounts := buildDetectorErrorIndex(input.DetectorErrors)
 
-	out := make([]DetectorHealth, 0)
+	receiptHealth := detectorHealthFromSurfaceCoverage(input.SurfaceCoverage, detectorErrorCounts)
+	receiptKeys := map[detectorScopeKey]struct{}{}
+	out := make([]DetectorHealth, 0, len(receiptHealth))
+	for _, item := range receiptHealth {
+		receiptKeys[detectorScopeKey{org: item.Org, repo: item.Repo, detector: item.Detector}] = struct{}{}
+		out = append(out, item)
+	}
 	for _, scope := range input.Scopes {
 		for _, detectorID := range detectorIDsForHealth(input) {
 			scopeKey := detectorScopeKey{
 				org:      strings.TrimSpace(scope.Org),
 				repo:     strings.TrimSpace(scope.Repo),
 				detector: detectorID,
+			}
+			if _, migrated := receiptKeys[scopeKey]; migrated {
+				continue
 			}
 			metrics := collectDetectorScopeMetrics(scope, detectorID, normalizeMode(input.Mode))
 			parsePaths := parseIndex[scopeKey]
@@ -677,6 +812,57 @@ func collectDetectorHealth(input Input) []DetectorHealth {
 	return out
 }
 
+func detectorHealthFromSurfaceCoverage(receipts []detect.SurfaceCoverage, detectorErrors map[detectorScopeKey]int) []DetectorHealth {
+	byKey := map[detectorScopeKey]*DetectorHealth{}
+	for _, receipt := range receipts {
+		key := detectorScopeKey{org: strings.TrimSpace(receipt.Org), repo: strings.TrimSpace(receipt.Repo), detector: strings.TrimSpace(receipt.Detector)}
+		if key.detector == "" {
+			continue
+		}
+		item := byKey[key]
+		if item == nil {
+			item = &DetectorHealth{Org: key.org, Repo: key.repo, Detector: key.detector}
+			byKey[key] = item
+		}
+		item.AttemptedFiles += receipt.Attempted
+		item.ParsedFiles += receipt.Parsed
+		item.PartialParses += receipt.Partial
+		item.SuppressedFiles += receipt.Suppressed
+		item.UnsupportedDeclarations += receipt.Unsupported
+		item.Findings += receipt.Findings
+		item.CoverageReasons = append(item.CoverageReasons, receipt.ReasonCodes...)
+		if receipt.Unresolved > 0 {
+			item.CoverageReasons = append(item.CoverageReasons, "unresolved_relationships")
+		}
+	}
+	out := make([]DetectorHealth, 0, len(byKey))
+	for key, item := range byKey {
+		item.CoverageReasons = sortedReasonKeys(stringSliceSet(item.CoverageReasons))
+		switch {
+		case detectorErrors[key] > 0:
+			item.Status = "blocked"
+			item.CoverageReasons = sortedReasonKeys(stringSliceSet(append(item.CoverageReasons, "detector_error")))
+		case item.PartialParses > 0:
+			item.Status = "partial"
+		case item.UnsupportedDeclarations > 0 || item.SuppressedFiles > 0 || hasReason(stringSliceSet(item.CoverageReasons), "unresolved_relationships"):
+			item.Status = "reduced"
+		default:
+			item.Status = "complete"
+		}
+		out = append(out, *item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Org != out[j].Org {
+			return out[i].Org < out[j].Org
+		}
+		if out[i].Repo != out[j].Repo {
+			return out[i].Repo < out[j].Repo
+		}
+		return out[i].Detector < out[j].Detector
+	})
+	return out
+}
+
 func detectorIDsForHealth(input Input) []string {
 	set := map[string]struct{}{
 		"ciagent":    {},
@@ -720,6 +906,14 @@ func buildAbsenceClaims(input Input, detectors []DetectorHealth) []AbsenceClaim 
 		repoKeys[key] = struct{}{}
 		byRepo[key] = append(byRepo[key], detector)
 	}
+	coverageByRepo := map[string][]detect.SurfaceCoverage{}
+	for _, receipt := range input.SurfaceCoverage {
+		if receipt.Surface != "mcp_server" && receipt.Surface != "webmcp" {
+			continue
+		}
+		key := scopeKey(receipt.Org, receipt.Repo)
+		coverageByRepo[key] = append(coverageByRepo[key], receipt)
+	}
 
 	out := make([]AbsenceClaim, 0, len(repoKeys))
 	for key := range repoKeys {
@@ -728,6 +922,13 @@ func buildAbsenceClaims(input Input, detectors []DetectorHealth) []AbsenceClaim 
 		}
 		org, repo := splitScopeKey(key)
 		status, reasons := deriveMCPAbsenceStatus(byRepo[key], candidates[key])
+		if reduced, coverageReasons := reducedMCPReceipts(coverageByRepo[key]); reduced {
+			if status == AbsenceStatusNotFoundCompleteCoverage {
+				status = AbsenceStatusNotFoundReducedCoverage
+			}
+			reasons = append(reasons, coverageReasons...)
+			reasons = mapKeysSorted(stringSliceSet(reasons))
+		}
 		if status == "" {
 			continue
 		}
@@ -750,6 +951,26 @@ func buildAbsenceClaims(input Input, detectors []DetectorHealth) []AbsenceClaim 
 		return out[i].Surface < out[j].Surface
 	})
 	return out
+}
+
+func reducedMCPReceipts(receipts []detect.SurfaceCoverage) (bool, []string) {
+	reduced := false
+	reasons := []string{}
+	for _, receipt := range receipts {
+		if receipt.Partial > 0 || receipt.Unsupported > 0 || receipt.Unresolved > 0 {
+			reduced = true
+		}
+		if receipt.Partial > 0 {
+			reasons = append(reasons, receipt.Surface+":partial")
+		}
+		if receipt.Unsupported > 0 {
+			reasons = append(reasons, receipt.Surface+":unsupported")
+		}
+		if receipt.Unresolved > 0 {
+			reasons = append(reasons, receipt.Surface+":unresolved")
+		}
+	}
+	return reduced, reasons
 }
 
 func deriveMCPAbsenceStatus(detectors []DetectorHealth, candidateCount int) (string, []string) {
@@ -777,7 +998,7 @@ func deriveMCPAbsenceStatus(detectors []DetectorHealth, candidateCount int) (str
 				reducedCoverage = true
 			}
 		}
-		if detector.ParseFailures > 0 && detector.UnsupportedDeclarations == 0 {
+		if (detector.ParseFailures > 0 || detector.PartialParses > 0) && detector.UnsupportedDeclarations == 0 {
 			parseFailure = true
 		}
 		if detector.Status != "complete" {

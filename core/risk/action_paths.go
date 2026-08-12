@@ -231,6 +231,7 @@ type ActionPath struct {
 	SandboxGates                        []string                                `json:"sandbox_gates,omitempty"`
 	TestGates                           []string                                `json:"test_gates,omitempty"`
 	ValidationRequirements              []string                                `json:"validation_requirements,omitempty"`
+	ExecutionRelationships              []model.ExecutionRelationship           `json:"execution_relationships,omitempty"`
 	HighStakesPresets                   []HighStakesPreset                      `json:"high_stakes_presets,omitempty"`
 	ProductionContext                   *ProductionContext                      `json:"production_context,omitempty"`
 	EvidencePacketStatus                string                                  `json:"evidence_packet_status,omitempty"`
@@ -316,11 +317,7 @@ func buildActionPath(
 	if len(credentials) == 0 && provenance != nil {
 		credentials = agginventory.NormalizeCredentialProvenances([]*agginventory.CredentialProvenance{provenance})
 	}
-	standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromProvenance(provenance)
-	if authorityStanding, authorityReasons := agginventory.StandingPrivilegeFromAuthority(authority); authorityStanding {
-		standingPrivilege = true
-		standingReasons = dedupeSortedStrings(append(standingReasons, authorityReasons...))
-	}
+	standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromAuthority(authority)
 	path := ActionPath{
 		PathID:                      actionPathID(entry),
 		Org:                         strings.TrimSpace(entry.Org),
@@ -346,6 +343,7 @@ func buildActionPath(
 		SandboxGates:                dedupeSortedStrings(entry.SandboxGates),
 		TestGates:                   dedupeSortedStrings(entry.TestGates),
 		ValidationRequirements:      dedupeSortedStrings(entry.ValidationRequirements),
+		ExecutionRelationships:      model.NormalizeExecutionRelationships(entry.ExecutionRelationships),
 		WriteCapable:                entry.WriteCapable,
 		OperationalOwner:            strings.TrimSpace(entry.OperationalOwner),
 		OwnerSource:                 strings.TrimSpace(entry.OwnerSource),
@@ -393,7 +391,7 @@ func buildActionPath(
 		BusinessStateSurface:        classifyBusinessStateSurface(entry),
 		AttackPathScore:             attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
 		RiskScore:                   actionPathRiskScore(entry.RiskScore, provenance),
-		StandingPrivilege:           entry.StandingPrivilege || standingPrivilege,
+		StandingPrivilege:           standingPrivilege,
 		StandingPrivilegeReasons:    dedupeSortedStrings(append(append([]string(nil), entry.StandingPrivilegeReasons...), standingReasons...)),
 		PolicyCoverageStatus:        PolicyCoverageStatusNone,
 		MatchedProductionTargets:    dedupeSortedStrings(entry.MatchedProductionTargets),
@@ -674,6 +672,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.SandboxGates = dedupeSortedStrings(append(append([]string(nil), current.SandboxGates...), incoming.SandboxGates...))
 	merged.TestGates = dedupeSortedStrings(append(append([]string(nil), current.TestGates...), incoming.TestGates...))
 	merged.ValidationRequirements = dedupeSortedStrings(append(append([]string(nil), current.ValidationRequirements...), incoming.ValidationRequirements...))
+	merged.ExecutionRelationships = model.NormalizeExecutionRelationships(append(append([]model.ExecutionRelationship(nil), current.ExecutionRelationships...), incoming.ExecutionRelationships...))
 	merged.StandingPrivilege = current.StandingPrivilege || incoming.StandingPrivilege
 	merged.StandingPrivilegeReasons = dedupeSortedStrings(append(append([]string(nil), current.StandingPrivilegeReasons...), incoming.StandingPrivilegeReasons...))
 	merged.ControlState = firstNonEmptyString(current.ControlState, incoming.ControlState)
@@ -1136,11 +1135,16 @@ func mergeCredentialAuthority(current, incoming *agginventory.CredentialAuthorit
 		return agginventory.CloneCredentialAuthority(current)
 	default:
 		merged := agginventory.CloneCredentialAuthority(current)
+		merged.EvidenceStage = strongerAuthorityStage(current.EvidenceStage, incoming.EvidenceStage)
+		merged.ExistenceEvidenceState = strongerAuthorityEvidenceState(current.ExistenceEvidenceState, incoming.ExistenceEvidenceState)
+		merged.BindingEvidenceState = strongerAuthorityEvidenceState(current.BindingEvidenceState, incoming.BindingEvidenceState)
+		var lifetimeContradiction bool
+		merged.LifetimeKind, merged.LifetimeEvidenceState, lifetimeContradiction = agginventory.MergeCredentialLifetime(current, incoming)
 		merged.CredentialPresent = current.CredentialPresent || incoming.CredentialPresent
 		merged.CredentialReferencedByWorkflow = current.CredentialReferencedByWorkflow || incoming.CredentialReferencedByWorkflow
 		merged.CredentialUsableByPath = current.CredentialUsableByPath || incoming.CredentialUsableByPath
-		merged.CredentialKind = firstNonEmptyString(current.CredentialKind, incoming.CredentialKind)
-		merged.AccessType = firstNonEmptyString(current.AccessType, incoming.AccessType)
+		merged.CredentialKind = preferKnownAuthorityValue(current.CredentialKind, incoming.CredentialKind, agginventory.CredentialKindUnknown)
+		merged.AccessType = preferKnownAuthorityValue(current.AccessType, incoming.AccessType, agginventory.CredentialAccessTypeUnknown)
 		merged.StandingAccess = current.StandingAccess || incoming.StandingAccess
 		merged.LikelyJIT = current.LikelyJIT || incoming.LikelyJIT
 		merged.TargetSystem = firstNonEmptyString(current.TargetSystem, incoming.TargetSystem)
@@ -1148,14 +1152,61 @@ func mergeCredentialAuthority(current, incoming *agginventory.CredentialAuthorit
 		if credentialConfidencePriority(incoming.ScopeConfidence) > credentialConfidencePriority(current.ScopeConfidence) {
 			merged.ScopeConfidence = incoming.ScopeConfidence
 		}
-		merged.RotationEvidenceStatus = chooseMetadataSource(current.RotationEvidenceStatus, incoming.RotationEvidenceStatus, current.RotationEvidenceStatus, incoming.RotationEvidenceStatus)
-		merged.CredentialSource = firstNonEmptyString(current.CredentialSource, incoming.CredentialSource)
+		merged.RotationEvidenceStatus = preferKnownAuthorityValue(current.RotationEvidenceStatus, incoming.RotationEvidenceStatus, agginventory.CredentialRotationEvidenceUnknown)
+		merged.CredentialSource = preferKnownAuthorityValue(current.CredentialSource, incoming.CredentialSource, agginventory.CredentialSourceUnknown)
 		if credentialConfidencePriority(incoming.Confidence) > credentialConfidencePriority(current.Confidence) {
 			merged.Confidence = incoming.Confidence
 		}
 		merged.ReasonCodes = dedupeSortedStrings(append(append([]string(nil), current.ReasonCodes...), incoming.ReasonCodes...))
+		if lifetimeContradiction {
+			merged.ReasonCodes = dedupeSortedStrings(append(merged.ReasonCodes, "credential_lifetime:contradictory"))
+		}
 		return agginventory.NormalizeCredentialAuthority(merged)
 	}
+}
+
+func preferKnownAuthorityValue(current, incoming string, unknownValues ...string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	if current == "" || containsAuthorityValue(unknownValues, current) {
+		if incoming != "" {
+			return incoming
+		}
+	}
+	return current
+}
+
+func containsAuthorityValue(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func strongerAuthorityStage(current, incoming string) string {
+	rank := map[string]int{
+		agginventory.EvidenceStageObservation: 1, agginventory.EvidenceStageReference: 2,
+		agginventory.EvidenceStageBinding: 3, agginventory.EvidenceStageEffectiveAuthority: 4,
+		agginventory.EvidenceStageControl: 5, agginventory.EvidenceStageProof: 6,
+	}
+	if rank[strings.TrimSpace(incoming)] > rank[strings.TrimSpace(current)] {
+		return incoming
+	}
+	return current
+}
+
+func strongerAuthorityEvidenceState(current, incoming string) string {
+	rank := map[string]int{
+		agginventory.AuthorityEvidenceUnknown: 1, agginventory.AuthorityEvidenceInferred: 2,
+		agginventory.AuthorityEvidenceDeclared: 3, agginventory.AuthorityEvidenceVerified: 4,
+		agginventory.AuthorityEvidenceContradictory: 5,
+	}
+	if rank[strings.TrimSpace(incoming)] > rank[strings.TrimSpace(current)] {
+		return incoming
+	}
+	return current
 }
 
 func mergePathContext(current, incoming *agginventory.PathContext) *agginventory.PathContext {

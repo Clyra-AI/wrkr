@@ -205,6 +205,7 @@ type AgentActionBOMItem struct {
 	ActionReasons                       []string                             `json:"action_reasons,omitempty"`
 	OccurrenceCount                     int                                  `json:"occurrence_count,omitempty"`
 	OccurrenceRefs                      []string                             `json:"occurrence_refs,omitempty"`
+	ExecutionRelationships              []model.ExecutionRelationship        `json:"execution_relationships,omitempty"`
 	agginventory.EndpointRefGroupProjection
 	MutableEndpointSemanticRefs  []string                               `json:"mutable_endpoint_semantic_refs,omitempty"`
 	MutableEndpointSemantics     []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
@@ -461,6 +462,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ActionReasons:                       append([]string(nil), path.ActionReasons...),
 			OccurrenceCount:                     path.OccurrenceCount,
 			OccurrenceRefs:                      append([]string(nil), path.OccurrenceRefs...),
+			ExecutionRelationships:              model.NormalizeExecutionRelationships(path.ExecutionRelationships),
 			EndpointRefGroupProjection:          agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics),
 			MutableEndpointSemanticRefs:         agginventory.BoundedMutableEndpointSemanticRefs(path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics),
 			MutableEndpointSemantics:            agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics),

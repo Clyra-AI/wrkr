@@ -321,6 +321,9 @@ func compareProjectedActionPaths(left, right ActionPath) bool {
 	if actionBindingRank(left.ActionBindingState) != actionBindingRank(right.ActionBindingState) {
 		return actionBindingRank(left.ActionBindingState) < actionBindingRank(right.ActionBindingState)
 	}
+	if confidenceLaneRank(left.ConfidenceLane) != confidenceLaneRank(right.ConfidenceLane) {
+		return confidenceLaneRank(left.ConfidenceLane) < confidenceLaneRank(right.ConfidenceLane)
+	}
 	if autonomyTierRank(left.AutonomyTier) != autonomyTierRank(right.AutonomyTier) {
 		return autonomyTierRank(left.AutonomyTier) < autonomyTierRank(right.AutonomyTier)
 	}
@@ -341,9 +344,6 @@ func compareProjectedActionPaths(left, right ActionPath) bool {
 	}
 	if actionPathTypeRank(left.ActionPathType) != actionPathTypeRank(right.ActionPathType) {
 		return actionPathTypeRank(left.ActionPathType) < actionPathTypeRank(right.ActionPathType)
-	}
-	if confidenceLaneRank(left.ConfidenceLane) != confidenceLaneRank(right.ConfidenceLane) {
-		return confidenceLaneRank(left.ConfidenceLane) < confidenceLaneRank(right.ConfidenceLane)
 	}
 	if reviewBurdenRank(left.ReviewBurden) != reviewBurdenRank(right.ReviewBurden) {
 		return reviewBurdenRank(left.ReviewBurden) < reviewBurdenRank(right.ReviewBurden)
@@ -574,16 +574,13 @@ func RemediationForActionPath(path ActionPath) string {
 		}
 		return "Review this low-governance path for production relevance and either suppress it as accepted inventory or add stronger binding evidence."
 	}
-	if path.CredentialAccess && path.CredentialAuthority != nil && path.CredentialAuthority.StandingAccess {
+	if path.CredentialAccess && agginventory.EffectiveStandingAuthority(path.CredentialAuthority) {
 		switch strings.TrimSpace(path.CredentialAuthority.RotationEvidenceStatus) {
 		case agginventory.CredentialRotationEvidenceStale:
 			return "Rotate the stale standing credential, convert it to brokered or JIT access where possible, attach fresh rotation evidence, and rescan."
 		case agginventory.CredentialRotationEvidenceMissing, agginventory.CredentialRotationEvidenceUnknown:
 			return "Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius."
 		}
-	}
-	if path.CredentialAccess && path.CredentialProvenance != nil && path.CredentialProvenance.StandingAccess {
-		return "Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius."
 	}
 	if pathHasHighImpactMutableEndpoint(path) {
 		return "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed."

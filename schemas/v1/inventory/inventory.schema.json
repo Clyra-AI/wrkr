@@ -101,6 +101,7 @@
           "config_fingerprint": {"type": "string"},
           "config_source": {"type": "string"},
           "permissions": {"type": "array", "items": {"type": "string"}},
+          "execution_relationships": {"type": "array", "items": {"$ref": "#/$defs/executionRelationship"}},
           "mutable_endpoint_semantics": {
             "type": "array",
             "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
@@ -426,6 +427,22 @@
     }
   },
   "$defs": {
+    "executionRelationship": {
+      "type": "object",
+      "required": ["relationship_id", "kind", "caller", "callee", "origin", "resolution_state", "confidence"],
+      "properties": {
+        "relationship_id": {"type": "string"},
+        "kind": {"type": "string"},
+        "caller": {"type": "string"},
+        "callee": {"type": "string"},
+        "origin": {"type": "string"},
+        "resolution_state": {"type": "string", "enum": ["resolved_local", "resolved_declared", "unresolved_external", "unsupported_dynamic", "cycle_blocked", "depth_limited", "fanout_limited", "contradictory"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "truncation_reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
     "credentialProvenance": {
       "type": "object",
       "required": ["type", "scope", "confidence", "risk_multiplier"],
@@ -464,6 +481,11 @@
       "type": "object",
       "required": ["credential_present", "credential_referenced_by_workflow", "credential_usable_by_path", "standing_access", "likely_jit"],
       "properties": {
+        "evidence_stage": {"type": "string", "enum": ["observation", "reference", "binding", "effective_authority", "control", "proof"]},
+        "existence_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "binding_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "lifetime_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "lifetime_kind": {"type": "string", "enum": ["standing", "jit", "workload", "delegated", "unknown"]},
         "credential_present": {"type": "boolean"},
         "credential_referenced_by_workflow": {"type": "boolean"},
         "credential_usable_by_path": {"type": "boolean"},

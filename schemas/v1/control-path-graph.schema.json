@@ -170,6 +170,11 @@
       "type": "object",
       "required": ["credential_present", "credential_referenced_by_workflow", "credential_usable_by_path", "standing_access", "likely_jit"],
       "properties": {
+        "evidence_stage": {"type": "string", "enum": ["observation", "reference", "binding", "effective_authority", "control", "proof"]},
+        "existence_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "binding_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "lifetime_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "lifetime_kind": {"type": "string", "enum": ["standing", "jit", "workload", "delegated", "unknown"]},
         "credential_present": {"type": "boolean"},
         "credential_referenced_by_workflow": {"type": "boolean"},
         "credential_usable_by_path": {"type": "boolean"},

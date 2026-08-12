@@ -134,18 +134,8 @@ func pathHasPathScopedAuthorityEvidence(path ActionPath) bool {
 	if location == "" {
 		return false
 	}
-	for _, credential := range agginventory.NormalizeCredentialProvenances(path.Credentials) {
-		if credential == nil {
-			continue
-		}
-		if evidenceLocationMatchesPath(credential.EvidenceLocation, location) {
-			return true
-		}
-	}
-	if provenance := agginventory.NormalizeCredentialProvenance(path.CredentialProvenance); provenance != nil {
-		if evidenceLocationMatchesPath(provenance.EvidenceLocation, location) {
-			return true
-		}
+	if authority := agginventory.NormalizeCredentialAuthority(path.CredentialAuthority); authority != nil && authority.CredentialUsableByPath {
+		return true
 	}
 	for _, binding := range agginventory.NormalizeAuthorityBindings(path.AuthorityBindings) {
 		if binding == nil {

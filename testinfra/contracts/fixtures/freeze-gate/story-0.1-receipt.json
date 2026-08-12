@@ -1,22 +1,35 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "c75b10c6061cdf90d727b8dd17e653146331a5bda6464663eeb78bc10aea41b9",
+  "validated_content_sha256": "7fc639ccf743ef411b137c63aa8307a665b8f3f3f3aa2493152ab31c2bfb818d",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
     "README.md",
+    "core/aggregate/controlbacklog",
+    "core/aggregate/inventory",
     "core/aggregate/attackpath",
     "core/aggregate/privilegebudget",
+    "core/aggregate/scanquality",
     "core/cli",
+    "core/detect",
     "core/evidence",
+    "core/executiontopology",
     "core/export/actioncontracts",
+    "core/model",
     "core/report",
     "core/risk",
+    "core/source/github",
+    "core/state",
     "docs/commands/evidence.md",
     "docs/commands/report.md",
     "docs/commands/scan.md",
+    "docs/contracts/compatibility_matrix.md",
+    "docs/decisions",
+    "docs/examples/operator-playbooks.md",
+    "docs/examples/security-team.md",
     "docs/examples/site-assets",
     "internal/acceptance",
+    "internal/customertwin",
     "internal/enterprisepressure",
     "internal/e2e/diff",
     "internal/scenarios",
@@ -25,7 +38,9 @@
     "scripts/action_contract_conformance",
     "scripts/generate_action_contract_conformance.sh",
     "scripts/run_freeze_gate.py",
-    "testinfra/contracts"
+    "schemas/v1",
+    "testinfra/contracts",
+    "testinfra/hygiene"
   ],
   "receipt_id": "story-0.1-sprint0-public-surface-freeze-gate",
   "plan_path": "product/plans/adhoc/PLAN_ADHOC_2026-07-13_143619_composed-action-path-contracts.md",
@@ -44,9 +59,15 @@
     "bounded_multi_stage_composed_action_contracts",
     "control_path_graph_timeout_cancellation",
     "bounded_serialized_action_path_occurrence_refs",
-    "endpoint_specification_identity"
+    "endpoint_specification_identity",
+    "canonical_credential_authority_evidence_states",
+    "execution_relationships_and_topology",
+    "scan_quality_v2_reconciliation_ledger",
+    "bounded_api_specification_lineage",
+    "customer_validation_worksheet",
+    "customer_shaped_execution_truth_twin"
   ],
-  "validated_on": "2026-08-11",
+  "validated_on": "2026-08-12",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:1-repo",
@@ -77,25 +98,31 @@
     "core/report.TestProjectComposedActionPathsForShareProfileRedactsUnmappedAlternateRouteRefs",
     "testinfra/contracts.TestActionContractPacketSchemaValidatesMultiStageReachabilityProjection",
     "internal/scenarios.TestScenarioBoundedMultiStageCompositions",
-    "scenarios/wrkr/composed-action-paths/expected/multi-stage-composition-fixtures.json"
+    "scenarios/wrkr/composed-action-paths/expected/multi-stage-composition-fixtures.json",
+    "internal/customertwin.TestManifestOracleInvariants",
+    "internal/scenarios.TestScenarioCustomerExecutionTruthTwin",
+    "internal/scenarios.TestScenarioCustomerExecutionTruthScale384",
+    "internal/scenarios.TestScenarioCustomerExecutionTruthScale674",
+    "core/aggregate/scanquality.TestBuildReconciliationLedger",
+    "core/risk.TestBuildIdentityActionTargetsPreservesAuthorityBackedStandingPrivilege"
   ],
   "artifact_size_deltas": [
     {
       "artifact": "last-scan.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 7946907,
+      "measured_bytes": 8163669,
       "baseline_bytes": 0,
       "budget_bytes": 16777216,
-      "delta_bytes": 7946907,
+      "delta_bytes": 8163669,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
       "artifact": "agent-action-bom-evidence.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 1109705,
+      "measured_bytes": 1327818,
       "baseline_bytes": 0,
       "budget_bytes": 2097152,
-      "delta_bytes": 1109705,
+      "delta_bytes": 1327818,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
@@ -137,10 +164,10 @@
     {
       "artifact": "scan-command-response.json",
       "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
-      "measured_bytes": 879846,
+      "measured_bytes": 970144,
       "baseline_bytes": 1067262,
       "budget_bytes": 2097152,
-      "delta_bytes": -187416,
+      "delta_bytes": -97118,
       "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
     },
     {
@@ -241,6 +268,42 @@
       "budget_bytes": 4194304,
       "delta_bytes": 826140,
       "measurement_source": "core/report.TestBuildSummaryMultiStageDefaultOutputSizeDeltaBudget"
+    },
+    {
+      "artifact": "customer-execution-truth-state.json",
+      "fixture": "internal/customertwin:384-repos",
+      "measured_bytes": 13050968,
+      "baseline_bytes": 0,
+      "budget_bytes": 33554432,
+      "delta_bytes": 13050968,
+      "measurement_source": "internal/scenarios.TestScenarioCustomerExecutionTruthScale384"
+    },
+    {
+      "artifact": "customer-execution-truth-report.md",
+      "fixture": "internal/customertwin:384-repos",
+      "measured_bytes": 7385,
+      "baseline_bytes": 0,
+      "budget_bytes": 16384,
+      "delta_bytes": 7385,
+      "measurement_source": "internal/scenarios.TestScenarioCustomerExecutionTruthScale384"
+    },
+    {
+      "artifact": "customer-execution-truth-state.json",
+      "fixture": "internal/customertwin:674-repos",
+      "measured_bytes": 16617016,
+      "baseline_bytes": 0,
+      "budget_bytes": 33554432,
+      "delta_bytes": 16617016,
+      "measurement_source": "internal/scenarios.TestScenarioCustomerExecutionTruthScale674"
+    },
+    {
+      "artifact": "customer-execution-truth-report.md",
+      "fixture": "internal/customertwin:674-repos",
+      "measured_bytes": 7385,
+      "baseline_bytes": 0,
+      "budget_bytes": 16384,
+      "delta_bytes": 7385,
+      "measurement_source": "internal/scenarios.TestScenarioCustomerExecutionTruthScale674"
     }
   ],
   "validations": [
@@ -426,6 +489,25 @@
         "internal/enterprisepressure.EndpointDense:384-repos"
       ],
       "evidence": "Endpoint-dense fixtures retain exact operation evidence, expose bounded specification roll-ups in buyer BOM and control-graph artifacts, and a 384-repository scan stays deterministic under a 512 MiB Go memory limit; timeout or concurrent isolated scans leave reusable managed state."
+    },
+    {
+      "name": "customer_execution_truth",
+      "status": "pass",
+      "commands": [
+        "go test ./internal/customertwin -count=1",
+        "go test ./internal/scenarios -run 'TestScenarioCustomerExecutionTruth(Twin|Scale384|Scale674)$' -tags=scenario -count=1 -timeout=10m",
+        "go test ./core/risk -run 'TestBuildIdentityActionTargetsPreservesAuthorityBackedStandingPrivilege|TestUnknownAuthorityAvoidsStandingCredentialRemediation|TestOpenAPIWithoutAuthorityCorrelationStaysAppendixOnlyProductionContext' -count=1",
+        "go test ./core/aggregate/scanquality -run 'Test.*Reconciliation' -count=1"
+      ],
+      "fixture_names": [
+        "scenarios/wrkr/customer-execution-truth",
+        "internal/customertwin:96-repos",
+        "internal/customertwin:384-repos",
+        "internal/customertwin:674-repos",
+        "core/risk.canonical-credential-authority",
+        "core/aggregate/scanquality.reconciliation-ledger-v2"
+      ],
+      "evidence": "The independent synthetic oracle reconciles workflow discovery, parser outcomes, credential references, effective authorities, reusable execution relationships, OpenAPI lineage, grouped paths, and displayed versus suppressed rows at focused and enterprise scales; all proof chains verify and buyer reports remain deterministic and bounded."
     }
   ],
   "public_surface_decision": "composition public surface may be exposed only when this receipt is present, status is green, and every validation listed here is pass"

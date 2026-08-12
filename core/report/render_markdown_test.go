@@ -8,6 +8,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -87,6 +88,84 @@ func TestMarkdownActionPathLabelsDistinguishControlConfidence(t *testing.T) {
 				t.Fatalf("markdownActionPathLabel() = %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestDesignPartnerValidationWorksheetAsksOnlyUnresolvedFacts(t *testing.T) {
+	t.Parallel()
+
+	markdown := RenderMarkdown(Summary{
+		GeneratedAt:  "2026-08-12T12:00:00Z",
+		Template:     string(TemplateDesignPartnerSummary),
+		ShareProfile: string(ShareProfileDesignPartner),
+		AgentActionBOM: &AgentActionBOM{
+			Summary: AgentActionBOMSummary{TotalItems: 2},
+			Items: []AgentActionBOMItem{
+				{
+					PathID:                      "apc-unresolved",
+					CredentialAccess:            true,
+					CredentialAuthority:         &agginventory.CredentialAuthority{EvidenceStage: agginventory.EvidenceStageReference, ExistenceEvidenceState: agginventory.AuthorityEvidenceDeclared, BindingEvidenceState: agginventory.AuthorityEvidenceUnknown, LifetimeEvidenceState: agginventory.AuthorityEvidenceUnknown, LifetimeKind: agginventory.CredentialLifetimeUnknown},
+					TargetEvidenceState:         risk.EvidenceStateUnknown,
+					RuntimeEvidenceState:        risk.EvidenceStateUnknown,
+					RuntimeContextEvidenceState: risk.EvidenceStateUnknown,
+					OwnerEvidenceState:          risk.EvidenceStateUnknown,
+					ApprovalEvidenceState:       risk.EvidenceStateUnknown,
+					ProofEvidenceState:          risk.EvidenceStateUnknown,
+					ExecutionRelationships: []model.ExecutionRelationship{{
+						Kind: "jenkins_shared_library", Caller: "Jenkinsfile", Callee: "external/pipeline-lib:vars/release.groovy", ResolutionState: "unresolved_external",
+					}},
+				},
+				{
+					PathID:                      "apc-verified",
+					TargetEvidenceState:         risk.EvidenceStateVerified,
+					RuntimeEvidenceState:        risk.EvidenceStateVerified,
+					RuntimeContextEvidenceState: risk.EvidenceStateVerified,
+					OwnerEvidenceState:          risk.EvidenceStateVerified,
+					ApprovalEvidenceState:       risk.EvidenceStateVerified,
+					ProofEvidenceState:          risk.EvidenceStateVerified,
+				},
+			},
+		},
+	})
+
+	for _, want := range []string{
+		"## Customer Validation Worksheet",
+		"`apc-unresolved`",
+		"map the unresolved caller",
+		"confirm credential existence, path binding, and lifetime",
+		"confirm the actual target and environment",
+		"confirm the runtime executor and effective permissions",
+	} {
+		if !strings.Contains(markdown, want) {
+			t.Fatalf("expected worksheet text %q, got:\n%s", want, markdown)
+		}
+	}
+	if strings.Contains(markdown, "`apc-verified`") {
+		t.Fatalf("verified facts must not be repeated in the validation worksheet, got:\n%s", markdown)
+	}
+}
+
+func TestDesignPartnerValidationWorksheetIsBounded(t *testing.T) {
+	t.Parallel()
+
+	items := make([]AgentActionBOMItem, 0, customerValidationWorksheetLimit+3)
+	for index := 0; index < customerValidationWorksheetLimit+3; index++ {
+		items = append(items, AgentActionBOMItem{PathID: fmt.Sprintf("apc-%02d", index), OwnerEvidenceState: risk.EvidenceStateUnknown})
+	}
+	markdown := RenderMarkdown(Summary{
+		GeneratedAt:  "2026-08-12T12:00:00Z",
+		Template:     string(TemplateDesignPartnerSummary),
+		ShareProfile: string(ShareProfileDesignPartner),
+		AgentActionBOM: &AgentActionBOM{
+			Summary: AgentActionBOMSummary{TotalItems: len(items)},
+			Items:   items,
+		},
+	})
+	if got := strings.Count(markdown, "Import path-scoped evidence, then rescan."); got != customerValidationWorksheetLimit {
+		t.Fatalf("worksheet rows=%d, want %d", got, customerValidationWorksheetLimit)
+	}
+	if strings.Contains(markdown, "`apc-10`") {
+		t.Fatalf("worksheet exceeded the hard row cap, got:\n%s", markdown)
 	}
 }
 
@@ -543,7 +622,7 @@ func TestBuyerDiagnosticCardsHumanizePathAndCredentialEnums(t *testing.T) {
 	if strings.Contains(card.Inspect, risk.ActionPathTypeCICDWorkflow) || !strings.Contains(card.Inspect, "CI/CD workflow") {
 		t.Fatalf("expected buyer-readable workflow type, got %q", card.Inspect)
 	}
-	if strings.Contains(card.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(card.Why, "standing secret reference") {
+	if strings.Contains(card.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(card.Why, "secret reference") {
 		t.Fatalf("expected buyer-readable credential kind, got %q", card.Why)
 	}
 
@@ -556,7 +635,7 @@ func TestBuyerDiagnosticCardsHumanizePathAndCredentialEnums(t *testing.T) {
 		},
 		DelegationReadinessState: item.DelegationReadinessState,
 	}, item, false)
-	if strings.Contains(primaryCard.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(primaryCard.Why, "standing secret reference") {
+	if strings.Contains(primaryCard.Why, agginventory.CredentialKindStaticSecret) || !strings.Contains(primaryCard.Why, "secret reference") {
 		t.Fatalf("expected primary buyer card to humanize credential kind, got %q", primaryCard.Why)
 	}
 }
@@ -801,13 +880,7 @@ func TestWorkflowHighlightGroupingSeparatesStandingCredentialMetadata(t *testing
 	}
 	standing := base
 	standing.PathID = "apc-standing"
-	standing.CredentialAuthority = &agginventory.CredentialAuthority{
-		CredentialPresent:      true,
-		CredentialUsableByPath: true,
-		CredentialKind:         agginventory.CredentialKindGitHubPAT,
-		AccessType:             agginventory.CredentialAccessTypeStanding,
-		StandingAccess:         true,
-	}
+	standing.CredentialAuthority = testStandingCredentialAuthority(agginventory.CredentialKindGitHubPAT)
 
 	standingAuthority := workflowAuthoritySummary(standing)
 	if !strings.Contains(strings.ToLower(standingAuthority), "standing credential") {
@@ -840,12 +913,8 @@ func TestWorkflowHighlightGroupingSeparatesStandingCredentialWithoutAccessType(t
 	}
 	standing := base
 	standing.PathID = "apc-standing"
-	standing.CredentialAuthority = &agginventory.CredentialAuthority{
-		CredentialPresent:      true,
-		CredentialUsableByPath: true,
-		CredentialKind:         agginventory.CredentialKindGitHubWorkflowToken,
-		StandingAccess:         true,
-	}
+	standing.CredentialAuthority = testStandingCredentialAuthority(agginventory.CredentialKindGitHubWorkflowToken)
+	standing.CredentialAuthority.AccessType = ""
 
 	standingAuthority := workflowAuthoritySummary(standing)
 	if !strings.Contains(strings.ToLower(standingAuthority), "standing credential") {

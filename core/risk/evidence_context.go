@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 )
@@ -1033,10 +1034,8 @@ func pathNeedsDeploymentConstraintEvidence(path ActionPath) bool {
 }
 
 func likelyJITCredential(path ActionPath) bool {
-	if path.CredentialAuthority != nil && path.CredentialAuthority.LikelyJIT {
-		return true
-	}
-	return path.CredentialProvenance != nil && path.CredentialProvenance.LikelyJIT
+	authority := agginventory.NormalizeCredentialAuthority(path.CredentialAuthority)
+	return authority != nil && authority.LikelyJIT
 }
 
 func closureRequirementID(pathID, requirementType, discriminator string) string {

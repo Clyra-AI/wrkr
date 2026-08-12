@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/attribution"
 )
 
@@ -286,30 +287,9 @@ func agenticCredentialReach(path ActionPath) string {
 			parts = append(parts, scope)
 		}
 		switch {
-		case path.CredentialAuthority.StandingAccess:
+		case agginventory.EffectiveStandingAuthority(path.CredentialAuthority):
 			parts = append(parts, "standing")
 		case path.CredentialAuthority.LikelyJIT:
-			parts = append(parts, "jit")
-		}
-		if len(parts) > 0 {
-			return strings.Join(dedupeSortedStrings(parts), " ")
-		}
-	}
-	if path.CredentialProvenance != nil {
-		parts := []string{}
-		if kind := strings.TrimSpace(path.CredentialProvenance.CredentialKind); kind != "" {
-			parts = append(parts, kind)
-		}
-		if target := strings.TrimSpace(path.CredentialProvenance.TargetSystem); target != "" {
-			parts = append(parts, target)
-		}
-		if scope := strings.TrimSpace(path.CredentialProvenance.LikelyScope); scope != "" {
-			parts = append(parts, scope)
-		}
-		switch {
-		case path.CredentialProvenance.StandingAccess:
-			parts = append(parts, "standing")
-		case path.CredentialProvenance.LikelyJIT:
 			parts = append(parts, "jit")
 		}
 		if len(parts) > 0 {

@@ -2,10 +2,12 @@ package workflowcap
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"gopkg.in/yaml.v3"
 )
@@ -13,21 +15,22 @@ import (
 const detectorID = "workflowcap"
 
 type Result struct {
-	Capabilities     []string
-	Evidence         []model.Evidence
-	Tool             string
-	WorkflowName     string
-	JobNames         []string
-	EnvironmentNames []string
-	Headless         bool
-	DangerousFlags   bool
-	HasSecretAccess  bool
-	HasApprovalGate  bool
-	StepCount        int
-	Triggers         []string
-	ApprovalSource   string
-	DeploymentGate   string
-	ProofRequirement string
+	Capabilities           []string
+	Evidence               []model.Evidence
+	Tool                   string
+	WorkflowName           string
+	JobNames               []string
+	EnvironmentNames       []string
+	Headless               bool
+	DangerousFlags         bool
+	HasSecretAccess        bool
+	HasApprovalGate        bool
+	StepCount              int
+	Triggers               []string
+	ApprovalSource         string
+	DeploymentGate         string
+	ProofRequirement       string
+	ExecutionRelationships []model.ExecutionRelationship
 }
 
 var (
@@ -43,6 +46,7 @@ type workflowDocument struct {
 }
 
 type workflowJob struct {
+	Uses        string            `yaml:"uses"`
 	Permissions permissionField   `yaml:"permissions"`
 	Environment environmentField  `yaml:"environment"`
 	Env         map[string]string `yaml:"env"`
@@ -181,7 +185,7 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	return AnalyzeInRoot("", path, payload)
 }
 
-func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseError) {
+func analyzeGitHubWorkflow(root, path string, payload []byte) (Result, *model.ParseError) {
 	var doc workflowDocument
 	if err := yaml.Unmarshal(payload, &doc); err != nil {
 		return Result{}, &model.ParseError{
@@ -206,6 +210,7 @@ func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseErr
 	workflowTokenPermissions := map[string]struct{}{}
 	authSurfaces := map[string]struct{}{}
 	authorityBindings := map[string]struct{}{}
+	executionRelationships := map[string]struct{}{}
 	hasBuiltinWorkflowToken := false
 
 	jobNames := make([]string, 0, len(doc.Jobs))
@@ -218,6 +223,9 @@ func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseErr
 	hasDeliverySurface := false
 	for _, jobName := range jobNames {
 		job := doc.Jobs[jobName]
+		if strings.TrimSpace(job.Uses) != "" {
+			executionRelationships[githubExecutionRelationship(root, path, job.Uses, "github_reusable_workflow")] = struct{}{}
+		}
 		perms := effectivePermissions(doc.Permissions, job.Permissions)
 		if perms.allows("contents") {
 			addCapabilityReason(capabilityReasons, "repo.write", "permissions.contents=write")
@@ -276,6 +284,9 @@ func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseErr
 			}
 			for _, binding := range workflowAuthorityBindings(step, strings.TrimSpace(job.Environment.Name)) {
 				authorityBindings[binding] = struct{}{}
+			}
+			if strings.HasPrefix(strings.TrimSpace(step.Uses), "./") {
+				executionRelationships[githubExecutionRelationship(root, path, step.Uses, "github_composite_action")] = struct{}{}
 			}
 
 			if reason := mergeExecuteReason(step); reason != "" && (perms.allows("contents") || perms.allows("pull-requests")) {
@@ -411,9 +422,34 @@ func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseErr
 	for _, binding := range sortedSet(authorityBindings) {
 		evidence = append(evidence, model.Evidence{Key: "authority_binding", Value: binding})
 	}
+	for _, relationship := range sortedSet(executionRelationships) {
+		evidence = append(evidence, model.Evidence{Key: "execution_relationship", Value: relationship})
+	}
 	result.Evidence = appendDeliveryControlEvidence(path, string(payload), result, evidence)
 	result.Evidence = appendPlatformEvidence(result.Evidence, "github_actions", "high")
 	return result, nil
+}
+
+func githubExecutionRelationship(root, caller, reference, kind string) string {
+	ref := strings.TrimSpace(reference)
+	state := "unresolved_external"
+	resolved := ref
+	if strings.HasPrefix(ref, "./") {
+		resolved = strings.TrimPrefix(filepath.ToSlash(filepath.Clean(ref)), "./")
+		if kind == "github_composite_action" && filepath.Ext(resolved) == "" {
+			for _, suffix := range []string{"/action.yml", "/action.yaml"} {
+				candidate := resolved + suffix
+				if exists, _ := detect.FileExistsWithinRoot(detectorID, root, candidate); exists {
+					resolved = candidate
+					state = "resolved_local"
+					break
+				}
+			}
+		} else if exists, _ := detect.FileExistsWithinRoot(detectorID, root, resolved); exists {
+			state = "resolved_local"
+		}
+	}
+	return strings.Join([]string{kind, strings.TrimSpace(caller), resolved, state}, "|")
 }
 
 func workflowTargetClassHint(result Result) string {

@@ -255,29 +255,33 @@ func applyInventoryMutationOverrides(snapshot *state.Snapshot, record manifest.I
 	if snapshot == nil || snapshot.ControlBacklog == nil {
 		return
 	}
-	if strings.TrimSpace(action) != "exclude" {
-		return
-	}
 	items := snapshot.ControlBacklog.Items[:0]
 	for _, item := range snapshot.ControlBacklog.Items {
 		updated := item
 		if backlogItemMatchesRecord(item.ID, item.Repo, item.Path, requestedID, record) {
 			updated.ApprovalStatus = backlogApprovalStatus(record)
 			updated.SecurityVisibility = agginventory.GovernanceSecurityVisibilityStatus(backlogSecurityVisibility(record), strings.TrimSpace(record.ApprovalState), strings.TrimSpace(record.Status))
-			updated.Queue = controlbacklog.QueueInventoryHygiene
-			updated.FindingVisibility = controlbacklog.FindingVisibilityAppendix
-			updated.RecommendedAction = controlbacklog.ActionSuppress
-			updated.GovernanceDisposition = &controlbacklog.GovernanceDisposition{
-				Kind:               controlbacklog.GovernanceKindSuppression,
-				Status:             controlbacklog.GovernanceStatusActive,
-				Reason:             firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.ExclusionReason), strings.TrimSpace(record.Approval.DecisionReason)),
-				Scope:              firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.Scope), "control_path"),
-				Issuer:             firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.Approver), strings.TrimSpace(record.Approval.Owner)),
-				ExpiresAt:          strings.TrimSpace(record.Approval.Expires),
-				EvidenceState:      firstNonEmptySnapshotValue(strings.TrimSpace(updated.ApprovalEvidenceState), "unknown"),
-				VisibilityBehavior: controlbacklog.FindingVisibilityAppendix,
-				RescanBehavior:     "retain_appendix_until_expiry",
-				EvidenceRefs:       compactSnapshotStrings(strings.TrimSpace(record.Approval.ControlID), strings.TrimSpace(record.Approval.EvidenceURL)),
+			if owner := strings.TrimSpace(record.Approval.Owner); owner != "" {
+				updated.Owner = owner
+				updated.OwnerSource = "inventory_approval"
+				updated.OwnershipStatus = "explicit"
+			}
+			if strings.TrimSpace(action) == "exclude" {
+				updated.Queue = controlbacklog.QueueInventoryHygiene
+				updated.FindingVisibility = controlbacklog.FindingVisibilityAppendix
+				updated.RecommendedAction = controlbacklog.ActionSuppress
+				updated.GovernanceDisposition = &controlbacklog.GovernanceDisposition{
+					Kind:               controlbacklog.GovernanceKindSuppression,
+					Status:             controlbacklog.GovernanceStatusActive,
+					Reason:             firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.ExclusionReason), strings.TrimSpace(record.Approval.DecisionReason)),
+					Scope:              firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.Scope), "control_path"),
+					Issuer:             firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.Approver), strings.TrimSpace(record.Approval.Owner)),
+					ExpiresAt:          strings.TrimSpace(record.Approval.Expires),
+					EvidenceState:      firstNonEmptySnapshotValue(strings.TrimSpace(updated.ApprovalEvidenceState), "unknown"),
+					VisibilityBehavior: controlbacklog.FindingVisibilityAppendix,
+					RescanBehavior:     "retain_appendix_until_expiry",
+					EvidenceRefs:       compactSnapshotStrings(strings.TrimSpace(record.Approval.ControlID), strings.TrimSpace(record.Approval.EvidenceURL)),
+				}
 			}
 		}
 		items = append(items, updated)

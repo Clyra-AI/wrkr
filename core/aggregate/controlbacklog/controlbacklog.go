@@ -1327,10 +1327,7 @@ func credentialPathRequiresRemediation(path risk.ActionPath) bool {
 	if path.StandingPrivilege || strings.TrimSpace(path.DelegationReadinessState) == risk.DelegationReadinessBlocked || strings.TrimSpace(path.DelegationReadinessState) == risk.DelegationReadinessBlockedByContradiction || strings.TrimSpace(path.ControlState) == risk.ControlStateBlockRecommend {
 		return true
 	}
-	if path.CredentialAuthority != nil && (path.CredentialAuthority.StandingAccess || strings.TrimSpace(path.CredentialAuthority.AccessType) == agginventory.CredentialAccessTypeStanding) {
-		return true
-	}
-	return path.CredentialProvenance != nil && (path.CredentialProvenance.StandingAccess || strings.TrimSpace(path.CredentialProvenance.AccessType) == agginventory.CredentialAccessTypeStanding)
+	return agginventory.EffectiveStandingAuthority(path.CredentialAuthority)
 }
 
 func lifecycleGapRecommendedAction(gap lifecycle.Gap) string {
@@ -1512,21 +1509,78 @@ func mergeCredentialAuthority(current, incoming *agginventory.CredentialAuthorit
 		return agginventory.CloneCredentialAuthority(current)
 	default:
 		merged := agginventory.CloneCredentialAuthority(current)
+		merged.EvidenceStage = strongerAuthorityStage(current.EvidenceStage, incoming.EvidenceStage)
+		merged.ExistenceEvidenceState = strongerAuthorityEvidenceState(current.ExistenceEvidenceState, incoming.ExistenceEvidenceState)
+		merged.BindingEvidenceState = strongerAuthorityEvidenceState(current.BindingEvidenceState, incoming.BindingEvidenceState)
+		var lifetimeContradiction bool
+		merged.LifetimeKind, merged.LifetimeEvidenceState, lifetimeContradiction = agginventory.MergeCredentialLifetime(current, incoming)
 		merged.CredentialPresent = current.CredentialPresent || incoming.CredentialPresent
 		merged.CredentialReferencedByWorkflow = current.CredentialReferencedByWorkflow || incoming.CredentialReferencedByWorkflow
 		merged.CredentialUsableByPath = current.CredentialUsableByPath || incoming.CredentialUsableByPath
-		merged.CredentialKind = firstNonEmptyString(merged.CredentialKind, incoming.CredentialKind)
-		merged.AccessType = firstNonEmptyString(merged.AccessType, incoming.AccessType)
+		merged.CredentialKind = preferKnownAuthorityValue(merged.CredentialKind, incoming.CredentialKind, agginventory.CredentialKindUnknown)
+		merged.AccessType = preferKnownAuthorityValue(merged.AccessType, incoming.AccessType, agginventory.CredentialAccessTypeUnknown)
 		merged.StandingAccess = current.StandingAccess || incoming.StandingAccess
 		merged.LikelyJIT = current.LikelyJIT || incoming.LikelyJIT
-		merged.RotationEvidenceStatus = firstNonEmptyString(merged.RotationEvidenceStatus, incoming.RotationEvidenceStatus)
-		merged.CredentialSource = firstNonEmptyString(merged.CredentialSource, incoming.CredentialSource)
+		merged.RotationEvidenceStatus = preferKnownAuthorityValue(merged.RotationEvidenceStatus, incoming.RotationEvidenceStatus, agginventory.CredentialRotationEvidenceUnknown)
+		merged.CredentialSource = preferKnownAuthorityValue(merged.CredentialSource, incoming.CredentialSource, agginventory.CredentialSourceUnknown)
 		if confidencePriority(incoming.Confidence) < confidencePriority(merged.Confidence) {
 			merged.Confidence = incoming.Confidence
 		}
 		merged.ReasonCodes = mergeStrings(merged.ReasonCodes, incoming.ReasonCodes)
+		if lifetimeContradiction {
+			merged.ReasonCodes = mergeStrings(merged.ReasonCodes, []string{"credential_lifetime:contradictory"})
+		}
 		return agginventory.NormalizeCredentialAuthority(merged)
 	}
+}
+
+func preferKnownAuthorityValue(current, incoming string, unknownValues ...string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	if current == "" || containsAuthorityValue(unknownValues, current) {
+		if incoming != "" {
+			return incoming
+		}
+	}
+	return current
+}
+
+func containsAuthorityValue(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func strongerAuthorityStage(current, incoming string) string {
+	rank := map[string]int{
+		agginventory.EvidenceStageObservation:        1,
+		agginventory.EvidenceStageReference:          2,
+		agginventory.EvidenceStageBinding:            3,
+		agginventory.EvidenceStageEffectiveAuthority: 4,
+		agginventory.EvidenceStageControl:            5,
+		agginventory.EvidenceStageProof:              6,
+	}
+	if rank[strings.TrimSpace(incoming)] > rank[strings.TrimSpace(current)] {
+		return incoming
+	}
+	return current
+}
+
+func strongerAuthorityEvidenceState(current, incoming string) string {
+	rank := map[string]int{
+		agginventory.AuthorityEvidenceUnknown:       1,
+		agginventory.AuthorityEvidenceInferred:      2,
+		agginventory.AuthorityEvidenceDeclared:      3,
+		agginventory.AuthorityEvidenceVerified:      4,
+		agginventory.AuthorityEvidenceContradictory: 5,
+	}
+	if rank[strings.TrimSpace(incoming)] > rank[strings.TrimSpace(current)] {
+		return incoming
+	}
+	return current
 }
 
 func firstNonEmptyString(values ...string) string {

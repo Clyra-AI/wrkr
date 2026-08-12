@@ -54,3 +54,10 @@ Canonical enum additions in the v1 schema line include:
 Compatibility aliases can remain present in v1 where existing consumers still expect them, but schema examples and user-facing docs should lead with the canonical evidence-state fields instead of unsupported blanket `missing_*` wording.
 
 Deterministic Sprint 2 example fixtures live under `testinfra/contracts/fixtures/sprint2/` and cover `external-control-evidence.schema.json`, `wrkr-control-declarations.yaml`, report action-path evidence decisions, contradictions, accepted-risk governance, lifecycle queue items, and `evidence_completeness`.
+
+Execution-truth additions remain additive within v1:
+
+- `policy/execution-topology.schema.json` validates local alias/reference-to-source mappings without storing credentials or remote source.
+- Finding, inventory, risk, report-summary, Agent Action BOM, and control-graph contracts can carry typed `execution_relationships[]`.
+- Credential authority uses evidence stage plus typed existence, binding, and lifetime evidence. Lifetime kind remains separate, and compatibility booleans are conservative projections.
+- Report-summary and Agent Action BOM scan quality accept version 2 detector-owned `surface_coverage[]` and a staged `reconciliation_ledger` while version 1 readers remain supported.

@@ -54,6 +54,59 @@ func TestBuildActionPathsCorrelatesExecutionIdentity(t *testing.T) {
 	}
 }
 
+func TestMergeCredentialAuthorityPrefersKnownMetadata(t *testing.T) {
+	t.Parallel()
+
+	unknown := &agginventory.CredentialAuthority{
+		ExistenceEvidenceState: agginventory.AuthorityEvidenceUnknown,
+		BindingEvidenceState:   agginventory.AuthorityEvidenceUnknown,
+		LifetimeEvidenceState:  agginventory.AuthorityEvidenceUnknown,
+		LifetimeKind:           agginventory.CredentialLifetimeUnknown,
+		CredentialKind:         agginventory.CredentialKindUnknown,
+		AccessType:             agginventory.CredentialAccessTypeUnknown,
+	}
+	known := &agginventory.CredentialAuthority{
+		ExistenceEvidenceState:         agginventory.AuthorityEvidenceVerified,
+		BindingEvidenceState:           agginventory.AuthorityEvidenceVerified,
+		LifetimeEvidenceState:          agginventory.AuthorityEvidenceVerified,
+		LifetimeKind:                   agginventory.CredentialLifetimeStanding,
+		CredentialKind:                 agginventory.CredentialKindStaticSecret,
+		AccessType:                     agginventory.CredentialAccessTypeStanding,
+		CredentialReferencedByWorkflow: true,
+	}
+
+	merged := mergeCredentialAuthority(unknown, known)
+	if merged.LifetimeKind != agginventory.CredentialLifetimeStanding || merged.CredentialKind != agginventory.CredentialKindStaticSecret || merged.AccessType != agginventory.CredentialAccessTypeStanding {
+		t.Fatalf("known authority metadata was discarded by an earlier unknown value: %+v", merged)
+	}
+}
+
+func TestMergeCredentialAuthorityRejectsConflictingKnownLifetimes(t *testing.T) {
+	t.Parallel()
+
+	base := &agginventory.CredentialAuthority{
+		EvidenceStage:          agginventory.EvidenceStageEffectiveAuthority,
+		ExistenceEvidenceState: agginventory.AuthorityEvidenceVerified,
+		BindingEvidenceState:   agginventory.AuthorityEvidenceVerified,
+		CredentialKind:         agginventory.CredentialKindStaticSecret,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+	}
+	standing := agginventory.CloneCredentialAuthority(base)
+	standing.LifetimeKind = agginventory.CredentialLifetimeStanding
+	standing.LifetimeEvidenceState = agginventory.AuthorityEvidenceDeclared
+	jit := agginventory.CloneCredentialAuthority(base)
+	jit.LifetimeKind = agginventory.CredentialLifetimeJIT
+	jit.LifetimeEvidenceState = agginventory.AuthorityEvidenceVerified
+
+	merged := mergeCredentialAuthority(standing, jit)
+	if merged.LifetimeKind != agginventory.CredentialLifetimeUnknown || merged.LifetimeEvidenceState != agginventory.AuthorityEvidenceContradictory {
+		t.Fatalf("conflicting lifetime records must fail closed: %+v", merged)
+	}
+	if agginventory.EffectiveStandingAuthority(merged) {
+		t.Fatalf("conflicting lifetime records must not synthesize standing authority: %+v", merged)
+	}
+}
+
 func TestBuildActionPathsCarriesWritePathClassesAndControls(t *testing.T) {
 	t.Parallel()
 
@@ -818,6 +871,39 @@ func TestConfidenceLaneAffectsGovernFirstRanking(t *testing.T) {
 	}
 	if paths[1].ConfidenceLane != ConfidenceLaneSemanticReviewCandidate {
 		t.Fatalf("expected second path to remain semantic review candidate, got %+v", paths[1])
+	}
+}
+
+func TestConfirmedPathOutranksHigherPresetCandidate(t *testing.T) {
+	t.Parallel()
+
+	confirmed := ActionPath{
+		PathID:                   "confirmed",
+		WriteCapable:             true,
+		DeployWrite:              true,
+		ProductionImpactInferred: true,
+		ActionPathEligible:       true,
+		ActionBindingState:       ActionBindingStateBound,
+		ConfidenceLane:           ConfidenceLaneConfirmedActionPath,
+		HighStakesPresets:        []HighStakesPreset{{Preset: HighStakesPresetProductionPath}},
+	}
+	candidate := ActionPath{
+		PathID:                   "candidate",
+		WriteCapable:             true,
+		DeployWrite:              true,
+		ProductionImpactInferred: true,
+		ActionPathEligible:       true,
+		ActionBindingState:       ActionBindingStateBound,
+		ConfidenceLane:           ConfidenceLaneLikelyActionPath,
+		HighStakesPresets: []HighStakesPreset{
+			{Preset: HighStakesPresetProductionPath},
+			{Preset: HighStakesPresetReleaseAutomation},
+			{Preset: HighStakesPresetExternalEgress},
+			{Preset: HighStakesPresetMutableEndpoint},
+		},
+	}
+	if !compareProjectedActionPaths(confirmed, candidate) {
+		t.Fatal("confirmed path must outrank a higher-preset inferred candidate")
 	}
 }
 

@@ -119,7 +119,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected scan_quality object, got %T", payload["scan_quality"])
 	}
-	if scanQuality["scan_quality_version"] != "1" {
+	if scanQuality["scan_quality_version"] != "2" {
 		t.Fatalf("unexpected scan_quality_version: %v", scanQuality["scan_quality_version"])
 	}
 	sourcePrivacy, ok := payload["source_privacy"].(map[string]any)

@@ -20,14 +20,26 @@ var (
 )
 
 func AnalyzeInRoot(root, path string, payload []byte) (Result, *model.ParseError) {
+	var result Result
+	var parseErr *model.ParseError
 	switch {
+	case workflowloc.IsJenkinsfile(path):
+		result, parseErr = analyzeJenkinsWorkflow(path, payload)
+	case isJenkinsScript(path):
+		result, parseErr = analyzeJenkinsWorkflow(path, payload)
 	case workflowloc.IsGitLabEntryPipeline(path):
-		return analyzeGitLabWorkflow(root, path, payload)
+		result, parseErr = analyzeGitLabWorkflow(root, path, payload)
 	case workflowloc.IsAzurePipelinePath(path):
-		return analyzeAzureWorkflow(root, path, payload)
+		result, parseErr = analyzeAzureWorkflow(root, path, payload)
+	case workflowloc.IsGitHubWorkflow(path):
+		result, parseErr = analyzeGitHubWorkflow(root, path, payload)
+	case isCompositeAction(path):
+		result, parseErr = analyzeCompositeAction(root, path, payload)
 	default:
-		return analyzeGitHubWorkflow(path, payload)
+		parseErr = &model.ParseError{Kind: "unsupported_format", Path: strings.TrimSpace(path), Detector: detectorID, Message: "unsupported workflow surface"}
 	}
+	result.ExecutionRelationships = normalizedExecutionRelationships(result.Evidence)
+	return result, parseErr
 }
 
 func appendPlatformEvidence(in []model.Evidence, platform string, confidence string) []model.Evidence {
@@ -376,6 +388,7 @@ type workflowObservation struct {
 	resolutionKey    string
 	resolutionStatus string
 	gitlabTemplates  map[string]gitlabJob
+	relationships    []string
 }
 
 func analyzeObservation(obs workflowObservation) Result {
@@ -525,6 +538,9 @@ func analyzeObservation(obs workflowObservation) Result {
 	if strings.TrimSpace(obs.resolutionKey) != "" && strings.TrimSpace(obs.resolutionStatus) != "" {
 		evidence = append(evidence, model.Evidence{Key: obs.resolutionKey, Value: strings.TrimSpace(obs.resolutionStatus)})
 	}
+	for _, relationship := range dedupeSlice(obs.relationships) {
+		evidence = append(evidence, model.Evidence{Key: "execution_relationship", Value: relationship})
+	}
 	if result.ApprovalSource != "" {
 		evidence = append(evidence, model.Evidence{Key: "approval_source", Value: result.ApprovalSource})
 	}
@@ -671,6 +687,7 @@ func loadGitLabDocument(root, path string, payload []byte, stack map[string]stru
 		}
 		for _, includeRef := range gitlabIncludeRefs(&doc.Include) {
 			if includeRef.kind != "local" {
+				obs.relationships = append(obs.relationships, "gitlab_include|"+path+"|"+strings.TrimSpace(includeRef.path)+"|unresolved_external")
 				obs.resolutionStatus = "partial"
 				if firstErr == nil {
 					firstErr = &model.ParseError{Kind: "schema_validation_error", Format: "yaml", Path: path, Detector: detectorID, Message: "unsupported remote include"}
@@ -687,6 +704,7 @@ func loadGitLabDocument(root, path string, payload []byte, stack map[string]stru
 			rel := normalizeGitLabLocalPath(includeRef.path)
 			childPayload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
 			if parseErr != nil {
+				obs.relationships = append(obs.relationships, "gitlab_include|"+path+"|"+rel+"|unresolved_external")
 				obs.resolutionStatus = "partial"
 				parseErr.Path = path
 				if parseErr.Message == "" {
@@ -698,11 +716,14 @@ func loadGitLabDocument(root, path string, payload []byte, stack map[string]stru
 				continue
 			}
 			if childErr := loadGitLabDocument(root, rel, childPayload, stack, obs); childErr != nil {
+				obs.relationships = append(obs.relationships, "gitlab_include|"+path+"|"+rel+"|unresolved_external")
 				obs.resolutionStatus = "partial"
 				childErr.Path = path
 				if firstErr == nil {
 					firstErr = childErr
 				}
+			} else {
+				obs.relationships = append(obs.relationships, "gitlab_include|"+path+"|"+rel+"|resolved_local")
 			}
 		}
 	}
@@ -1118,11 +1139,17 @@ func loadAzureDocument(root, path string, payload []byte, stack map[string]struc
 			obs.resolutionStatus = "resolved"
 		}
 		for _, ref := range templateRefs {
-			if strings.Contains(ref, "@") || strings.Contains(ref, "${{") || strings.Contains(ref, "$(") {
+			if strings.Contains(ref, "${{") || strings.Contains(ref, "$(") {
+				obs.relationships = append(obs.relationships, "azure_template|"+path+"|"+strings.TrimSpace(ref)+"|unsupported_dynamic")
 				obs.resolutionStatus = "partial"
 				if firstErr == nil {
 					firstErr = &model.ParseError{Kind: "schema_validation_error", Format: "yaml", Path: path, Detector: detectorID, Message: "unsupported remote template"}
 				}
+				continue
+			}
+			if strings.Contains(ref, "@") {
+				obs.relationships = append(obs.relationships, "azure_template|"+path+"|"+strings.TrimSpace(ref)+"|unresolved_external")
+				obs.resolutionStatus = "partial"
 				continue
 			}
 			if strings.TrimSpace(root) == "" {
@@ -1135,6 +1162,7 @@ func loadAzureDocument(root, path string, payload []byte, stack map[string]struc
 			rel := normalizeAzureTemplatePath(path, ref)
 			childPayload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
 			if parseErr != nil {
+				obs.relationships = append(obs.relationships, "azure_template|"+path+"|"+rel+"|unresolved_external")
 				obs.resolutionStatus = "partial"
 				parseErr.Path = path
 				if firstErr == nil {
@@ -1143,11 +1171,14 @@ func loadAzureDocument(root, path string, payload []byte, stack map[string]struc
 				continue
 			}
 			if childErr := loadAzureDocument(root, rel, childPayload, stack, obs); childErr != nil {
+				obs.relationships = append(obs.relationships, "azure_template|"+path+"|"+rel+"|unresolved_external")
 				obs.resolutionStatus = "partial"
 				childErr.Path = path
 				if firstErr == nil {
 					firstErr = childErr
 				}
+			} else {
+				obs.relationships = append(obs.relationships, "azure_template|"+path+"|"+rel+"|resolved_local")
 			}
 		}
 	}

@@ -45,7 +45,9 @@ func HydrateCanonicalProjectionDetails(in *Backlog, inventory *agginventory.Inve
 	copyBacklog.Items = append([]Item(nil), in.Items...)
 	for idx := range copyBacklog.Items {
 		item := &copyBacklog.Items[idx]
-		if item.CredentialAuthority == nil && strings.TrimSpace(item.CredentialAuthorityRef) != "" {
+		if item.CredentialAuthority != nil {
+			item.CredentialAuthority = agginventory.NormalizeCredentialAuthority(item.CredentialAuthority)
+		} else if strings.TrimSpace(item.CredentialAuthorityRef) != "" {
 			item.CredentialAuthority = resolver.ResolveCredentialAuthority(item.CredentialAuthorityRef, nil)
 		}
 		if len(item.AuthorityBindings) == 0 && len(item.AuthorityBindingRefs) > 0 {

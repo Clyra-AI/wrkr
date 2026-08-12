@@ -57,7 +57,9 @@ func HydrateCanonicalProjectionDetails(paths []ActionPath, inventory *agginvento
 		if len(copyPath.MutableEndpointSemantics) == 0 && len(copyPath.MutableEndpointSemanticRefs) > 0 {
 			copyPath.MutableEndpointSemantics = resolver.ResolveMutableEndpointSemantics(copyPath.MutableEndpointSemanticRefs, nil)
 		}
-		if copyPath.CredentialAuthority == nil && strings.TrimSpace(copyPath.CredentialAuthorityRef) != "" {
+		if copyPath.CredentialAuthority != nil {
+			copyPath.CredentialAuthority = agginventory.NormalizeCredentialAuthority(copyPath.CredentialAuthority)
+		} else if strings.TrimSpace(copyPath.CredentialAuthorityRef) != "" {
 			copyPath.CredentialAuthority = resolver.ResolveCredentialAuthority(copyPath.CredentialAuthorityRef, nil)
 		}
 		if len(copyPath.AuthorityBindings) == 0 && len(copyPath.AuthorityBindingRefs) > 0 {

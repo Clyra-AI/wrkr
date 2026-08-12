@@ -20,21 +20,21 @@
     },
     {
       "business_state_surface": "code",
-      "owner_source": "codeowners",
-      "ownership_status": "explicit",
-      "path_id": "apc-c5d25a74d87f",
-      "recommended_action": "proof",
-      "repo": "control-plane",
-      "tool_type": "codex"
-    },
-    {
-      "business_state_surface": "code",
       "owner_source": "repo_fallback",
       "ownership_status": "inferred",
       "path_id": "apc-c042aea2cf0d",
       "recommended_action": "proof",
       "repo": "control-plane",
       "tool_type": "claude"
+    },
+    {
+      "business_state_surface": "code",
+      "owner_source": "codeowners",
+      "ownership_status": "explicit",
+      "path_id": "apc-c5d25a74d87f",
+      "recommended_action": "proof",
+      "repo": "control-plane",
+      "tool_type": "codex"
     }
   ],
   "assessment_summary": {
@@ -50,14 +50,14 @@
       "execution_identity": "github_app",
       "path_count": 4,
       "shared_execution_identity": true,
-      "standing_privilege": true,
+      "standing_privilege": false,
       "write_capable_path_count": 2
     },
     "identity_to_revoke_first": {
       "execution_identity": "github_app",
       "path_count": 4,
       "shared_execution_identity": true,
-      "standing_privilege": true,
+      "standing_privilege": false,
       "write_capable_path_count": 2
     },
     "ownerless_exposure": {
@@ -66,8 +66,8 @@
       "inferred_owner_paths": 2,
       "unresolved_owner_paths": 0
     },
-    "production_target_backed_path_count": 0,
     "production_impact_inferred_path_count": 2,
+    "production_target_backed_path_count": 0,
     "write_capable_path_count": 2
   },
   "control_first": {
@@ -80,8 +80,8 @@
     },
     "summary": {
       "govern_first_paths": 4,
-      "production_target_backed_paths": 0,
       "production_impact_inferred_paths": 2,
+      "production_target_backed_paths": 0,
       "total_paths": 4,
       "write_capable_paths": 2
     }

@@ -333,6 +333,19 @@ func ReadFileWithinRoot(detectorID, root, rel string) ([]byte, *model.ParseError
 	return payload, nil
 }
 
+// FileSizeWithinRoot returns the size of a regular repository file without
+// reading its contents, while preserving the detector parse-error contract.
+func FileSizeWithinRoot(detectorID, root, rel string) (int64, *model.ParseError) {
+	_, info, err := resolveWithinRoot(root, rel)
+	if err != nil {
+		return 0, newReadParseError(detectorID, rel, "", err)
+	}
+	if info.IsDir() {
+		return 0, newReadParseError(detectorID, rel, "", fs.ErrNotExist)
+	}
+	return info.Size(), nil
+}
+
 func OpenFileWithinRoot(detectorID, root, rel string) (*os.File, *model.ParseError) {
 	path, info, err := resolveWithinRoot(root, rel)
 	if err != nil {
