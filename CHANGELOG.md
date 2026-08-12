@@ -8,14 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added typed reusable execution relationships, static Jenkins shared-library/local-load analysis, optional local `--execution-topology` mappings, structured OpenAPI generator/spec/consumer/runtime lineage, and detector-owned scan-quality v2 reconciliation. The independent customer execution-truth fixture covers 96 semantic repositories and deterministic 384/674-repository variants; `TestScenarioCustomerExecutionTruthScale384` and `TestScenarioCustomerExecutionTruthScale674` produced intact proof chains and bounded 7,385-byte / 58-line buyer reports.
-- [semver:minor] Added split buyer-lead/diagnostic-appendix Markdown output and a manifest-backed `customer-share/` assessment directory that excludes internal state, raw logs, signing keys, private join maps, and unredacted evidence. The regenerated customer-redacted sample remains 328 lines and changed from 35,461 to 36,076 bytes (+615 bytes) for explicit evidence semantics; receipts are `TestAssessWritesOutputDirectoryManifest`, `TestAssessCustomerShareUsesPairedRedactedArtifacts`, `TestRenderMarkdownPartsSeparatesBuyerLeadAndAppendix`, and `TestScenarioCustomerTruthAssessmentDelivery`.
+- (none yet)
 
 ### Changed
 
-- Made typed credential existence, path binding, and lifetime evidence the canonical authority source. Secret/environment references remain references, old untyped state stays readable but unresolved, and report counts name files, references, bindings, operations, grouped paths, or confirmed paths explicitly.
-- Retired Windows GitHub Actions runners and the `windows-smoke` merge gate; Linux remains merge-blocking and macOS remains a scheduled portability check.
-- Localized expected generated/vendor suppression so it remains diagnostic without reducing unrelated path coverage, grouped repeated parse issues with occurrence counts, and made automatic non-interactive progress omit successful per-detector chatter while preserving failures and terminal status.
+- (none yet)
 
 ### Deprecated
 
@@ -27,9 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- Serialized scan progress and terminal error writes so heartbeat output cannot race with JSON failures on shared stderr writers.
-- Prevented arbitrary OpenAPI/schema declarations from creating non-human identities or standing authority, stopped legacy provenance from promoting unresolved credentials, routed nested/case-varied Jenkinsfiles through one static parser, and prevented resolved GitLab/Azure local relationships from being duplicated as unresolved cross-repository edges. Coverage includes `TestGenericNameSpecIsDiscoveredButOrdinaryJSONIsNot`, `TestGeneratorDeclarationIsTypedAndNotTreatedAsRuntimeEvidence`, `TestResolverDoesNotDowngradeAdapterResolvedLocalIncludes`, and `TestScenarioCustomerExecutionTruthTwin`.
-- Stopped treating owner attribution alone as visible control evidence, separated explicit production-target backing from statically observed deployment surfaces, projected failures from non-core detector IDs into blocked scan quality, made composition-versus-selected-path Action Contract scope explicit, and normalized completed scan footers to 100 percent.
+- (none yet)
 
 ### Security
 
@@ -43,6 +38,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.14.0] - 2026-08-12
+<!-- release-semver: minor -->
+
+### Added
+
+- Added typed reusable execution relationships, static Jenkins shared-library/local-load analysis, optional local `--execution-topology` mappings, structured OpenAPI generator/spec/consumer/runtime lineage, and detector-owned scan-quality v2 reconciliation. The independent customer execution-truth fixture covers 96 semantic repositories and deterministic 384/674-repository variants; `TestScenarioCustomerExecutionTruthScale384` and `TestScenarioCustomerExecutionTruthScale674` produced intact proof chains and bounded 7,385-byte / 58-line buyer reports.
+- Added split buyer-lead/diagnostic-appendix Markdown output and a manifest-backed `customer-share/` assessment directory that excludes internal state, raw logs, signing keys, private join maps, and unredacted evidence. The regenerated customer-redacted sample remains 328 lines and changed from 35,461 to 36,076 bytes (+615 bytes) for explicit evidence semantics; receipts are `TestAssessWritesOutputDirectoryManifest`, `TestAssessCustomerShareUsesPairedRedactedArtifacts`, `TestRenderMarkdownPartsSeparatesBuyerLeadAndAppendix`, and `TestScenarioCustomerTruthAssessmentDelivery`.
+
+### Changed
+
+- Made typed credential existence, path binding, and lifetime evidence the canonical authority source. Secret/environment references remain references, old untyped state stays readable but unresolved, and report counts name files, references, bindings, operations, grouped paths, or confirmed paths explicitly.
+- Retired Windows GitHub Actions runners and the `windows-smoke` merge gate; Linux remains merge-blocking and macOS remains a scheduled portability check.
+- Localized expected generated/vendor suppression so it remains diagnostic without reducing unrelated path coverage, grouped repeated parse issues with occurrence counts, and made automatic non-interactive progress omit successful per-detector chatter while preserving failures and terminal status.
+
+### Fixed
+
+- Serialized scan progress and terminal error writes so heartbeat output cannot race with JSON failures on shared stderr writers.
+- Prevented arbitrary OpenAPI/schema declarations from creating non-human identities or standing authority, stopped legacy provenance from promoting unresolved credentials, routed nested/case-varied Jenkinsfiles through one static parser, and prevented resolved GitLab/Azure local relationships from being duplicated as unresolved cross-repository edges. Coverage includes `TestGenericNameSpecIsDiscoveredButOrdinaryJSONIsNot`, `TestGeneratorDeclarationIsTypedAndNotTreatedAsRuntimeEvidence`, `TestResolverDoesNotDowngradeAdapterResolvedLocalIncludes`, and `TestScenarioCustomerExecutionTruthTwin`.
+- Stopped treating owner attribution alone as visible control evidence, separated explicit production-target backing from statically observed deployment surfaces, projected failures from non-core detector IDs into blocked scan quality, made composition-versus-selected-path Action Contract scope explicit, and normalized completed scan footers to 100 percent.
 
 ## [v1.13.0] - 2026-08-08
 <!-- release-semver: minor -->
