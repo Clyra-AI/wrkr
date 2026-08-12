@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
@@ -18,11 +19,25 @@ import (
 
 const detectorID = "webmcp"
 
-type Detector struct{}
+type Detector struct {
+	mu       sync.Mutex
+	coverage map[string]detect.SurfaceCoverage
+}
 
-func New() Detector { return Detector{} }
+func New() *Detector { return &Detector{coverage: map[string]detect.SurfaceCoverage{}} }
 
-func (Detector) ID() string { return detectorID }
+func (*Detector) ID() string { return detectorID }
+
+func (d *Detector) SurfaceCoverage(scope detect.Scope, _ detect.Options) []detect.SurfaceCoverage {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	receipt, ok := d.coverage[scope.Root]
+	if !ok {
+		return nil
+	}
+	receipt.ReasonCodes = append([]string(nil), receipt.ReasonCodes...)
+	return []detect.SurfaceCoverage{receipt}
+}
 
 type declaration struct {
 	name   string
@@ -30,11 +45,12 @@ type declaration struct {
 	rel    string
 }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
+func (d *Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
 	if detect.IsLocalMachineScope(scope) {
+		d.storeCoverage(scope.Root, detect.SurfaceCoverage{Surface: "webmcp", Org: scope.Org, Repo: scope.Repo, Detector: detectorID, ParserVersion: "2", ReasonCodes: []string{"scope:not_applicable"}})
 		return nil, nil
 	}
 
@@ -50,6 +66,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 
 	parseErrors := make([]model.Finding, 0)
 	declSet := map[string]declaration{}
+	receipt := detect.SurfaceCoverage{Surface: "webmcp", Org: scope.Org, Repo: scope.Repo, Detector: detectorID, ParserVersion: "2"}
 	for _, file := range files {
 		rel := file.Rel
 		lower := strings.ToLower(rel)
@@ -58,13 +75,23 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		isScriptFile := ext == ".js" || ext == ".mjs" || ext == ".cjs"
 		isDeclarationFile := ext == ".html" || ext == ".htm" || isScriptFile || couldContainRoutes(ext)
 		if detect.IsGeneratedPath(rel) && !isRouteFile {
+			if isDeclarationFile {
+				receipt.Suppressed++
+			}
 			continue
 		}
 		if !isRouteFile && (isScriptFile || couldContainRoutes(ext)) && !detect.IsHighSignalWebMCPPath(rel) {
 			continue
 		}
+		if !isRouteFile && !isDeclarationFile {
+			continue
+		}
+		receipt.Discovered++
+		receipt.Selected++
+		receipt.Attempted++
 
 		if file.ParseError != nil {
+			receipt.Partial++
 			if isRouteFile || isDeclarationFile {
 				parseErrors = append(parseErrors, model.Finding{
 					FindingType: "parse_error",
@@ -79,6 +106,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			}
 			continue
 		}
+		receipt.Parsed++
 
 		if isRouteFile {
 			item := declaration{name: "webmcp", method: "route_file", rel: rel}
@@ -88,6 +116,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		if isScriptFile {
 			payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
 			if parseErr != nil {
+				receipt.Parsed--
+				receipt.Partial++
 				parseErrors = append(parseErrors, model.Finding{
 					FindingType: "parse_error",
 					Severity:    model.SeverityMedium,
@@ -104,6 +134,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			if bytes.Contains(lowerPayload, []byte("modelcontext")) && bytes.Contains(lowerPayload, []byte("register")) {
 				names, parseErr := parseJSDeclarationsBytes(rel, payload)
 				if parseErr != nil {
+					receipt.Parsed--
+					receipt.Partial++
 					parseErrors = append(parseErrors, model.Finding{
 						FindingType: "parse_error",
 						Severity:    model.SeverityMedium,
@@ -135,6 +167,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		case ".html", ".htm":
 			names, parseErr := parseHTMLDeclarations(scope.Root, rel)
 			if parseErr != nil {
+				receipt.Parsed--
+				receipt.Partial++
 				parseErrors = append(parseErrors, model.Finding{
 					FindingType: "parse_error",
 					Severity:    model.SeverityMedium,
@@ -212,7 +246,18 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	}
 
 	model.SortFindings(findings)
+	receipt.Findings = len(findings)
+	d.storeCoverage(scope.Root, receipt)
 	return findings, nil
+}
+
+func (d *Detector) storeCoverage(root string, receipt detect.SurfaceCoverage) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.coverage == nil {
+		d.coverage = map[string]detect.SurfaceCoverage{}
+	}
+	d.coverage[root] = receipt
 }
 
 func isPassiveDetectorSource(rel string) bool {

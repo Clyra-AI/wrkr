@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -507,6 +508,9 @@ func TestLegacyEmbeddedAuthorityStateStillReads(t *testing.T) {
 	}
 	if got := loaded.RiskReport.ActionPaths[0]; len(got.MutableEndpointSemantics) == 0 || got.CredentialAuthority == nil || len(got.AuthorityBindings) == 0 {
 		t.Fatalf("expected hydrated canonical detail on action path, got %+v", got)
+	}
+	if got := loaded.RiskReport.ActionPaths[0].CredentialAuthority; got.CredentialPresent || got.CredentialUsableByPath || got.StandingAccess || !slices.Contains(got.ReasonCodes, "legacy_untyped_authority") {
+		t.Fatalf("legacy untyped authority must remain readable but unresolved, got %+v", got)
 	}
 	if got := loaded.ControlBacklog.Items[0]; got.CredentialAuthorityRef == "" || len(got.AuthorityBindingRefs) == 0 {
 		t.Fatalf("expected backfilled canonical refs on control backlog, got %+v", got)

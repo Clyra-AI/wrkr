@@ -24,11 +24,14 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/detect/agnt"
 	detectdefaults "github.com/Clyra-AI/wrkr/core/detect/defaults"
+	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/diff"
+	"github.com/Clyra-AI/wrkr/core/executiontopology"
 	exportsarif "github.com/Clyra-AI/wrkr/core/export/sarif"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/policy/approvedtools"
 	"github.com/Clyra-AI/wrkr/core/policy/productiontargets"
@@ -52,6 +55,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if len(args) > 0 && args[0] == "status" {
 		return runScanStatus(args[1:], stdout, stderr)
 	}
+	stderr = newSynchronizedScanWriter(stderr)
 	if parentCtx == nil {
 		parentCtx = context.Background()
 	}
@@ -94,6 +98,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	approvedToolsPath := fs.String("approved-tools", "", "optional approved tools policy file")
 	productionTargetsPath := fs.String("production-targets", "", "optional production target rules file")
 	productionTargetsStrict := fs.Bool("production-targets-strict", false, "fail scan when production target rules cannot be loaded")
+	executionTopologyPath := fs.String("execution-topology", "", "optional local execution relationship mappings")
 	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict|assessment]")
 	githubBaseURL := fs.String("github-api", "", "github api base url")
 	githubToken := fs.String("github-token", "", "github token override")
@@ -137,6 +142,17 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	allowHostedSourceMaterialization := *allowSourceMaterialization || scanMode == "deep"
 	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
+	var executionTopology *executiontopology.Topology
+	if topologyFile := strings.TrimSpace(*executionTopologyPath); topologyFile != "" {
+		loadedTopology, topologyErr := executiontopology.Load(topologyFile)
+		if topologyErr != nil {
+			if executiontopology.IsUnsafePathError(topologyErr) {
+				return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", topologyErr.Error(), exitUnsafeBlocked)
+			}
+			return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", topologyErr.Error(), exitPolicyViolation)
+		}
+		executionTopology = loadedTopology
+	}
 	if *productionTargetsStrict && productionTargetsFile == "" {
 		return emitError(
 			stderr,
@@ -388,6 +404,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	scopes := detectorScopes(manifestOut)
 	detectorErrors := []detect.DetectorError{}
+	detectorSurfaceCoverage := []detect.SurfaceCoverage{}
 	if len(scopes) > 0 {
 		registry, regErr := detectdefaults.RegistryForMode(scanMode)
 		if regErr != nil {
@@ -401,10 +418,26 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if progressMode != scanProgressModeNone {
 			detectorProgress = progress
 		}
+		workflowCatalogs := make(map[string]any, len(scopes))
+		catalogScopes := make([]workflowcap.CatalogScope, 0, len(scopes))
+		for _, scope := range scopes {
+			catalog, catalogErr := workflowcap.BuildCatalog(scope.Root, detect.Options{Enrich: *enrich, ScanMode: scanMode, ExecutionTopology: executionTopology})
+			if catalogErr != nil {
+				// Preserve partial-scan behavior. Detectors without a prebuilt catalog
+				// will surface the repository-scoped read error through the registry.
+				continue
+			}
+			catalogScopes = append(catalogScopes, workflowcap.CatalogScope{Repo: scope.Repo, Root: scope.Root, Catalog: catalog})
+		}
+		for root, catalog := range workflowcap.ResolveCatalogs(catalogScopes) {
+			workflowCatalogs[root] = catalog
+		}
 		detected, runErr := registry.Run(ctx, scopes, detect.Options{
-			Enrich:   *enrich,
-			ScanMode: scanMode,
-			Progress: detectorProgress,
+			Enrich:            *enrich,
+			ScanMode:          scanMode,
+			Progress:          detectorProgress,
+			WorkflowCatalogs:  workflowCatalogs,
+			ExecutionTopology: executionTopology,
 		})
 		if runErr != nil {
 			return emitScanFailure(runErr)
@@ -415,6 +448,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		findings = append(findings, detected.Findings...)
 		findings = append(findings, agnt.SynthesizeDrift(findings)...)
 		detectorErrors = append(detectorErrors, detected.DetectorErrors...)
+		detectorSurfaceCoverage = append(detectorSurfaceCoverage, detected.SurfaceCoverage...)
 
 		policyFindings, policyErr := evaluatePolicies(scopes, findings, strings.TrimSpace(*policyPath))
 		if policyErr != nil {
@@ -428,6 +462,23 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if err := statusTracker.Phase("detectors_complete"); err != nil {
 			return emitScanFailure(err)
 		}
+	}
+	if executionTopology != nil {
+		findings = append(findings, model.Finding{
+			FindingType: "execution_topology",
+			Severity:    model.SeverityInfo,
+			ToolType:    "execution_topology",
+			Location:    "execution-topology",
+			Org:         "local",
+			Repo:        "scan_scope",
+			Detector:    "execution_topology",
+			Evidence: []model.Evidence{
+				{Key: "topology_digest", Value: executionTopology.Digest},
+				{Key: "topology_mapping_count", Value: fmt.Sprintf("%d", len(executionTopology.Mappings))},
+				{Key: "evidence_stage", Value: agginventory.EvidenceStageReference},
+			},
+			Remediation: "Review unresolved execution relationships and update the versioned topology mapping when source code cannot prove them.",
+		})
 	}
 	source.SortFindings(findings)
 	progress.ScanPhase(progressTargetMode, progressTargetValue, "analysis_start")
@@ -605,11 +656,42 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
+	bindingsCount := 0
+	effectiveAuthorityCount := 0
+	for _, entry := range inventoryOut.AgentPrivilegeMap {
+		bindingsCount += len(entry.AuthorityBindings)
+		if agginventory.EffectiveStandingAuthority(entry.CredentialAuthority) || (entry.CredentialAuthority != nil && entry.CredentialAuthority.CredentialUsableByPath) {
+			effectiveAuthorityCount++
+		}
+	}
+	eligiblePathCount, confirmedPathCount, candidatePathCount, unresolvedPathCount := 0, 0, 0, 0
+	for _, path := range riskReport.ActionPaths {
+		if risk.IsActionPathEligible(path) {
+			eligiblePathCount++
+			if strings.TrimSpace(path.ConfidenceLane) == risk.ConfidenceLaneConfirmedActionPath {
+				confirmedPathCount++
+			} else {
+				candidatePathCount++
+			}
+		} else {
+			unresolvedPathCount++
+		}
+	}
 	scanQuality := scanquality.Build(scanquality.Input{
-		Mode:           scanMode,
-		Scopes:         scopes,
-		Findings:       analysisFindings,
-		DetectorErrors: detectorErrors,
+		Mode:                 scanMode,
+		Scopes:               scopes,
+		Findings:             analysisFindings,
+		DetectorErrors:       detectorErrors,
+		SurfaceCoverage:      detectorSurfaceCoverage,
+		NormalizedFacts:      len(inventoryOut.AgentPrivilegeMap),
+		Bindings:             bindingsCount,
+		EffectiveAuthorities: effectiveAuthorityCount,
+		EligiblePaths:        eligiblePathCount,
+		ConfirmedPaths:       confirmedPathCount,
+		CandidatePaths:       candidatePathCount,
+		UnresolvedPaths:      unresolvedPathCount,
+		DisplayedPaths:       eligiblePathCount,
+		SuppressedPathsCount: 0,
 	})
 	scanQuality.HostedCoverage = scanquality.BuildHostedCoverage(scanquality.HostedCoverageInput{
 		HostedTarget:       anyTargetNeedsGitHub(targets),
@@ -726,6 +808,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		LifecycleGaps:              lifecycleGaps,
 		ScanQuality:                &scanQuality,
 		ScanMode:                   scanMode,
+		ExecutionTopologyDigest:    executionTopologyDigest(executionTopology),
+		ExecutionTopologyMappings:  executionTopologyMappingCount(executionTopology),
 		PartialResult:              len(manifestOut.Failures) > 0,
 		SourceErrors:               manifestOut.Failures,
 		SourceDegraded:             hasDegradedFailures(manifestOut.Failures),
@@ -1039,6 +1123,20 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	progress.Finish(statusTracker.FooterData())
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
 	return exitSuccess
+}
+
+func executionTopologyDigest(topology *executiontopology.Topology) string {
+	if topology == nil {
+		return ""
+	}
+	return strings.TrimSpace(topology.Digest)
+}
+
+func executionTopologyMappingCount(topology *executiontopology.Topology) int {
+	if topology == nil {
+		return 0
+	}
+	return len(topology.Mappings)
 }
 
 func classifyScanReportArtifactError(err error) (string, int, bool) {

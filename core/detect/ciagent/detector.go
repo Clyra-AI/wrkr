@@ -9,7 +9,6 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk/autonomy"
-	"github.com/Clyra-AI/wrkr/core/workflowloc"
 )
 
 const detectorID = "ciagent"
@@ -20,25 +19,152 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) SurfaceCoverage(scope detect.Scope, options detect.Options) []detect.SurfaceCoverage {
+	catalog, err := workflowcap.CatalogFor(scope.Root, options)
+	if err != nil {
+		return []detect.SurfaceCoverage{{Surface: "ci_workflow", Org: scope.Org, Repo: scope.Repo, Detector: detectorID, ParserVersion: "2", Unsupported: 1, ReasonCodes: []string{"catalog:unavailable"}}}
+	}
+	byPlatform := map[string]*detect.SurfaceCoverage{}
+	for _, path := range catalog.Paths() {
+		entry, ok := catalog.Lookup(path)
+		if !ok {
+			continue
+		}
+		surface := entry.Platform
+		if entry.SurfaceRole == "shared_source" {
+			surface += ":shared_source"
+		}
+		receipt := byPlatform[surface]
+		if receipt == nil {
+			receipt = &detect.SurfaceCoverage{Surface: "ci_workflow:" + surface, Org: scope.Org, Repo: scope.Repo, Detector: detectorID, ParserVersion: "2"}
+			byPlatform[surface] = receipt
+		}
+		receipt.Discovered++
+		receipt.Selected++
+		receipt.Attempted++
+		if entry.ParseError != nil {
+			receipt.Partial++
+			receipt.ReasonCodes = append(receipt.ReasonCodes, "parser:"+entry.ParseError.Kind)
+		} else {
+			receipt.Parsed++
+		}
+		receipt.Findings += catalogEntryFindingCount(entry)
+		unresolvedOverrides := map[string]string{}
+		for _, evidence := range entry.Result.Evidence {
+			if evidence.Key != "execution_resolution" {
+				continue
+			}
+			state := relationshipState(evidence.Value)
+			if isUnresolvedRelationshipState(state) {
+				unresolvedOverrides[relationshipCoverageKey(evidence.Value)] = state
+			}
+		}
+		usedOverrides := map[string]struct{}{}
+		for _, evidence := range entry.Result.Evidence {
+			switch evidence.Key {
+			case "execution_relationship":
+				key := relationshipCoverageKey(evidence.Value)
+				if state, overridden := unresolvedOverrides[key]; overridden {
+					receipt.Unresolved++
+					receipt.ReasonCodes = append(receipt.ReasonCodes, "relationship:"+state)
+					usedOverrides[key] = struct{}{}
+				} else if strings.Contains(evidence.Value, "|resolved_local") || strings.Contains(evidence.Value, "|resolved_declared") {
+					receipt.Resolved++
+				} else {
+					receipt.Unresolved++
+					receipt.ReasonCodes = append(receipt.ReasonCodes, "relationship:"+relationshipState(evidence.Value))
+				}
+			}
+		}
+		for key, state := range unresolvedOverrides {
+			if _, used := usedOverrides[key]; used {
+				continue
+			}
+			receipt.Unresolved++
+			receipt.ReasonCodes = append(receipt.ReasonCodes, "relationship:"+state)
+		}
+	}
+	out := make([]detect.SurfaceCoverage, 0, len(byPlatform))
+	for _, receipt := range byPlatform {
+		receipt.ReasonCodes = uniqueStrings(receipt.ReasonCodes)
+		out = append(out, *receipt)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Surface < out[j].Surface })
+	return out
+}
+
+func relationshipState(value string) string {
+	parts := strings.Split(strings.TrimSpace(value), "|")
+	for _, part := range parts {
+		switch part {
+		case "resolved_local", "resolved_declared", "unresolved_external", "unsupported_dynamic", "cycle_blocked", "depth_limited", "fanout_limited", "contradictory":
+			return part
+		}
+	}
+	return "unknown"
+}
+
+func relationshipCoverageKey(value string) string {
+	parts := strings.Split(strings.TrimSpace(value), "|")
+	if len(parts) < 3 {
+		return strings.TrimSpace(value)
+	}
+	return strings.Join(parts[:3], "|")
+}
+
+func catalogEntryFindingCount(entry workflowcap.CatalogEntry) int {
+	count := 0
+	if entry.ParseError != nil {
+		count++
+	}
+	analysis := entry.Result
+	signals := autonomy.Signals{
+		Tool:            analysis.Tool,
+		Headless:        analysis.Headless,
+		HasApprovalGate: analysis.HasApprovalGate,
+		HasSecretAccess: analysis.HasSecretAccess,
+		DangerousFlags:  analysis.DangerousFlags,
+	}
+	permissions := append(permissionsFromSignals(signals), analysis.Capabilities...)
+	if entry.SurfaceRole == "entrypoint" && (signals.Headless || signals.Tool != "" || len(uniqueStrings(permissions)) > 0) {
+		count++
+	}
+	return count
+}
+
+func isUnresolvedRelationshipState(state string) bool {
+	switch state {
+	case "unresolved_external", "unsupported_dynamic", "cycle_blocked", "depth_limited", "fanout_limited", "contradictory":
+		return true
+	default:
+		return false
+	}
+}
+
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
 
-	files, err := collectWorkflowFiles(scope.Root)
+	catalog, err := workflowcap.CatalogFor(scope.Root, options)
 	if err != nil {
 		return nil, err
 	}
+	files := catalog.EntrypointPaths()
 
 	findings := make([]model.Finding, 0)
+	for _, rel := range catalog.Paths() {
+		entry, ok := catalog.Lookup(rel)
+		if ok && entry.SurfaceRole == "shared_source" && entry.ParseError != nil {
+			findings = append(findings, parseErrorFinding(scope, rel, entry.ParseError))
+		}
+	}
 	for _, rel := range files {
-		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
-		if parseErr != nil {
-			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
+		entry, ok := catalog.Lookup(rel)
+		if !ok {
 			continue
 		}
-		content := string(payload)
-		workflowAnalysis, workflowErr := workflowcap.AnalyzeInRoot(scope.Root, rel, payload)
+		workflowAnalysis, workflowErr := entry.Result, entry.ParseError
 		if workflowErr != nil {
 			findings = append(findings, parseErrorFinding(scope, rel, workflowErr))
 		}
@@ -48,25 +174,6 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			HasApprovalGate: workflowAnalysis.HasApprovalGate,
 			HasSecretAccess: workflowAnalysis.HasSecretAccess,
 			DangerousFlags:  workflowAnalysis.DangerousFlags,
-		}
-		if workflowErr != nil {
-			signals.Tool = detectTool(content)
-			signals.Headless = isHeadlessInvocation(content)
-			signals.HasApprovalGate = hasApprovalGate(content)
-			signals.HasSecretAccess = hasSecretAccess(content)
-			signals.DangerousFlags = hasDangerousFlags(content)
-		}
-		if signals.Tool == "" {
-			signals.Tool = detectTool(content)
-		}
-		if !signals.Headless {
-			signals.Headless = isHeadlessInvocation(content)
-		}
-		if !signals.HasSecretAccess {
-			signals.HasSecretAccess = hasSecretAccess(content)
-		}
-		if !signals.DangerousFlags {
-			signals.DangerousFlags = hasDangerousFlags(content)
 		}
 		permissions := permissionsFromSignals(signals)
 		permissions = append(permissions, workflowAnalysis.Capabilities...)
@@ -88,74 +195,28 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		if strings.TrimSpace(signals.Tool) != "" {
 			evidence = append(evidence, model.Evidence{Key: "tool", Value: signals.Tool})
 		}
-		if workflowErr == nil {
+		if len(workflowAnalysis.Evidence) > 0 {
 			evidence = append(evidence, workflowAnalysis.Evidence...)
-		} else {
-			if provenanceType, subject := credentialProvenanceForWorkflow(content); provenanceType != "" {
-				evidence = append(evidence,
-					model.Evidence{Key: "credential_provenance_type", Value: provenanceType},
-					model.Evidence{Key: "credential_subject", Value: subject},
-					model.Evidence{Key: "credential_scope", Value: "workflow"},
-					model.Evidence{Key: "credential_confidence", Value: "high"},
-				)
-			}
-			if len(workflowAnalysis.Evidence) > 0 {
-				evidence = append(evidence, workflowAnalysis.Evidence...)
-			}
 		}
 		findings = append(findings, model.Finding{
-			FindingType: "ci_autonomy",
-			Severity:    severity,
-			CheckResult: checkResult,
-			ToolType:    "ci_agent",
-			Location:    rel,
-			Repo:        scope.Repo,
-			Org:         fallbackOrg(scope.Org),
-			Detector:    detectorID,
-			Autonomy:    level,
-			Permissions: uniqueStrings(permissions),
-			Evidence:    evidence,
-			Remediation: "Require approval gates for headless agent workflows that can access secrets.",
+			FindingType:            "ci_autonomy",
+			Severity:               severity,
+			CheckResult:            checkResult,
+			ToolType:               "ci_agent",
+			Location:               rel,
+			Repo:                   scope.Repo,
+			Org:                    fallbackOrg(scope.Org),
+			Detector:               detectorID,
+			Autonomy:               level,
+			Permissions:            uniqueStrings(permissions),
+			Evidence:               evidence,
+			ExecutionRelationships: model.NormalizeExecutionRelationships(workflowAnalysis.ExecutionRelationships),
+			Remediation:            "Require approval gates for headless agent workflows that can access secrets.",
 		})
 	}
 
 	model.SortFindings(findings)
 	return findings, nil
-}
-
-func collectWorkflowFiles(root string) ([]string, error) {
-	set := map[string]struct{}{}
-	patterns := []string{
-		".github/workflows/*",
-		".azure/pipelines/*.yml",
-		".azure/pipelines/*.yaml",
-	}
-	for _, pattern := range patterns {
-		matches, err := detect.Glob(root, pattern)
-		if err != nil {
-			return nil, err
-		}
-		for _, rel := range matches {
-			if workflowloc.IsCIWorkflow(rel) {
-				set[rel] = struct{}{}
-			}
-		}
-	}
-	for _, rel := range []string{"Jenkinsfile", ".gitlab-ci.yml", ".gitlab-ci.yaml", "azure-pipelines.yml", "azure-pipelines.yaml"} {
-		exists, parseErr := detect.FileExistsWithinRoot(detectorID, root, rel)
-		if parseErr != nil {
-			return nil, detect.ParseErrorAsError(parseErr)
-		}
-		if exists {
-			set[rel] = struct{}{}
-		}
-	}
-	files := make([]string, 0, len(set))
-	for rel := range set {
-		files = append(files, rel)
-	}
-	sort.Strings(files)
-	return files, nil
 }
 
 func parseErrorFinding(scope detect.Scope, rel string, parseErr *model.ParseError) model.Finding {
@@ -174,62 +235,6 @@ func parseErrorFinding(scope detect.Scope, rel string, parseErr *model.ParseErro
 		Org:         fallbackOrg(scope.Org),
 		Detector:    detectorID,
 		ParseError:  &normalized,
-	}
-}
-
-func detectTool(content string) string {
-	lower := strings.ToLower(content)
-	switch {
-	case strings.Contains(lower, "claude"):
-		return "claude"
-	case strings.Contains(lower, "codex"):
-		return "codex"
-	case strings.Contains(lower, "copilot"):
-		return "copilot"
-	case strings.Contains(lower, "cursor"):
-		return "cursor"
-	default:
-		return ""
-	}
-}
-
-func isHeadlessInvocation(content string) bool {
-	lower := strings.ToLower(content)
-	return strings.Contains(lower, "claude -p") ||
-		strings.Contains(lower, "claude code -p") ||
-		strings.Contains(lower, "codex --full-auto") ||
-		strings.Contains(lower, "full-auto") ||
-		strings.Contains(lower, "gait eval --script")
-}
-
-func hasApprovalGate(content string) bool {
-	lower := strings.ToLower(content)
-	return (strings.Contains(lower, "environment:") && strings.Contains(lower, "reviewers")) || strings.Contains(lower, "required_reviewers")
-}
-
-func hasSecretAccess(content string) bool {
-	lower := strings.ToLower(content)
-	return strings.Contains(lower, "secrets.") || strings.Contains(lower, "deploy_key") || strings.Contains(lower, "api_key")
-}
-
-func hasDangerousFlags(content string) bool {
-	lower := strings.ToLower(content)
-	return strings.Contains(lower, "--dangerouslyskippermissions") || strings.Contains(lower, "--approval never") || strings.Contains(lower, "full-auto")
-}
-
-func credentialProvenanceForWorkflow(content string) (string, string) {
-	lower := strings.ToLower(content)
-	switch {
-	case strings.Contains(lower, "id-token: write"),
-		strings.Contains(lower, "aws-actions/configure-aws-credentials"),
-		strings.Contains(lower, "google-github-actions/auth"),
-		strings.Contains(lower, "azure/login"),
-		strings.Contains(lower, "workload_identity_federation"),
-		strings.Contains(lower, "assume_role"),
-		strings.Contains(lower, "sts:assumerole"):
-		return "jit", "workflow_federation"
-	default:
-		return "", ""
 	}
 }
 

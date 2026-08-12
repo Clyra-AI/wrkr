@@ -57,6 +57,14 @@ wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.tmp
 wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --share-profile internal --paired-share-profile customer-redacted --md --md-path ./.tmp/paired-bom.md --evidence-json --evidence-json-path ./.tmp/paired-bom.json
 ```
 
+## Count and evidence semantics
+
+Buyer-facing counts name their unit: source files, declarations, credential references, bindings, identities, API operations, grouped action paths, or confirmed paths. A grouped action-path count is never a credential count. Use `occurrence_count` and source refs to reconcile a grouped row to underlying observations without exposing secret values.
+
+Confirmed paths require evidence-backed joins. Inferred and unresolved relationships remain in the bounded validation worksheet and full JSON/appendix. `scan_quality.surface_coverage[]` and the reconciliation ledger explain what was discovered, selected, parsed, normalized, bound, eligible, displayed, and suppressed. Reduced coverage qualifies negative claims but does not hide positive detections.
+
+An internal report may retain repository, workflow, credential reference, target, likely owner, required control, and closure evidence. Customer-redacted reports preserve stable path semantics while removing sanctioned identifiers. Neither report treats a source reference or declared topology mapping as runtime execution proof.
+
 Automation / CI workflow:
 
 ```bash

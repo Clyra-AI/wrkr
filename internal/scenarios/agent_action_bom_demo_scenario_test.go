@@ -74,7 +74,7 @@ func extractDemoTopActionPath(t *testing.T, path string) map[string]any {
 			"repo":                       first["repo"],
 			"location":                   first["location"],
 			"action_classes":             first["action_classes"],
-			"credential_kind":            requireDemoScenarioObject(t, first, "credential_provenance")["credential_kind"],
+			"credential_authority_ref":   first["credential_authority_ref"],
 			"control_state":              first["control_state"],
 			"risk_zone":                  first["risk_zone"],
 			"review_burden":              first["review_burden"],

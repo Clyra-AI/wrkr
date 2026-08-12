@@ -175,6 +175,11 @@ func credentialAuthorityRefID(value *CredentialAuthority) string {
 		return ""
 	}
 	return stableCanonicalRefID(credentialAuthorityRefPrefix, []string{
+		normalized.EvidenceStage,
+		normalized.ExistenceEvidenceState,
+		normalized.BindingEvidenceState,
+		normalized.LifetimeEvidenceState,
+		normalized.LifetimeKind,
 		strconvBool(normalized.CredentialPresent),
 		strconvBool(normalized.CredentialReferencedByWorkflow),
 		strconvBool(normalized.CredentialUsableByPath),

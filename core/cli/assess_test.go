@@ -84,6 +84,51 @@ func TestAssessWritesOutputDirectoryManifest(t *testing.T) {
 	}
 }
 
+func TestAssessPassesExecutionTopologyToScan(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	repo := writeAssessFixtureRepo(t, tmp)
+	topologyPath := filepath.Join(tmp, "topology.yaml")
+	if err := os.WriteFile(topologyPath, []byte("version: 1\nmappings:\n  - kind: workflow_alias\n    alias: shared-release\n    source_repo: acme/shared\n    source_path: .github/workflows/release.yml\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outputDir := filepath.Join(tmp, "assessment-topology")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"assess", "--path", repo, "--execution-topology", topologyPath, "--output-dir", outputDir, "--json"}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("assess with topology failed code=%d stderr=%s", code, errOut.String())
+	}
+	snapshot, err := state.Load(filepath.Join(outputDir, "internal", "scan-state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.ExecutionTopologyDigest == "" || snapshot.ExecutionTopologyMappings != 1 {
+		t.Fatalf("expected topology receipt in assessment state, got digest=%q mappings=%d", snapshot.ExecutionTopologyDigest, snapshot.ExecutionTopologyMappings)
+	}
+}
+
+func TestScanExecutionTopologyUnsafePathExitsEight(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	repo := writeAssessFixtureRepo(t, tmp)
+	target := filepath.Join(tmp, "topology.yaml")
+	if err := os.WriteFile(target, []byte("version: 1\nmappings: []\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(tmp, "topology-link.yaml")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", repo, "--execution-topology", link, "--json"}, &out, &errOut)
+	if code != exitUnsafeBlocked {
+		t.Fatalf("expected unsafe topology exit %d, got %d stderr=%s", exitUnsafeBlocked, code, errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "unsafe_operation_blocked", exitUnsafeBlocked)
+}
+
 func TestAssessDefaultsToCustomerRedactedShareProfile(t *testing.T) {
 	t.Parallel()
 

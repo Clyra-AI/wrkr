@@ -7,8 +7,8 @@
       "read",
       "write"
     ],
-    "control_state": "block_recommended",
-    "credential_kind": "cloud_admin_key",
+    "control_state": "approval_required",
+    "credential_authority_ref": "cred-f21db16e5a9b",
     "introduced_by": {
       "author": "demo-bot",
       "changed_file": ".github/workflows/release.yml",

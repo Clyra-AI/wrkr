@@ -589,13 +589,13 @@ func pathNeedsProof(path ActionPath) bool {
 }
 
 func standingCredentialWithBroadAuthority(path ActionPath) bool {
-	if path.CredentialAuthority != nil && path.CredentialAuthority.StandingAccess {
+	if agginventory.EffectiveStandingAuthority(path.CredentialAuthority) {
 		switch strings.TrimSpace(path.CredentialAuthority.AccessType) {
 		case agginventory.CredentialAccessTypeStanding, agginventory.CredentialAccessTypeUnknown, "":
 			return true
 		}
 	}
-	return path.CredentialProvenance != nil && path.CredentialProvenance.StandingAccess
+	return false
 }
 
 func sensitiveInfraSurface(path ActionPath) bool {

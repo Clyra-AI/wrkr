@@ -82,12 +82,7 @@ func TestBuildWorkflowHighlightsUsesFocusSourceItemsForCredentialFamilies(t *tes
 	sourcePAT := publicPAT
 	sourcePAT.DelegationReadinessState = risk.DelegationReadinessBlocked
 	sourcePAT.ControlState = "block_recommended"
-	sourcePAT.CredentialAuthority = &agginventory.CredentialAuthority{
-		CredentialPresent:      true,
-		CredentialUsableByPath: true,
-		CredentialKind:         agginventory.CredentialKindGitHubPAT,
-		StandingAccess:         true,
-	}
+	sourcePAT.CredentialAuthority = testStandingCredentialAuthority(agginventory.CredentialKindGitHubPAT)
 	sourceToken := publicToken
 	sourceToken.CredentialAuthority = &agginventory.CredentialAuthority{
 		CredentialPresent:      true,
@@ -204,15 +199,12 @@ func TestApplyAgentActionBOMFocusPreservesAuthorityDetailFromFocusSourceItems(t 
 			ActionPathType:           risk.ActionPathTypeCICDWorkflow,
 			DelegationReadinessState: risk.DelegationReadinessBlocked,
 			RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
-			CredentialAuthority: &agginventory.CredentialAuthority{
-				CredentialPresent:      true,
-				CredentialUsableByPath: true,
-				CredentialKind:         agginventory.CredentialKindGitHubPAT,
-				TargetSystem:           "source_control",
-				LikelyScope:            "repo_write",
-				AccessType:             agginventory.CredentialAccessTypeStanding,
-				StandingAccess:         true,
-			},
+			CredentialAuthority: func() *agginventory.CredentialAuthority {
+				authority := testStandingCredentialAuthority(agginventory.CredentialKindGitHubPAT)
+				authority.TargetSystem = "source_control"
+				authority.LikelyScope = "repo_write"
+				return authority
+			}(),
 		})},
 	}
 	summary.AgentActionBOM = BuildAgentActionBOM(summary)
@@ -269,13 +261,7 @@ func TestWorkflowRecommendationDetectsStandingCredentialAuthorityBeforeBindingSu
 		ApprovalEvidenceState:    risk.EvidenceStateVerified,
 		ProofEvidenceState:       risk.EvidenceStateVerified,
 		OwnerEvidenceState:       risk.EvidenceStateVerified,
-		CredentialAuthority: &agginventory.CredentialAuthority{
-			CredentialPresent:      true,
-			CredentialUsableByPath: true,
-			CredentialKind:         agginventory.CredentialKindGitHubPAT,
-			AccessType:             agginventory.CredentialAccessTypeStanding,
-			StandingAccess:         true,
-		},
+		CredentialAuthority:      testStandingCredentialAuthority(agginventory.CredentialKindGitHubPAT),
 		AuthorityBindings: []*agginventory.AuthorityBinding{{
 			Kind:         agginventory.AuthorityBindingCloudRole,
 			Provider:     "aws",
@@ -294,7 +280,7 @@ func TestWorkflowRecommendationDetectsStandingCredentialAuthorityBeforeBindingSu
 	}
 }
 
-func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeCorrelation(t *testing.T) {
+func TestWorkflowRecommendationDoesNotPromoteIncompleteAuthorityBeforeCorrelation(t *testing.T) {
 	t.Parallel()
 
 	item := AgentActionBOMItem{
@@ -306,9 +292,11 @@ func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeCorrela
 		ProofEvidenceState:       risk.EvidenceStateVerified,
 		OwnerEvidenceState:       risk.EvidenceStateVerified,
 		CredentialAuthority: &agginventory.CredentialAuthority{
-			CredentialPresent:      true,
-			CredentialUsableByPath: false,
-			StandingAccess:         true,
+			EvidenceStage:          agginventory.EvidenceStageReference,
+			ExistenceEvidenceState: agginventory.AuthorityEvidenceUnknown,
+			BindingEvidenceState:   agginventory.AuthorityEvidenceUnknown,
+			LifetimeEvidenceState:  agginventory.AuthorityEvidenceInferred,
+			LifetimeKind:           agginventory.CredentialLifetimeStanding,
 		},
 	}
 
@@ -316,15 +304,11 @@ func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeCorrela
 		t.Fatalf("expected incomplete standing credential metadata to require authority correlation")
 	}
 	recommendation := strings.ToLower(workflowRecommendation(item))
-	if !strings.Contains(recommendation, "replace standing credential authority") {
-		t.Fatalf("expected blocked standing credential remediation to lead, got %q", recommendation)
+	if !strings.Contains(recommendation, "classify or correlate") {
+		t.Fatalf("expected incomplete authority to remain in correlation guidance, got %q", recommendation)
 	}
-	if strings.Contains(recommendation, "classify or correlate") {
-		t.Fatalf("expected remediation to avoid correlation-first wording, got %q", recommendation)
-	}
-	explanation := strings.ToLower(workflowExplanation(item))
-	if !strings.Contains(explanation, "replacement or jit reduction") {
-		t.Fatalf("expected explanation to preserve remediation-first rationale, got %q", explanation)
+	if strings.Contains(recommendation, "replace standing credential authority") {
+		t.Fatalf("expected incomplete authority not to be promoted to standing remediation, got %q", recommendation)
 	}
 }
 
@@ -340,12 +324,7 @@ func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeStandar
 		ApprovalEvidenceState:    risk.EvidenceStateUnknown,
 		ProofEvidenceState:       risk.EvidenceStateUnknown,
 		OwnerEvidenceState:       risk.EvidenceStateVerified,
-		CredentialAuthority: &agginventory.CredentialAuthority{
-			CredentialPresent:      true,
-			CredentialUsableByPath: true,
-			CredentialKind:         agginventory.CredentialKindGitHubPAT,
-			StandingAccess:         true,
-		},
+		CredentialAuthority:      testStandingCredentialAuthority(agginventory.CredentialKindGitHubPAT),
 	}
 
 	if !bomItemStandardCIControlContext(item) {
@@ -378,12 +357,7 @@ func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeContrad
 		ApprovalEvidenceState:    risk.EvidenceStateContradictory,
 		ProofEvidenceState:       risk.EvidenceStateVerified,
 		OwnerEvidenceState:       risk.EvidenceStateVerified,
-		CredentialAuthority: &agginventory.CredentialAuthority{
-			CredentialPresent:      true,
-			CredentialUsableByPath: true,
-			CredentialKind:         agginventory.CredentialKindGitHubPAT,
-			StandingAccess:         true,
-		},
+		CredentialAuthority:      testStandingCredentialAuthority(agginventory.CredentialKindGitHubPAT),
 	}
 
 	if !hasContradictoryEvidenceState(item) {

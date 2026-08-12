@@ -45,6 +45,10 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	}
 
 	findings := make([]model.Finding, 0)
+	catalog, catalogErr := workflowcap.CatalogFor(scope.Root, options)
+	if catalogErr != nil {
+		return nil, catalogErr
+	}
 	for _, rel := range files {
 		if strings.HasPrefix(rel, ".claude/scripts/") {
 			findings = append(findings, model.Finding{
@@ -72,22 +76,12 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		if !isCompiledActionPath {
 			continue
 		}
-
-		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
-		if parseErr != nil {
-			findings = append(findings, model.Finding{
-				FindingType: "parse_error",
-				Severity:    model.SeverityMedium,
-				ToolType:    "compiled_action",
-				Location:    rel,
-				Repo:        scope.Repo,
-				Org:         fallbackOrg(scope.Org),
-				Detector:    detectorID,
-				ParseError:  parseErr,
-			})
+		if entry, ok := catalog.Lookup(rel); ok {
+			if entry.ParseError == nil && workflowResultRelevant(entry.Result) {
+				findings = append(findings, workflowFinding(scope, rel, entry.Result))
+			}
 			continue
 		}
-		workflowAnalysis, workflowErr := workflowcap.Analyze(rel, payload)
 
 		doc, parseErr := parseActionDocument(scope.Root, rel)
 		if parseErr != nil {
@@ -105,31 +99,6 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		}
 
 		if isEmptyAction(doc) {
-			if strings.HasPrefix(rel, ".github/workflows/") {
-				if workflowErr == nil && len(workflowAnalysis.Capabilities) > 0 {
-					findings = append(findings, workflowFinding(scope, rel, workflowAnalysis))
-					continue
-				}
-				if strings.Contains(string(payload), "gait eval --script") {
-					findings = append(findings, model.Finding{
-						FindingType: "compiled_action",
-						Severity:    model.SeverityHigh,
-						ToolType:    "compiled_action",
-						Location:    rel,
-						Repo:        scope.Repo,
-						Org:         fallbackOrg(scope.Org),
-						Detector:    detectorID,
-						Permissions: nil,
-						Evidence: []model.Evidence{
-							{Key: "step_count", Value: "1"},
-							{Key: "tool_sequence", Value: "gait.eval.script"},
-							{Key: "delivery_harness", Value: "compiled_action"},
-							{Key: "eval_config_ref", Value: rel},
-							{Key: "validation_requirement", Value: "review_eval_config"},
-						},
-					})
-				}
-			}
 			continue
 		}
 
@@ -155,11 +124,6 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 				model.Evidence{Key: "validation_requirement", Value: "review_eval_config"},
 			)
 		}
-		permissions := []string(nil)
-		if workflowErr == nil {
-			evidence = append(evidence, workflowAnalysis.Evidence...)
-			permissions = append(permissions, workflowAnalysis.Capabilities...)
-		}
 		findings = append(findings, model.Finding{
 			FindingType: "compiled_action",
 			Severity:    model.SeverityMedium,
@@ -168,7 +132,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			Repo:        scope.Repo,
 			Org:         fallbackOrg(scope.Org),
 			Detector:    detectorID,
-			Permissions: uniqueStrings(permissions),
+			Permissions: nil,
 			Evidence:    evidence,
 		})
 	}
@@ -220,16 +184,30 @@ func workflowFinding(scope detect.Scope, rel string, analysis workflowcap.Result
 		{Key: "step_count", Value: fmt.Sprintf("%d", analysis.StepCount)},
 	}, analysis.Evidence...)
 	return model.Finding{
-		FindingType: "compiled_action",
-		Severity:    severity,
-		ToolType:    "compiled_action",
-		Location:    rel,
-		Repo:        scope.Repo,
-		Org:         fallbackOrg(scope.Org),
-		Detector:    detectorID,
-		Permissions: uniqueStrings(analysis.Capabilities),
-		Evidence:    evidence,
+		FindingType:            "compiled_action",
+		Severity:               severity,
+		ToolType:               "compiled_action",
+		Location:               rel,
+		Repo:                   scope.Repo,
+		Org:                    fallbackOrg(scope.Org),
+		Detector:               detectorID,
+		Permissions:            uniqueStrings(analysis.Capabilities),
+		Evidence:               evidence,
+		ExecutionRelationships: model.NormalizeExecutionRelationships(analysis.ExecutionRelationships),
 	}
+}
+
+func workflowResultRelevant(analysis workflowcap.Result) bool {
+	if len(analysis.Capabilities) > 0 || len(analysis.ExecutionRelationships) > 0 {
+		return true
+	}
+	for _, evidence := range analysis.Evidence {
+		switch evidence.Key {
+		case "delivery_harness", "eval_config_ref", "validation_requirement":
+			return true
+		}
+	}
+	return false
 }
 
 func containsAny(values []string, needles ...string) bool {

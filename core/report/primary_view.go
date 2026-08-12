@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -649,21 +650,21 @@ func primaryViewRepoPR(item AgentActionBOMItem) string {
 }
 
 func primaryViewCredential(item AgentActionBOMItem) string {
-	if item.CredentialAuthority != nil {
+	if authority := agginventory.NormalizeCredentialAuthority(item.CredentialAuthority); authority != nil {
 		parts := []string{}
-		if kind := strings.TrimSpace(item.CredentialAuthority.CredentialKind); kind != "" {
+		if kind := strings.TrimSpace(authority.CredentialKind); kind != "" {
 			parts = append(parts, kind)
 		}
-		if target := strings.TrimSpace(item.CredentialAuthority.TargetSystem); target != "" {
+		if target := strings.TrimSpace(authority.TargetSystem); target != "" {
 			parts = append(parts, target)
 		}
-		if scope := strings.TrimSpace(item.CredentialAuthority.LikelyScope); scope != "" {
+		if scope := strings.TrimSpace(authority.LikelyScope); scope != "" {
 			parts = append(parts, scope)
 		}
 		switch {
-		case item.CredentialAuthority.StandingAccess:
+		case agginventory.EffectiveStandingAuthority(authority):
 			parts = append(parts, "standing")
-		case item.CredentialAuthority.LikelyJIT:
+		case authority.LikelyJIT:
 			parts = append(parts, "jit")
 		}
 		if len(parts) > 0 {
@@ -681,10 +682,7 @@ func primaryViewCredential(item AgentActionBOMItem) string {
 		if scope := strings.TrimSpace(item.CredentialProvenance.LikelyScope); scope != "" {
 			parts = append(parts, scope)
 		}
-		switch {
-		case item.CredentialProvenance.StandingAccess:
-			parts = append(parts, "standing")
-		case item.CredentialProvenance.LikelyJIT:
+		if item.CredentialProvenance.LikelyJIT {
 			parts = append(parts, "jit")
 		}
 		if len(parts) > 0 {

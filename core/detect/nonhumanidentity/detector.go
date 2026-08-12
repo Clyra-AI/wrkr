@@ -8,9 +8,11 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/workflowloc"
 	"gopkg.in/yaml.v3"
 )
 
@@ -19,13 +21,27 @@ const detectorID = "nonhumanidentity"
 var botUserRE = regexp.MustCompile(`(?i)([a-z0-9._-]+\[bot\])`)
 var serviceAccountEmailRE = regexp.MustCompile(`(?i)\b([a-z0-9._%+\-]+@[a-z0-9.\-]+\.iam\.gserviceaccount\.com)\b`)
 
-type Detector struct{}
+type Detector struct {
+	mu       sync.Mutex
+	coverage map[string]detect.SurfaceCoverage
+}
 
-func New() Detector { return Detector{} }
+func New() *Detector { return &Detector{coverage: map[string]detect.SurfaceCoverage{}} }
 
-func (Detector) ID() string { return detectorID }
+func (*Detector) ID() string { return detectorID }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
+func (d *Detector) SurfaceCoverage(scope detect.Scope, _ detect.Options) []detect.SurfaceCoverage {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	receipt, ok := d.coverage[scope.Root]
+	if !ok {
+		return nil
+	}
+	receipt.ReasonCodes = append([]string(nil), receipt.ReasonCodes...)
+	return []detect.SurfaceCoverage{receipt}
+}
+
+func (d *Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -39,13 +55,18 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	}
 
 	findings := make([]model.Finding, 0)
+	receipt := detect.SurfaceCoverage{Surface: "non_human_identity", Org: scope.Org, Repo: scope.Repo, Detector: detectorID, ParserVersion: "2"}
 	seen := map[string]struct{}{}
 	for _, file := range files {
 		rel := file.Rel
 		if !isCandidatePath(rel) {
 			continue
 		}
+		receipt.Discovered++
 		if file.ParseError != nil {
+			receipt.Selected++
+			receipt.Attempted++
+			receipt.Partial++
 			findings = append(findings, model.Finding{
 				FindingType: "parse_error",
 				Severity:    model.SeverityMedium,
@@ -58,10 +79,38 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			})
 			continue
 		}
-		candidates, ok := readStructuredCandidates(scope.Root, rel)
+		candidates, surfaceRole, structuredParseError, ok := readStructuredCandidates(scope.Root, rel)
+		if structuredParseError != nil {
+			if !isHighSignalIdentityPath(rel) {
+				receipt.Suppressed++
+				continue
+			}
+			receipt.Selected++
+			receipt.Attempted++
+			receipt.Partial++
+			receipt.ReasonCodes = append(receipt.ReasonCodes, "parser:"+structuredParseError.Kind)
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "non_human_identity",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  structuredParseError,
+			})
+			continue
+		}
 		if !ok {
 			continue
 		}
+		if surfaceRole == "schema_declaration" || surfaceRole == "example" || surfaceRole == "" {
+			receipt.Suppressed++
+			continue
+		}
+		receipt.Selected++
+		receipt.Attempted++
+		receipt.Parsed++
 		bindings := classifyAuthorityBindings(candidates)
 		for _, identity := range classifyCandidates(candidates) {
 			key := strings.Join([]string{rel, identity.identityType, identity.subject, identity.source}, "|")
@@ -70,14 +119,21 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			}
 			seen[key] = struct{}{}
 			evidence := []model.Evidence{
+				{Key: "surface_role", Value: surfaceRole},
 				{Key: "identity_type", Value: identity.identityType},
 				{Key: "subject", Value: identity.subject},
 				{Key: "source", Value: identity.source},
 				{Key: "confidence", Value: identity.confidence},
-				{Key: "credential_provenance_type", Value: credentialProvenanceType(identity.identityType)},
-				{Key: "credential_subject", Value: identity.subject},
-				{Key: "credential_scope", Value: "workflow"},
-				{Key: "credential_confidence", Value: credentialProvenanceConfidence(identity.identityType, identity.confidence)},
+			}
+			if surfaceRole == "config_instance" || surfaceRole == "effective_identity_evidence" {
+				evidence = append(evidence,
+					model.Evidence{Key: "credential_provenance_type", Value: credentialProvenanceType(identity.identityType)},
+					model.Evidence{Key: "credential_subject", Value: identity.subject},
+					model.Evidence{Key: "credential_confidence", Value: credentialProvenanceConfidence(identity.identityType, identity.confidence)},
+				)
+			}
+			if surfaceRole == "workflow_reference" {
+				evidence = append(evidence, model.Evidence{Key: "credential_scope", Value: "workflow"})
 			}
 			for _, binding := range bindings {
 				evidence = append(evidence, model.Evidence{Key: "authority_binding", Value: binding})
@@ -110,6 +166,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 					Org:         fallbackOrg(scope.Org),
 					Detector:    detectorID,
 					Evidence: []model.Evidence{
+						{Key: "surface_role", Value: surfaceRole},
 						{Key: "identity_type", Value: "unknown"},
 						{Key: "subject", Value: "structured_authority_binding"},
 						{Key: "source", Value: "structured_authority_signal"},
@@ -123,6 +180,14 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	}
 
 	model.SortFindings(findings)
+	receipt.Findings = len(findings)
+	receipt.ReasonCodes = dedupeStrings(receipt.ReasonCodes)
+	d.mu.Lock()
+	if d.coverage == nil {
+		d.coverage = map[string]detect.SurfaceCoverage{}
+	}
+	d.coverage[scope.Root] = receipt
+	d.mu.Unlock()
 	return findings, nil
 }
 
@@ -146,34 +211,110 @@ func isCandidatePath(rel string) bool {
 	}
 }
 
-func readStructuredCandidates(root, rel string) ([]string, bool) {
+func isHighSignalIdentityPath(rel string) bool {
+	lower := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(rel), "\\", "/"))
+	if workflowloc.IsCIWorkflow(lower) {
+		return true
+	}
+	for _, signal := range []string{"identity", "service-account", "service_account", "rbac", "iam", "terraform"} {
+		if strings.Contains(lower, signal) {
+			return true
+		}
+	}
+	return false
+}
+
+func readStructuredCandidates(root, rel string) ([]string, string, *model.ParseError, bool) {
 	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
 	if parseErr != nil {
-		return nil, false
+		return nil, "", parseErr, false
 	}
 
 	var decoded any
 	switch strings.ToLower(filepath.Ext(rel)) {
 	case ".json":
 		if err := json.Unmarshal(payload, &decoded); err != nil {
-			return nil, false
+			return nil, "", structuredParseError(rel, "json", err), false
 		}
 	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(payload, &decoded); err != nil {
-			return nil, false
+			return nil, "", structuredParseError(rel, "yaml", err), false
 		}
 	case ".tf":
 		values := readTerraformTokens(string(payload))
 		sort.Strings(values)
-		return dedupeStrings(values), true
+		return dedupeStrings(values), "config_instance", nil, true
 	default:
-		return nil, false
+		return nil, "", nil, false
 	}
 
 	values := make([]string, 0)
 	collectStructuredStrings(decoded, &values)
 	sort.Strings(values)
-	return dedupeStrings(values), true
+	return dedupeStrings(values), structuredSurfaceRole(rel, decoded), nil, true
+}
+
+func structuredParseError(rel, format string, err error) *model.ParseError {
+	return &model.ParseError{
+		Kind:     "malformed",
+		Format:   format,
+		Path:     strings.TrimSpace(rel),
+		Detector: detectorID,
+		Message:  err.Error(),
+	}
+}
+
+func structuredSurfaceRole(rel string, decoded any) string {
+	lower := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(rel), "\\", "/"))
+	if workflowloc.IsGitHubWorkflow(lower) || workflowloc.IsGitLabEntryPipeline(lower) || workflowloc.IsAzurePipelinePath(lower) {
+		return "workflow_reference"
+	}
+	if strings.Contains(lower, "/examples/") || strings.Contains(lower, "/fixtures/") || strings.Contains(lower, "/samples/") || strings.HasPrefix(lower, "examples/") || strings.HasPrefix(lower, "fixtures/") || strings.HasPrefix(lower, "scenarios/") {
+		return "example"
+	}
+	root := normalizedRootKeys(decoded)
+	if root["openapi"] || root["swagger"] || root["components"] || root["definitions"] || (root["$schema"] && !root["resources"]) {
+		return "schema_declaration"
+	}
+	if root["kind"] && (containsStructuredValue(decoded, "clusterrole") || containsStructuredValue(decoded, "role") || containsStructuredValue(decoded, "serviceaccount")) {
+		return "config_instance"
+	}
+	if root["type"] && containsStructuredValue(decoded, "service_account") || root["client_email"] || root["private_key_id"] {
+		return "config_instance"
+	}
+	if root["resources"] && (root["awstemplateformatversion"] || containsStructuredValue(decoded, "aws::iam::") || containsStructuredValue(decoded, "microsoft.managedidentity") || containsStructuredValue(decoded, "microsoft.authorization/roleassignments")) {
+		return "config_instance"
+	}
+	values := []string{}
+	collectStructuredStrings(decoded, &values)
+	if len(classifyAuthorityBindings(values)) > 0 {
+		return "config_instance"
+	}
+	if strings.Contains(lower, "identity") || strings.Contains(lower, "service-account") || strings.Contains(lower, "service_account") || strings.Contains(lower, "rbac") || strings.Contains(lower, "iam") {
+		return "config_instance"
+	}
+	return ""
+}
+
+func normalizedRootKeys(decoded any) map[string]bool {
+	out := map[string]bool{}
+	switch value := decoded.(type) {
+	case map[string]any:
+		for key := range value {
+			out[strings.ToLower(strings.TrimSpace(key))] = true
+		}
+	case map[any]any:
+		for key := range value {
+			out[strings.ToLower(strings.TrimSpace(toString(key)))] = true
+		}
+	}
+	return out
+}
+
+func containsStructuredValue(decoded any, needle string) bool {
+	values := []string{}
+	collectStructuredStrings(decoded, &values)
+	return hasAnySubstring(values, needle)
 }
 
 func collectStructuredStrings(in any, out *[]string) {
@@ -412,6 +553,8 @@ func classifyAuthorityBindings(values []string) []string {
 		add("workload_identity", "aws", "github_actions_oidc", "aws", "aws_role", "cloud_or_infra_access", "write", "high")
 	case strings.Contains(text, "federatedidentitycredentials") || (strings.Contains(text, "issuer") && strings.Contains(text, "api://azureadtokenexchange")):
 		add("workload_identity", "azure", "azure_federated_credential", "azure", "azure_federated_credential", "cloud_or_infra_access", "write", "high")
+	case strings.Contains(text, "microsoft.managedidentity"):
+		add("workload_identity", "azure", "azure_managed_identity", "azure", "azure_managed_identity", "cloud_or_infra_access", "write", "high")
 	case strings.Contains(text, "workloadidentitypool") || strings.Contains(text, "iam.gserviceaccount.com"):
 		add("workload_identity", "gcp", "gcp_workload_identity", "gcp", "gcp_workload_identity", "cloud_or_infra_access", "write", "high")
 	case strings.Contains(text, "clusterrole") || strings.Contains(text, "rolebinding") || strings.Contains(text, "clusterrolebinding"):

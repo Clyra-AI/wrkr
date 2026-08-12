@@ -154,8 +154,26 @@ func TestBuildIdentityExposureSummaryAndTargets(t *testing.T) {
 	if revoke.ExecutionIdentity != "release-app" {
 		t.Fatalf("expected release-app to rank first for revocation, got %+v", revoke)
 	}
-	if !review.SharedExecutionIdentity || !revoke.StandingPrivilege {
-		t.Fatalf("expected shared/standing privilege heuristics on top identity, review=%+v revoke=%+v", review, revoke)
+	if !review.SharedExecutionIdentity || revoke.StandingPrivilege {
+		t.Fatalf("expected shared identity without inferred standing privilege, review=%+v revoke=%+v", review, revoke)
+	}
+}
+
+func TestBuildIdentityActionTargetsPreservesAuthorityBackedStandingPrivilege(t *testing.T) {
+	t.Parallel()
+
+	_, revoke := BuildIdentityActionTargets([]ActionPath{{
+		PathID:                  "apc-standing",
+		Repo:                    "acme/release",
+		ExecutionIdentity:       "release-app",
+		ExecutionIdentityType:   "github_app",
+		ExecutionIdentitySource: "workflow_static_signal",
+		ExecutionIdentityStatus: "known",
+		WriteCapable:            true,
+		StandingPrivilege:       true,
+	}})
+	if revoke == nil || !revoke.StandingPrivilege {
+		t.Fatalf("expected authority-backed standing privilege to remain visible, got %+v", revoke)
 	}
 }
 

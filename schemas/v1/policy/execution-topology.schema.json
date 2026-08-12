@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.wrkr.dev/v1/policy/execution-topology.schema.json",
+  "title": "Wrkr execution topology",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "mappings"],
+  "properties": {
+    "version": {"const": 1},
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "alias", "source_repo", "source_path"],
+        "properties": {
+          "kind": {"enum": ["jenkins_shared_library", "workflow_alias", "api_runtime"]},
+          "alias": {"type": "string", "minLength": 1},
+          "source_repo": {"type": "string", "minLength": 1},
+          "source_path": {"type": "string", "minLength": 1},
+          "version": {"type": "string"}
+        }
+      }
+    }
+  }
+}

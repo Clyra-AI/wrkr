@@ -6,6 +6,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -32,9 +33,12 @@ func TestRenderMarkdownLeadsWithConfirmedExposuresAndSeparatesCandidates(t *test
 				DelegationReadinessState: risk.DelegationReadinessBlocked,
 				RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
 				CredentialAuthority:      &credentialAuthorityForBrief,
-				ApprovalEvidenceState:    risk.EvidenceStateUnknown,
-				ProofEvidenceState:       risk.EvidenceStateUnknown,
-				TargetEvidenceState:      risk.EvidenceStateInferred,
+				ExecutionRelationships: []model.ExecutionRelationship{{
+					Kind: "github_reusable_workflow", Caller: ".github/workflows/release.yml", Callee: ".github/workflows/shared.yml", Origin: "source_declared", ResolutionState: "resolved_local",
+				}},
+				ApprovalEvidenceState: risk.EvidenceStateUnknown,
+				ProofEvidenceState:    risk.EvidenceStateUnknown,
+				TargetEvidenceState:   risk.EvidenceStateInferred,
 				ClosureActions: []risk.ClosureAction{{
 					Title: "Attach deployment approval evidence",
 				}},
@@ -94,6 +98,8 @@ func TestRenderMarkdownLeadsWithConfirmedExposuresAndSeparatesCandidates(t *test
 		"Target: production impacting",
 		"Likely owner: release-team",
 		"Closure evidence: Attach deployment approval evidence",
+		"Inherited origin: github reusable workflow from .github/workflows/shared.yml",
+		"Evidence receipt: observed=2 paths; bound=2 paths; confirmed=2 paths; displayed=1 outcome group",
 	} {
 		if !strings.Contains(confirmed, want) {
 			t.Fatalf("expected confirmed brief to contain %q, got %q", want, confirmed)
@@ -110,6 +116,32 @@ func TestRenderMarkdownLeadsWithConfirmedExposuresAndSeparatesCandidates(t *test
 	} {
 		if !strings.Contains(validateNext, want) {
 			t.Fatalf("expected validate-next brief to contain %q, got %q", want, validateNext)
+		}
+	}
+}
+
+func TestExecutionRelationshipOriginIsRedactedWithPaths(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileCustomerRedacted, nil)
+	got := sanitizeExecutionRelationshipsWithConfig([]model.ExecutionRelationship{{
+		Kind: "jenkins_shared_library", Caller: "Jenkinsfile", Callee: "vars/deploy.groovy", Origin: "vars/deploy.groovy", ResolutionState: "resolved_local",
+	}}, config)
+	if len(got) != 1 || got[0].Origin == "vars/deploy.groovy" || !strings.HasPrefix(got[0].Origin, "loc-") {
+		t.Fatalf("expected relationship origin path redaction, got %+v", got)
+	}
+}
+
+func TestExecutionRelationshipSemanticOriginSurvivesRedaction(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileCustomerRedacted, nil)
+	for _, origin := range []string{"source_declared", "customer_topology", "resolver_receipt"} {
+		got := sanitizeExecutionRelationshipsWithConfig([]model.ExecutionRelationship{{
+			Kind: "github_composite_action", Caller: ".github/workflows/release.yml", Callee: ".github/actions/release/action.yml", Origin: origin, ResolutionState: "resolved_local",
+		}}, config)
+		if len(got) != 1 || got[0].Origin != origin {
+			t.Fatalf("semantic relationship origin %q must survive redaction, got %+v", origin, got)
 		}
 	}
 }
@@ -196,7 +228,7 @@ func TestRenderMarkdownQualifiesReducedCoverageWithoutSuppressingConfirmedExposu
 		"Scan quality: reduced coverage.",
 		"cannot support an absence-of-exposure or safe-control conclusion",
 		"Credential to deploy or release",
-		"standing secret reference",
+		"secret reference",
 	} {
 		if !strings.Contains(markdown, want) {
 			t.Fatalf("expected reduced-coverage report to contain %q, got %q", want, markdown)

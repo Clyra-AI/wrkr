@@ -4,303 +4,233 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/risk/autonomy"
 )
 
-func TestDetectCIAutonomyCriticalFinding(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := mustFindRepoRoot(t)
-	scope := detect.Scope{Org: "local", Repo: "infra", Root: filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos", "infra")}
-	findings, err := New().Detect(context.Background(), scope, detect.Options{})
-	if err != nil {
-		t.Fatalf("detect ciagent: %v", err)
-	}
-	if len(findings) == 0 {
-		t.Fatal("expected ciagent findings")
-	}
-	if findings[0].Severity != "critical" {
-		t.Fatalf("expected critical severity finding first, got %s", findings[0].Severity)
-	}
-	if findings[0].Autonomy != "headless_auto" {
-		t.Fatalf("expected headless_auto autonomy, got %s", findings[0].Autonomy)
-	}
-}
-
-func TestDetectCIAutonomyDerivesWorkflowCapabilities(t *testing.T) {
-	t.Parallel()
-
+func TestDetectorProjectsCatalogSignalsAndCoverage(t *testing.T) {
 	root := t.TempDir()
-	workflowPath := filepath.Join(root, ".github", "workflows")
-	if err := os.MkdirAll(workflowPath, 0o755); err != nil {
-		t.Fatalf("mkdir workflow path: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(workflowPath, "release.yml"), []byte(`name: release
-on:
-  pull_request:
-    branches: [main]
+	writeWorkflow(t, root, ".github/workflows/release.yml", `name: release
+on: workflow_dispatch
 permissions:
   contents: write
-  pull-requests: write
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - run: codex --full-auto --approval never
-      - run: gh pr merge --auto "$PR_URL"
-      - run: kubectl apply -f k8s/
-      - run: alembic upgrade head
-`), 0o600); err != nil {
-		t.Fatalf("write workflow: %v", err)
-	}
+      - run: codex --full-auto
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      - run: kubectl apply -f deploy/
+`)
 
-	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
+	detector := New()
+	if detector.ID() != detectorID {
+		t.Fatalf("unexpected detector id %q", detector.ID())
+	}
+	findings, err := detector.Detect(context.Background(), detect.Scope{Repo: "service", Root: root}, detect.Options{})
 	if err != nil {
-		t.Fatalf("detect ciagent: %v", err)
+		t.Fatalf("detect: %v", err)
 	}
 	if len(findings) != 1 {
-		t.Fatalf("expected one ciagent finding, got %+v", findings)
+		t.Fatalf("expected one finding, got %+v", findings)
 	}
-	for _, permission := range []string{"repo.write", "pull_request.write", "merge.execute", "deploy.write", "db.write"} {
-		if !hasPermission(findings[0].Permissions, permission) {
-			t.Fatalf("expected permission %q in %+v", permission, findings[0].Permissions)
-		}
+	if findings[0].Org != "local" || findings[0].CheckResult != model.CheckResultFail || findings[0].Severity != model.SeverityHigh {
+		t.Fatalf("unexpected finding projection: %+v", findings[0])
 	}
-	if value := evidenceValue(findings[0], "workflow_capability.merge.execute"); value != "step.run:gh_pr_merge" {
-		t.Fatalf("expected merge execute evidence, got %q", value)
+	coverage := detector.SurfaceCoverage(detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{})
+	if len(coverage) != 1 || coverage[0].Surface != "ci_workflow:github_actions" || coverage[0].Parsed != 1 || coverage[0].Findings != 1 {
+		t.Fatalf("unexpected surface coverage: %+v", coverage)
 	}
 }
 
-func TestDetectCIAutonomyDoesNotOverclaimMergeWhenWorkflowIsReadOnly(t *testing.T) {
+func TestSurfaceCoverageKeepsRelationshipResolutionPerCallee(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	workflowPath := filepath.Join(root, ".github", "workflows")
-	if err := os.MkdirAll(workflowPath, 0o755); err != nil {
-		t.Fatalf("mkdir workflow path: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(workflowPath, "dry-run.yml"), []byte(`name: dry-run
-on: workflow_dispatch
-permissions: read-all
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - run: codex --full-auto --approval never
-      - run: gh pr merge --auto "$PR_URL"
-`), 0o600); err != nil {
-		t.Fatalf("write workflow: %v", err)
-	}
-
-	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
+	writeWorkflow(t, root, "Jenkinsfile", "load 'vars/present.groovy'\nload 'vars/missing.groovy'\n")
+	writeWorkflow(t, root, "vars/present.groovy", "def call() { sh 'echo present' }\n")
+	catalog, err := workflowcap.BuildCatalog(root, detect.Options{})
 	if err != nil {
-		t.Fatalf("detect ciagent: %v", err)
+		t.Fatal(err)
 	}
-	if len(findings) != 1 {
-		t.Fatalf("expected one ciagent finding, got %+v", findings)
-	}
-	if hasPermission(findings[0].Permissions, "merge.execute") {
-		t.Fatalf("did not expect merge.execute permission in %+v", findings[0].Permissions)
+	resolved := workflowcap.ResolveCatalogs([]workflowcap.CatalogScope{{Repo: "acme/service", Root: root, Catalog: catalog}})
+	coverage := New().SurfaceCoverage(detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{WorkflowCatalogs: map[string]any{root: resolved[root]}})
+	if len(coverage) != 2 || coverage[0].Surface != "ci_workflow:jenkins" || coverage[0].Resolved != 1 || coverage[0].Unresolved != 1 {
+		t.Fatalf("each callee must retain its own resolution state: %+v", coverage)
 	}
 }
 
-func TestDetectCIAutonomyCarriesApprovalAndProofEvidence(t *testing.T) {
-	t.Parallel()
+func TestDetectorReportsCatalogFailuresAndParseErrors(t *testing.T) {
+	detector := New()
+	coverage := detector.SurfaceCoverage(detect.Scope{Root: filepath.Join(t.TempDir(), "missing")}, detect.Options{})
+	if len(coverage) != 1 || coverage[0].Unsupported != 1 {
+		t.Fatalf("expected unavailable catalog receipt, got %+v", coverage)
+	}
 
 	root := t.TempDir()
-	workflowPath := filepath.Join(root, ".github", "workflows")
-	if err := os.MkdirAll(workflowPath, 0o755); err != nil {
-		t.Fatalf("mkdir workflow path: %v", err)
+	writeWorkflow(t, root, ".github/workflows/bad.yml", "jobs:\n  release:\n    steps: [")
+	findings, err := detector.Detect(context.Background(), detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect malformed workflow: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workflowPath, "release.yml"), []byte(`name: release
-on:
-  workflow_dispatch:
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: trstringer/manual-approval@v1
-      - run: codex --full-auto --approval never
-      - run: wrkr evidence --state .wrkr/last-scan.json
-`), 0o600); err != nil {
-		t.Fatalf("write workflow: %v", err)
+	if len(findings) != 1 || findings[0].FindingType != "parse_error" {
+		t.Fatalf("expected one parse error, got %+v", findings)
+	}
+	if findings[0].ParseError == nil || findings[0].ParseError.Detector != detectorID {
+		t.Fatalf("expected normalized parse error, got %+v", findings[0].ParseError)
 	}
 
-	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
-	if err != nil {
-		t.Fatalf("detect ciagent: %v", err)
-	}
-	if len(findings) != 1 {
-		t.Fatalf("expected one ciagent finding, got %+v", findings)
-	}
-	if value := evidenceValue(findings[0], "approval_source"); value != "manual_approval_step" {
-		t.Fatalf("expected approval_source=manual_approval_step, got %q", value)
-	}
-	if value := evidenceValue(findings[0], "proof_requirement"); value != "evidence" {
-		t.Fatalf("expected proof_requirement=evidence, got %q", value)
+	if _, err := detector.Detect(context.Background(), detect.Scope{Root: filepath.Join(root, "missing")}, detect.Options{}); err == nil {
+		t.Fatal("expected invalid root failure")
 	}
 }
 
-func TestDetectCIAutonomyCarriesStructuredOIDCCapability(t *testing.T) {
+func TestDetectorReportsMalformedSharedSourceAndReconcilesCoverage(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	workflowPath := filepath.Join(root, ".github", "workflows")
-	if err := os.MkdirAll(workflowPath, 0o755); err != nil {
-		t.Fatalf("mkdir workflow path: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(workflowPath, "release.yml"), []byte(`name: release
+	writeWorkflow(t, root, ".github/workflows/caller.yml", `name: caller
 on: push
-permissions:
-  id-token: write
 jobs:
-  release:
+  local:
     runs-on: ubuntu-latest
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
-      - run: codex --full-auto --approval never
-`), 0o600); err != nil {
-		t.Fatalf("write workflow: %v", err)
-	}
+      - uses: ./.github/actions/bad
+`)
+	writeWorkflow(t, root, ".github/actions/bad/action.yml", "name: bad\nruns: [")
 
-	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
+	detector := New()
+	findings, err := detector.Detect(context.Background(), detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{})
 	if err != nil {
-		t.Fatalf("detect ciagent: %v", err)
+		t.Fatal(err)
 	}
-	if len(findings) != 1 {
-		t.Fatalf("expected one ciagent finding, got %+v", findings)
-	}
-	if !containsPermission(findings[0].Permissions, "id-token.write") {
-		t.Fatalf("expected id-token.write capability, got %v", findings[0].Permissions)
-	}
-	if value := evidenceValue(findings[0], "credential_provenance_type"); value != "" {
-		t.Fatalf("parsed workflow must not receive duplicate text-heuristic provenance, got %q", value)
-	}
-}
-
-func TestDetectCIAutonomyDiscoversAzurePipelines(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "azure-pipelines.yml"), []byte(`trigger:
-- main
-jobs:
-- job: deploy
-  steps:
-  - script: codex --full-auto --approval never
-  - script: az webapp deploy --resource-group prod-rg --name api
-`), 0o600); err != nil {
-		t.Fatalf("write azure pipeline: %v", err)
-	}
-
-	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
-	if err != nil {
-		t.Fatalf("detect ciagent: %v", err)
-	}
-	if len(findings) != 1 {
-		t.Fatalf("expected one ciagent finding, got %+v", findings)
-	}
-	if findings[0].Location != "azure-pipelines.yml" {
-		t.Fatalf("expected azure pipeline location, got %q", findings[0].Location)
-	}
-	if evidenceValue(findings[0], "ci_platform") != "azure_devops" {
-		t.Fatalf("expected azure_devops platform evidence, got %q", evidenceValue(findings[0], "ci_platform"))
-	}
-	if !hasPermission(findings[0].Permissions, "deploy.write") {
-		t.Fatalf("expected deploy.write permission in %+v", findings[0].Permissions)
-	}
-}
-
-func TestDetectCIAutonomyKeepsGitLabUnsupportedRemoteIncludesVisible(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, ".gitlab-ci.yml"), []byte(`include:
-  - project: acme/shared
-    file: /deploy.yml
-deploy:
-  stage: deploy
-  script:
-    - codex --full-auto --approval never
-    - kubectl apply -f k8s/
-`), 0o600); err != nil {
-		t.Fatalf("write gitlab workflow: %v", err)
-	}
-
-	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
-	if err != nil {
-		t.Fatalf("detect ciagent: %v", err)
-	}
-
-	var parseFinding model.Finding
-	var workflowFinding model.Finding
-	var haveParseFinding bool
-	var haveWorkflowFinding bool
-	for idx := range findings {
-		switch findings[idx].FindingType {
-		case "parse_error":
-			parseFinding = findings[idx]
-			haveParseFinding = true
-		case "ci_autonomy":
-			workflowFinding = findings[idx]
-			haveWorkflowFinding = true
+	parseFindings := 0
+	for _, finding := range findings {
+		if finding.FindingType == "parse_error" && finding.Location == ".github/actions/bad/action.yml" {
+			parseFindings++
 		}
 	}
-	if !haveParseFinding {
-		t.Fatalf("expected parse_error finding for unsupported include, got %+v", findings)
+	if parseFindings != 1 {
+		t.Fatalf("expected one shared-source parse finding, got %+v", findings)
 	}
-	if !haveWorkflowFinding {
-		t.Fatalf("expected ci_autonomy finding to survive unsupported include, got %+v", findings)
+	coverage := detector.SurfaceCoverage(detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{})
+	for _, receipt := range coverage {
+		if receipt.Surface == "ci_workflow:github_actions:shared_source" {
+			if receipt.Partial != 1 || receipt.Findings != 1 {
+				t.Fatalf("shared-source coverage must reconcile with emitted parse finding: %+v", receipt)
+			}
+			return
+		}
 	}
-	parseErr := parseFinding.ParseError
-	if parseErr == nil || !strings.Contains(parseErr.Message, "unsupported remote include") {
-		t.Fatalf("expected unsupported remote include parse error, got %+v", parseFinding)
+	t.Fatalf("missing shared-source coverage receipt: %+v", coverage)
+}
+
+func TestDetectorTreatsNonCompositeActionAsParsedOpaqueSource(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeWorkflow(t, root, ".github/actions/verify/action.yaml", `name: verify
+runs:
+  using: node20
+  main: dist/index.js
+`)
+
+	detector := New()
+	findings, err := detector.Detect(context.Background(), detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if evidenceValue(workflowFinding, "ci_platform") != "gitlab_ci" {
-		t.Fatalf("expected gitlab_ci platform evidence, got %q", evidenceValue(workflowFinding, "ci_platform"))
+	if len(findings) != 0 {
+		t.Fatalf("valid opaque action must not emit a parser finding: %+v", findings)
 	}
-	if evidenceValue(workflowFinding, "include_resolution_status") != "partial" {
-		t.Fatalf("expected partial include resolution evidence, got %q", evidenceValue(workflowFinding, "include_resolution_status"))
+	coverage := detector.SurfaceCoverage(detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{})
+	if len(coverage) != 1 || coverage[0].Surface != "ci_workflow:github_actions:shared_source" || coverage[0].Parsed != 1 || coverage[0].Partial != 0 {
+		t.Fatalf("valid opaque action must count as parsed shared-source coverage: %+v", coverage)
 	}
 }
 
-func mustFindRepoRoot(t *testing.T) string {
+func TestSurfaceCoverageTreatsResolverLimitAsUnresolved(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeWorkflow(t, root, "Jenkinsfile", "load 'vars/a.groovy'\n")
+	writeWorkflow(t, root, "vars/a.groovy", "load 'vars/b.groovy'\n")
+	writeWorkflow(t, root, "vars/b.groovy", "load 'vars/a.groovy'\n")
+
+	catalog, err := workflowcap.BuildCatalog(root, detect.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved := workflowcap.ResolveCatalogs([]workflowcap.CatalogScope{{Repo: "acme/service", Root: root, Catalog: catalog}})
+	coverage := New().SurfaceCoverage(detect.Scope{Org: "acme", Repo: "service", Root: root}, detect.Options{WorkflowCatalogs: map[string]any{root: resolved[root]}})
+	if len(coverage) == 0 {
+		t.Fatal("expected CI surface coverage")
+	}
+	for _, receipt := range coverage {
+		if receipt.Unresolved > 0 {
+			return
+		}
+	}
+	t.Fatalf("resolver-limited relationship must reduce coverage instead of remaining resolved: %+v", coverage)
+}
+
+func TestCIProjectionHelpersCoverSeverityAndRelationshipStates(t *testing.T) {
+	for input, want := range map[string]string{
+		"kind|caller|callee|resolved_local":      "resolved_local",
+		"kind|caller|callee|unsupported_dynamic": "unsupported_dynamic",
+		"kind|caller|callee|contradictory":       "contradictory",
+		"malformed":                              "unknown",
+	} {
+		if got := relationshipState(input); got != want {
+			t.Fatalf("relationshipState(%q)=%q want %q", input, got, want)
+		}
+	}
+
+	cases := []struct {
+		name        string
+		signals     autonomy.Signals
+		level       string
+		permissions []string
+		want        string
+	}{
+		{name: "critical", signals: autonomy.Signals{Headless: true, HasSecretAccess: true, DangerousFlags: true}, level: autonomy.LevelHeadlessAuto, want: model.SeverityCritical},
+		{name: "gated", level: autonomy.LevelHeadlessGate, want: model.SeverityMedium},
+		{name: "copilot", level: autonomy.LevelCopilot, want: model.SeverityLow},
+		{name: "deploy", permissions: []string{"deploy.write"}, want: model.SeverityHigh},
+		{name: "merge", permissions: []string{"merge.execute"}, want: model.SeverityMedium},
+		{name: "secret", permissions: []string{"secret.read"}, want: model.SeverityLow},
+		{name: "none", want: model.SeverityInfo},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := severityForWorkflow(tc.signals, tc.level, tc.permissions); got != tc.want {
+				t.Fatalf("severity=%q want %q", got, tc.want)
+			}
+		})
+	}
+	if got := uniqueStrings([]string{"b", "", "a", "b"}); len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("unexpected unique strings: %+v", got)
+	}
+	if uniqueStrings(nil) != nil || uniqueStrings([]string{" "}) != nil {
+		t.Fatal("expected empty input to normalize to nil")
+	}
+	if boolString(true) != "true" || boolString(false) != "false" {
+		t.Fatal("unexpected bool string")
+	}
+}
+
+func writeWorkflow(t *testing.T, root, rel, payload string) {
 	t.Helper()
-
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	for {
-		if _, statErr := os.Stat(filepath.Join(wd, "go.mod")); statErr == nil {
-			return wd
-		}
-		next := filepath.Dir(wd)
-		if next == wd {
-			t.Fatal("could not find repo root")
-		}
-		wd = next
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func hasPermission(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
-}
-
-func evidenceValue(finding model.Finding, key string) string {
-	for _, item := range finding.Evidence {
-		if item.Key == key {
-			return item.Value
-		}
-	}
-	return ""
 }

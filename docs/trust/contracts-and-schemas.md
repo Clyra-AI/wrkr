@@ -19,7 +19,7 @@ description: "Reference index for Wrkr command contracts, schema assets, and pro
 - `control_backlog.items[*].write_path_classes` may include `read`, `write`, `pr_write`, `repo_write`, `release_write`, `package_publish`, `deploy_write`, `infra_write`, `secret_bearing_execution`, and `production_adjacent_write`.
 - `control_backlog.items[*].governance_controls[*].control` is one of `owner_assigned`, `approval_recorded`, `least_privilege_verified`, `rotation_evidence_attached`, `deployment_gate_present`, `production_access_classified`, `proof_artifact_generated`, or `review_cadence_set`; `status` is `satisfied`, `gap`, or `not_applicable`.
 - Governance backlog visibility may use `known_approved`, `known_unapproved`, `unknown_to_security`, `accepted_risk`, `deprecated`, `revoked`, or `needs_review`. Legacy inventory surfaces still accept the historic `approved` compatibility value.
-- `scan_quality.scan_quality_version = "1"` identifies the scan-quality appendix schema.
+- `scan_quality.scan_quality_version = "2"` identifies the additive scan-quality appendix schema, including per-surface coverage and reconciliation fields.
 - `scan_quality.mode` is one of `quick`, `governance`, or `deep`.
 - `scan_quality.parse_errors[*].recommended_action` is `suppress` for generated/package-manager noise and `debug_only` for parser diagnostics that should stay outside the active governance backlog.
 

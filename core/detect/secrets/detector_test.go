@@ -105,6 +105,35 @@ jobs:
 	}
 }
 
+func TestSecretsDetectorDoesNotTreatExecutionRelationshipsAsSecretEvidence(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workflowDir := filepath.Join(root, ".github", "workflows")
+	if err := os.MkdirAll(workflowDir, 0o755); err != nil {
+		t.Fatalf("mkdir workflow directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workflowDir, "caller.yml"), []byte(`name: caller
+on: push
+jobs:
+  shared:
+    uses: ./.github/workflows/shared.yml
+`), 0o600); err != nil {
+		t.Fatalf("write caller: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workflowDir, "shared.yml"), []byte("name: shared\non: workflow_call\njobs: {}\n"), 0o600); err != nil {
+		t.Fatalf("write shared workflow: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Root: root, Repo: "repo", Org: "local"}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("execution relationships without credential references must not emit secret findings: %+v", findings)
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	for _, item := range finding.Evidence {
 		if item.Key == key {

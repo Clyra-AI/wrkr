@@ -19,7 +19,7 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -68,49 +68,33 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		})
 	}
 
-	workflowFiles, wfErr := detect.Glob(scope.Root, ".github/workflows/*")
+	catalog, wfErr := workflowcap.CatalogFor(scope.Root, options)
 	if wfErr != nil {
 		return nil, wfErr
 	}
-	for _, rel := range workflowFiles {
-		evidence, parseErr := parseWorkflowSecretEvidence(scope.Root, rel)
+	for _, rel := range catalog.EntrypointPaths() {
+		entry, ok := catalog.Lookup(rel)
+		if !ok {
+			continue
+		}
+		evidence, parseErr := workflowSecretEvidence(entry.Result, entry.ParseError)
 		if parseErr != nil {
-			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			continue
 		}
 		if len(evidence) == 0 {
 			continue
 		}
 		findings = append(findings, model.Finding{
-			FindingType: "secret_presence",
-			Severity:    model.SeverityMedium,
-			ToolType:    "secret",
-			Location:    rel,
-			Repo:        scope.Repo,
-			Org:         fallbackOrg(scope.Org),
-			Detector:    detectorID,
-			Evidence:    evidence,
+			FindingType:            "secret_presence",
+			Severity:               model.SeverityMedium,
+			ToolType:               "secret",
+			Location:               rel,
+			Repo:                   scope.Repo,
+			Org:                    fallbackOrg(scope.Org),
+			Detector:               detectorID,
+			Evidence:               evidence,
+			ExecutionRelationships: model.NormalizeExecutionRelationships(entry.Result.ExecutionRelationships),
 		})
-	}
-
-	if exists, fileErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "Jenkinsfile"); fileErr != nil {
-		findings = append(findings, parseErrorFinding(scope, "Jenkinsfile", fileErr))
-	} else if exists {
-		evidence, parseErr := parseWorkflowSecretEvidence(scope.Root, "Jenkinsfile")
-		if parseErr != nil {
-			findings = append(findings, parseErrorFinding(scope, "Jenkinsfile", parseErr))
-		} else if len(evidence) > 0 {
-			findings = append(findings, model.Finding{
-				FindingType: "secret_presence",
-				Severity:    model.SeverityMedium,
-				ToolType:    "secret",
-				Location:    "Jenkinsfile",
-				Repo:        scope.Repo,
-				Org:         fallbackOrg(scope.Org),
-				Detector:    detectorID,
-				Evidence:    evidence,
-			})
-		}
 	}
 
 	model.SortFindings(findings)
@@ -149,21 +133,23 @@ func parseEnvKeys(root, rel string) ([]string, *model.ParseError) {
 	return keys, nil
 }
 
-func parseWorkflowSecretEvidence(root, rel string) ([]model.Evidence, *model.ParseError) {
-	payload, err := detect.ReadFileWithinRoot(detectorID, root, rel)
-	if err != nil {
-		return nil, err
-	}
-	analysis, parseErr := workflowcap.AnalyzeInRoot(root, rel, payload)
+func workflowSecretEvidence(analysis workflowcap.Result, parseErr *model.ParseError) ([]model.Evidence, *model.ParseError) {
 	if parseErr != nil {
 		return nil, parseErr
 	}
 	evidence := make([]model.Evidence, 0)
+	hasSecretEvidence := false
 	for _, item := range analysis.Evidence {
 		switch item.Key {
 		case "workflow_secret_refs", "workflow_credential_kind", "workflow_noncredential_secret_refs":
+			hasSecretEvidence = true
+			evidence = append(evidence, item)
+		case "credential_scope":
 			evidence = append(evidence, item)
 		}
+	}
+	if !hasSecretEvidence {
+		return nil, nil
 	}
 	return evidence, nil
 }

@@ -80,6 +80,7 @@ func TestStory7SchemaContractsStable(t *testing.T) {
 		"schemas/v1/inventory/inventory.schema.json",
 		"schemas/v1/manifest/manifest.schema.json",
 		"schemas/v1/policy/approved-tools.schema.json",
+		"schemas/v1/policy/execution-topology.schema.json",
 		"schemas/v1/policy/production-targets.schema.json",
 		"schemas/v1/policy/rule-pack.schema.json",
 		"schemas/v1/profile/profile-result.schema.json",

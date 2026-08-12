@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/model"
 	templatespkg "github.com/Clyra-AI/wrkr/core/report/templates"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -160,7 +162,7 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
-	if summary.ScanQuality != nil && (len(summary.ScanQuality.Detectors) > 0 || summary.ScanQuality.HostedCoverage != nil) {
+	if summary.ScanQuality != nil && (len(summary.ScanQuality.Detectors) > 0 || summary.ScanQuality.HostedCoverage != nil || len(summary.ScanQuality.SurfaceCoverage) > 0 || summary.ScanQuality.ReconciliationLedger != nil) {
 		title := "Scan Quality"
 		if isAgentActionBOMTemplate {
 			title = "Scan Quality Appendix"
@@ -193,6 +195,27 @@ func RenderMarkdown(summary Summary) string {
 				compact.UnsupportedDeclarationCount,
 				firstNonEmptyValue(strings.TrimSpace(compact.ImpactStatement), "Coverage metadata was unavailable."),
 			))
+		}
+		if ledger := summary.ScanQuality.ReconciliationLedger; ledger != nil {
+			stageCounts := map[string]int{}
+			for _, stage := range ledger.Stages {
+				stageCounts[stage.StageID] = stage.Count
+			}
+			builder.WriteString(fmt.Sprintf("- Evidence receipt: observed=%d findings; normalized=%d facts; bound=%d bindings; confirmed=%d paths; candidate=%d paths; unresolved=%d paths; ledger_valid=%t\n",
+				stageCounts["observations"], stageCounts["normalized_facts"], stageCounts["authority_bindings"], stageCounts["confirmed_paths"], stageCounts["candidate_paths"], stageCounts["unresolved_paths"], ledger.Valid))
+		}
+		if len(summary.ScanQuality.SurfaceCoverage) > 0 {
+			limit := len(summary.ScanQuality.SurfaceCoverage)
+			if limit > 10 {
+				limit = 10
+			}
+			for _, surface := range summary.ScanQuality.SurfaceCoverage[:limit] {
+				builder.WriteString(fmt.Sprintf("- Surface %s: discovered=%d files selected=%d files parsed=%d files partial=%d unsupported=%d resolved=%d relationships unresolved=%d relationships\n",
+					humanizeEnum(surface.Surface), surface.Discovered, surface.Selected, surface.Parsed, surface.Partial, surface.Unsupported, surface.Resolved, surface.Unresolved))
+			}
+			if suppressed := len(summary.ScanQuality.SurfaceCoverage) - limit; suppressed > 0 {
+				builder.WriteString(fmt.Sprintf("- Surface details: %d additional receipt(s) remain in JSON.\n", suppressed))
+			}
 		}
 		if len(summary.ScanQuality.DetectorErrors) > 0 {
 			builder.WriteString(fmt.Sprintf("- Detector failures: %d. These surfaces are blocked and negative claims for the affected repo/detector are not authoritative.\n", len(summary.ScanQuality.DetectorErrors)))
@@ -1049,6 +1072,108 @@ func renderEvidenceOnboardingNote(builder *strings.Builder, summary Summary) {
 	builder.WriteString("- To complete the next review, provide repository-local external-control evidence or run `wrkr ingest --state <state> --input <external-control-evidence.json> --json` with owner, branch-protection, required-check, protected-environment, deployment-approval, or proof records; then rerun the report.\n")
 }
 
+const customerValidationWorksheetLimit = 10
+
+type customerValidationRow struct {
+	pathID    string
+	questions []string
+}
+
+func renderCustomerValidationWorksheet(builder *strings.Builder, summary Summary) {
+	if builder == nil || summary.AgentActionBOM == nil {
+		return
+	}
+	items := summary.AgentActionBOM.Items
+	if len(summary.AgentActionBOM.focusSourceItems) > 0 {
+		items = summary.AgentActionBOM.focusSourceItems
+	}
+	rows := make([]customerValidationRow, 0, min(len(items), customerValidationWorksheetLimit))
+	for _, item := range items {
+		questions := unresolvedValidationQuestions(item)
+		if len(questions) == 0 {
+			continue
+		}
+		rows = append(rows, customerValidationRow{pathID: strings.TrimSpace(item.PathID), questions: questions})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].pathID < rows[j].pathID })
+	if len(rows) > customerValidationWorksheetLimit {
+		rows = rows[:customerValidationWorksheetLimit]
+	}
+	if len(rows) == 0 {
+		return
+	}
+	builder.WriteString("## Customer Validation Worksheet\n\n")
+	builder.WriteString("| Path | Validate next | Closure evidence |\n")
+	builder.WriteString("|---|---|---|\n")
+	for _, row := range rows {
+		pathID := firstNonEmptyValue(row.pathID, "unresolved-path")
+		fmt.Fprintf(builder, "| `%s` | %s | Import path-scoped evidence, then rescan. |\n",
+			packetMarkdownValue(pathID),
+			packetMarkdownValue(strings.Join(row.questions, "; ")),
+		)
+	}
+	builder.WriteString("\n")
+}
+
+func unresolvedValidationQuestions(item AgentActionBOMItem) []string {
+	questions := make([]string, 0, 6)
+	if reasonsContainAny(item.ActionPathTypeReasons, "topology", "unresolved_external", "unsupported_dynamic") ||
+		reasonsContainAny(item.CIFlowReasons, "topology", "unresolved_external", "unsupported_dynamic") ||
+		hasUnresolvedExecutionRelationship(item.ExecutionRelationships) {
+		questions = append(questions, "map the unresolved caller, reusable workflow, or shared-library source")
+	}
+	if item.CredentialAccess && !agginventory.EffectiveStandingAuthority(item.CredentialAuthority) {
+		questions = append(questions, "confirm credential existence, path binding, and lifetime")
+	}
+	if evidenceStateNeedsValidation(item.TargetEvidenceState) {
+		questions = append(questions, "confirm the actual target and environment")
+	}
+	if evidenceStateNeedsValidation(item.RuntimeEvidenceState) || evidenceStateNeedsValidation(item.RuntimeContextEvidenceState) {
+		questions = append(questions, "confirm the runtime executor and effective permissions")
+	}
+	if evidenceStateNeedsValidation(item.OwnerEvidenceState) {
+		questions = append(questions, "identify the accountable owner")
+	}
+	if evidenceStateNeedsValidation(item.ApprovalEvidenceState) || item.ApprovalGap {
+		questions = append(questions, "provide required-review or deployment-approval evidence")
+	}
+	if evidenceStateNeedsValidation(item.ProofEvidenceState) {
+		questions = append(questions, "provide path-specific closure proof")
+	}
+	return uniquePreserveOrderStrings(questions)
+}
+
+func hasUnresolvedExecutionRelationship(relationships []model.ExecutionRelationship) bool {
+	for _, relationship := range relationships {
+		switch strings.TrimSpace(relationship.ResolutionState) {
+		case "unresolved_external", "unsupported_dynamic", "cycle_blocked", "depth_limited", "fanout_limited", "contradictory":
+			return true
+		}
+	}
+	return false
+}
+
+func evidenceStateNeedsValidation(value string) bool {
+	switch strings.TrimSpace(value) {
+	case "", risk.EvidenceStateUnknown, risk.EvidenceStateContradictory:
+		return true
+	default:
+		return false
+	}
+}
+
+func reasonsContainAny(values []string, needles ...string) bool {
+	for _, value := range values {
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		for _, needle := range needles {
+			if strings.Contains(normalized, strings.ToLower(strings.TrimSpace(needle))) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func shouldRenderEvidenceOnboarding(summary Summary) bool {
 	if summary.AgentActionBOM == nil {
 		return false
@@ -1800,7 +1925,7 @@ func humanizeEnum(value string) string {
 	value = strings.ReplaceAll(value, "plain source code", "source code path")
 	value = strings.ReplaceAll(value, "unknown durable credential", "credential type not identified")
 	value = strings.ReplaceAll(value, "unknown durable", "credential type not identified")
-	value = strings.ReplaceAll(value, "static secret", "standing secret reference")
+	value = strings.ReplaceAll(value, "static secret", "secret reference")
 	return value
 }
 
@@ -1821,7 +1946,7 @@ func humanizeAuthorityText(value string) string {
 	value = strings.ReplaceAll(value, "jit", "JIT")
 	value = strings.ReplaceAll(value, "unknown durable credential", "credential type not identified")
 	value = strings.ReplaceAll(value, "unknown durable", "credential type not identified")
-	value = strings.ReplaceAll(value, "static secret", "standing secret reference")
+	value = strings.ReplaceAll(value, "static secret", "secret reference")
 	return strings.Join(strings.Fields(value), " ")
 }
 
@@ -2033,6 +2158,7 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 	} else {
 		renderEvidenceOnboardingNote(&builder, summary)
 		renderBuyerExposureBrief(&builder, summary)
+		renderCustomerValidationWorksheet(&builder, summary)
 	}
 
 	builder.WriteString("## Known Limits\n\n")

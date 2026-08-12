@@ -42,3 +42,7 @@ subphase was actually slow or memory-heavy once detector execution finished.
 - Consumers that previously assumed repeated endpoint-ref arrays would always
   carry every ref now need to respect the grouped receipt fields and the saved
   canonical store for full detail.
+
+## Execution relationship extension
+
+OpenAPI discovery now recognizes bounded structured root keys in generic JSON/YAML names and detector-selected generated specifications. Generator, specification, consumer, and customer-declared runtime mappings are separate typed relationships. Operations remain static target context unless evidence-backed binding and runtime predecessors exist.

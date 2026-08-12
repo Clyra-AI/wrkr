@@ -476,6 +476,32 @@ func TestControlPathGraphCarriesPurposeVersionAndAuthorityRefs(t *testing.T) {
 	}
 }
 
+func TestControlPathGraphKeepsUnprovenAuthorityReference(t *testing.T) {
+	t.Parallel()
+
+	graph := BuildControlPathGraph([]ControlPathInput{{
+		PathID:                 "apc-ref-only",
+		Org:                    "acme",
+		Repo:                   "acme/platform",
+		ToolType:               "ci_agent",
+		Location:               ".github/workflows/release.yml",
+		CredentialAuthorityRef: "cred-reference-only",
+	}})
+	if graph == nil {
+		t.Fatal("expected control path graph")
+		return
+	}
+	for _, node := range graph.Nodes {
+		if node.PathID == "apc-ref-only" && node.Kind == ControlPathNodeCredential {
+			if node.CredentialAuthorityRef != "cred-reference-only" {
+				t.Fatalf("unexpected authority reference: %+v", node)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected reference-only credential node, got %+v", graph.Nodes)
+}
+
 func TestBuildControlPathGraphUsesBoundedEndpointProjection(t *testing.T) {
 	t.Parallel()
 

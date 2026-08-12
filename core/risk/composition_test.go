@@ -852,6 +852,28 @@ func TestCompositionDelegationRelationshipDetectsBroadenedChildAuthority(t *test
 	}
 }
 
+func TestCompositionDelegationDepthRequiresCanonicalAuthority(t *testing.T) {
+	t.Parallel()
+
+	legacy := ActionPath{CredentialProvenance: &agginventory.CredentialProvenance{
+		Type: agginventory.CredentialProvenanceOAuthDelegation,
+	}}
+	if got := compositionDelegationDepth(legacy); got != 0 {
+		t.Fatalf("legacy provenance must not promote delegation depth, got %d", got)
+	}
+
+	typed := ActionPath{CredentialAuthority: &agginventory.CredentialAuthority{
+		EvidenceStage:          agginventory.EvidenceStageBinding,
+		ExistenceEvidenceState: agginventory.AuthorityEvidenceVerified,
+		BindingEvidenceState:   agginventory.AuthorityEvidenceVerified,
+		LifetimeEvidenceState:  agginventory.AuthorityEvidenceVerified,
+		LifetimeKind:           agginventory.CredentialLifetimeDelegated,
+	}}
+	if got := compositionDelegationDepth(typed); got != 1 {
+		t.Fatalf("typed delegated authority must contribute delegation depth, got %d", got)
+	}
+}
+
 func TestCompositionRecommendationUsesMostRestrictiveTransition(t *testing.T) {
 	source := compositionTestPath("apc-code", "rk-code", []string{"write"}, TargetClassReleaseAdjacent)
 	source.CredentialAuthorityRef = "authority:repo-write"

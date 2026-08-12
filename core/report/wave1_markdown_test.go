@@ -24,9 +24,10 @@ func TestRenderMarkdownIncludesWave1AutonomyAndGovernedPathFields(t *testing.T) 
 		ApprovalEvidenceState: risk.EvidenceStateVerified,
 		ProofEvidenceState:    risk.EvidenceStateVerified,
 		CredentialAuthority: &agginventory.CredentialAuthority{
-			CredentialPresent:      true,
-			CredentialUsableByPath: true,
-			StandingAccess:         true,
+			ExistenceEvidenceState: agginventory.AuthorityEvidenceDeclared,
+			BindingEvidenceState:   agginventory.AuthorityEvidenceDeclared,
+			LifetimeEvidenceState:  agginventory.AuthorityEvidenceDeclared,
+			LifetimeKind:           agginventory.CredentialLifetimeStanding,
 			AccessType:             agginventory.CredentialAccessTypeStanding,
 		},
 	})

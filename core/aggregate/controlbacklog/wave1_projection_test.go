@@ -23,9 +23,11 @@ func TestBuildCarriesWave1ProjectionFieldsFromActionPaths(t *testing.T) {
 		ApprovalEvidenceState: risk.EvidenceStateVerified,
 		ProofEvidenceState:    risk.EvidenceStateVerified,
 		CredentialAuthority: &agginventory.CredentialAuthority{
-			CredentialPresent:      true,
-			CredentialUsableByPath: true,
-			StandingAccess:         true,
+			EvidenceStage:          agginventory.EvidenceStageEffectiveAuthority,
+			ExistenceEvidenceState: agginventory.AuthorityEvidenceVerified,
+			BindingEvidenceState:   agginventory.AuthorityEvidenceVerified,
+			LifetimeEvidenceState:  agginventory.AuthorityEvidenceVerified,
+			LifetimeKind:           agginventory.CredentialLifetimeStanding,
 			AccessType:             agginventory.CredentialAccessTypeStanding,
 		},
 	})

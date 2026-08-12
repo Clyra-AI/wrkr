@@ -297,9 +297,6 @@ func workflowAuthoritySummary(item AgentActionBOMItem) string {
 		if scope := strings.TrimSpace(item.CredentialProvenance.Scope); scope != "" {
 			parts = append(parts, scope)
 		}
-		if item.CredentialProvenance.StandingAccess {
-			parts = append(parts, "standing")
-		}
 		if len(parts) > 0 {
 			parts = appendStandingCredentialMetadata(parts, item)
 			return strings.Join(parts, " | ")
@@ -425,10 +422,7 @@ func bomItemStandingCredentialMetadata(item AgentActionBOMItem) bool {
 	if item.StandingPrivilege {
 		return true
 	}
-	if authority := agginventory.NormalizeCredentialAuthority(item.CredentialAuthority); authority != nil && authority.StandingAccess {
-		return true
-	}
-	return item.CredentialProvenance != nil && item.CredentialProvenance.StandingAccess
+	return agginventory.EffectiveStandingAuthority(item.CredentialAuthority)
 }
 
 func blockedStandingCredentialNextAction(item AgentActionBOMItem) string {

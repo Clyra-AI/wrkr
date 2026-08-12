@@ -106,3 +106,17 @@ Use `report.next_steps` and `evidence.next_steps` when you want automation to fo
 Wrkr does not perform live MCP probing or package/server vulnerability assessment in this workflow. Use dedicated scanners such as Snyk for those surfaces. Gait interoperability is optional and provides control-layer context rather than a requirement to run Wrkr.
 
 Canonical state, baseline, manifest, and proof-chain paths are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
+
+## First engagement runbook
+
+```bash
+export WRKR_GITHUB_TOKEN="$(gh auth token)"
+wrkr scan --org acme --profile assessment --state ./.wrkr/acme.json --progress events --json-path ./.wrkr/acme-summary.json
+wrkr scan --path ./customer-repos --profile assessment --execution-topology ./execution-topology.yaml --state ./.wrkr/deep.json
+wrkr ingest --state ./.wrkr/deep.json --input ./runtime-evidence.json --json
+wrkr report --state ./.wrkr/deep.json --template design-partner-summary --share-profile internal --md --md-path ./.wrkr/internal.md
+wrkr report --state ./.wrkr/deep.json --template design-partner-summary --share-profile customer-redacted --md --md-path ./.wrkr/customer.md
+wrkr verify --chain --state ./.wrkr/deep.json --json
+```
+
+Start with sparse authenticated org acquisition. Use maintained local clones for deep analysis when shared libraries, generated specifications, submodules, or broad source are required. Do not use stale developer worktrees as customer evidence. Ask the customer only for mappings and external facts Wrkr cannot observe: shared-library registration, credential activity/lifetime, actual environments/targets, enforced provider controls, and runtime outcomes.

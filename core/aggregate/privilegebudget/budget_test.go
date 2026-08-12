@@ -708,8 +708,8 @@ func TestCredentialClassificationTreatsOIDCRoleARNAsTargetIdentifier(t *testing.
 		t.Fatalf("role ARN must not become credential subject, got %+v", credential)
 	}
 	authority := classifyCredentialAuthority(nil, signals, true, credentials, nil)
-	if authority == nil || !authority.CredentialPresent || !authority.CredentialReferencedByWorkflow || authority.StandingAccess {
-		t.Fatalf("expected non-standing workflow OIDC authority, got %+v", authority)
+	if authority == nil || authority.CredentialPresent || !authority.CredentialReferencedByWorkflow || authority.StandingAccess {
+		t.Fatalf("expected an unresolved workflow OIDC reference, got %+v", authority)
 	}
 }
 
@@ -758,7 +758,7 @@ func TestCredentialClassificationKeepsSecretsGitHubTokenJIT(t *testing.T) {
 	t.Fatalf("expected GitHub workflow token credential in %+v", credentials)
 }
 
-func TestBuildDerivesActionClassesAndStandingPrivilegeFromCredentialSignals(t *testing.T) {
+func TestBuildKeepsWorkflowCredentialReferenceOutOfStandingPrivilege(t *testing.T) {
 	t.Parallel()
 
 	tools := []agginventory.Tool{{
@@ -792,8 +792,8 @@ func TestBuildDerivesActionClassesAndStandingPrivilegeFromCredentialSignals(t *t
 			t.Fatalf("expected action class %q in %+v", want, entry.ActionClasses)
 		}
 	}
-	if !entry.StandingPrivilege || len(entry.StandingPrivilegeReasons) == 0 {
-		t.Fatalf("expected standing privilege reasoning, got %+v", entry)
+	if entry.StandingPrivilege || !containsString(entry.StandingPrivilegeReasons, "effective_authority:unproven") {
+		t.Fatalf("reference-only credential must remain unresolved authority, got %+v", entry)
 	}
 }
 
@@ -1199,8 +1199,8 @@ func TestCredentialAuthoritySeparatesReferenceFromUsability(t *testing.T) {
 		t.Fatal("expected normalized credential authority")
 		return
 	}
-	if !authority.CredentialPresent || !authority.CredentialReferencedByWorkflow {
-		t.Fatalf("expected workflow reference authority, got %+v", authority)
+	if authority.CredentialPresent || !authority.CredentialReferencedByWorkflow {
+		t.Fatalf("expected unresolved workflow reference, got %+v", authority)
 	}
 	if authority.CredentialUsableByPath {
 		t.Fatalf("expected workflow reference without execution linkage to remain unusable, got %+v", authority)
@@ -1487,6 +1487,63 @@ func TestOpenAPIRouteAuthorityRequiresDirectCorrelation(t *testing.T) {
 				t.Fatalf("expected non-authority production context to remain available, got %v", got)
 			}
 		})
+	}
+}
+
+func TestMatchingSignalsForAgentPreservesOnlyLocationRelationships(t *testing.T) {
+	t.Parallel()
+
+	location := "contracts/payments.yaml"
+	exact := model.ExecutionRelationship{
+		RelationshipID:  "openapi-consumer:payments",
+		Kind:            "openapi_consumer",
+		Caller:          "src/payments/client.go",
+		Callee:          location,
+		Origin:          "source_declared",
+		ResolutionState: "resolved_local",
+		Confidence:      "high",
+	}
+	unrelated := model.ExecutionRelationship{
+		RelationshipID:  "openapi-consumer:admin",
+		Kind:            "openapi_consumer",
+		Caller:          "src/admin/client.go",
+		Callee:          "contracts/admin.yaml",
+		Origin:          "source_declared",
+		ResolutionState: "resolved_local",
+		Confidence:      "high",
+	}
+	signalsByRepoLocation := map[string]findingSignals{
+		repoLocationSignalKey("acme", "acme/payments", location): {
+			Repos:                  []string{"acme/payments"},
+			ExecutionRelationships: []model.ExecutionRelationship{exact},
+			EvidenceKV:             map[string][]string{},
+		},
+	}
+	signalsByRepo := map[string]findingSignals{
+		"acme|acme/payments": {
+			Repos:                  []string{"acme/payments"},
+			ExecutionRelationships: []model.ExecutionRelationship{unrelated},
+			EvidenceKV:             map[string][]string{"workflow_environment": {"production"}},
+		},
+	}
+	tool := agginventory.Tool{
+		ToolType: "openapi",
+		Org:      "acme",
+		Repos:    []string{"acme/payments"},
+	}
+	agent := agginventory.Agent{
+		Framework: "openapi",
+		Org:       "acme",
+		Repo:      "acme/payments",
+		Location:  location,
+	}
+
+	got := matchingSignalsForAgent(agent, tool, signalsByRepoLocation, signalsByRepo)
+	if !reflect.DeepEqual(got.ExecutionRelationships, []model.ExecutionRelationship{exact}) {
+		t.Fatalf("expected only location-matched relationship, got %+v", got.ExecutionRelationships)
+	}
+	if values := got.EvidenceKV["workflow_environment"]; len(values) != 1 || values[0] != "production" {
+		t.Fatalf("expected repo-wide target context to remain available, got %v", values)
 	}
 }
 

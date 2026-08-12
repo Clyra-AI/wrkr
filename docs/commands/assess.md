@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr assess [--json] [--json-stdout auto|full] [--quiet] [--explain] [--path <dir> | --my-setup | --target <mode>:<value> ...] [--output-dir <path>] [--state <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--baseline <path>] [--runtime-input <path>] [--frameworks <ids>] [--ticket-format jira|github|servicenow] [--profile baseline|standard|strict|assessment] [--top <n>]
+wrkr assess [--json] [--json-stdout auto|full] [--quiet] [--explain] [--path <dir> | --my-setup | --target <mode>:<value> ...] [--execution-topology <path>] [--output-dir <path>] [--state <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--baseline <path>] [--runtime-input <path>] [--frameworks <ids>] [--ticket-format jira|github|servicenow] [--profile baseline|standard|strict|assessment] [--top <n>]
 ```
 
 ## Flags
@@ -15,6 +15,7 @@ wrkr assess [--json] [--json-stdout auto|full] [--quiet] [--explain] [--path <di
 - `--path`
 - `--my-setup`
 - `--target`
+- `--execution-topology`
 - `--output-dir`
 - `--state`
 - `--template`
@@ -28,6 +29,8 @@ wrkr assess [--json] [--json-stdout auto|full] [--quiet] [--explain] [--path <di
 - `--ticket-format`
 - `--profile`
 - `--top`
+
+`--execution-topology` forwards the same local-only, versioned relationship declaration used by `wrkr scan`. It can resolve externally registered aliases but does not prove runtime execution, credential activity, target reach, or control effectiveness.
 
 ## Example
 

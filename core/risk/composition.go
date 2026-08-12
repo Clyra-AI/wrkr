@@ -1213,7 +1213,7 @@ func compositionAuthorityCredentials(path ActionPath) []string {
 			"authority_access:"+strings.TrimSpace(path.CredentialAuthority.AccessType),
 			"authority_source:"+strings.TrimSpace(path.CredentialAuthority.CredentialSource),
 		)
-		if path.CredentialAuthority.StandingAccess {
+		if agginventory.EffectiveStandingAuthority(path.CredentialAuthority) {
 			values = append(values, "authority_standing:true")
 		}
 		if path.CredentialAuthority.LikelyJIT {
@@ -1279,15 +1279,9 @@ func compositionAuthorityAccessRank(path ActionPath) int {
 	if path.ProductionWrite {
 		rank = maxInt(rank, 5)
 	}
-	if path.CredentialAuthority != nil {
+	if path.CredentialAuthority != nil && path.CredentialAuthority.CredentialUsableByPath {
 		rank = maxInt(rank, compositionAccessLevelRank(path.CredentialAuthority.AccessType))
-		if path.CredentialAuthority.StandingAccess {
-			rank = maxInt(rank, 4)
-		}
-	}
-	if path.CredentialProvenance != nil {
-		rank = maxInt(rank, compositionAccessLevelRank(path.CredentialProvenance.AccessType))
-		if path.CredentialProvenance.StandingAccess {
+		if agginventory.EffectiveStandingAuthority(path.CredentialAuthority) {
 			rank = maxInt(rank, 4)
 		}
 	}
@@ -1346,7 +1340,8 @@ func compositionAccessLevelRank(value string) int {
 
 func compositionDelegationDepth(path ActionPath) int {
 	depth := 0
-	if path.CredentialProvenance != nil && strings.TrimSpace(path.CredentialProvenance.Type) == agginventory.CredentialProvenanceOAuthDelegation {
+	authority := agginventory.NormalizeCredentialAuthority(path.CredentialAuthority)
+	if authority != nil && authority.CredentialUsableByPath && authority.LifetimeKind == agginventory.CredentialLifetimeDelegated {
 		depth = maxInt(depth, 1)
 	}
 	if path.TrustDepth != nil {
@@ -2300,7 +2295,7 @@ func compositionEvidenceRefs(paths []ActionPath) []string {
 				out = append(out, "binding_subject:"+strings.TrimSpace(binding.Subject))
 			}
 		}
-		if path.StandingPrivilege || (path.CredentialAuthority != nil && path.CredentialAuthority.StandingAccess) {
+		if path.StandingPrivilege || agginventory.EffectiveStandingAuthority(path.CredentialAuthority) {
 			out = append(out, "authority_standing:true")
 		}
 		if path.SharedExecutionIdentity {

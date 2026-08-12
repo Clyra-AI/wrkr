@@ -2,6 +2,7 @@ package report
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -346,6 +347,85 @@ func TestBuildSummaryCarriesScanQualityIntoReportAndBOM(t *testing.T) {
 	if !strings.Contains(markdown, "## Scan Quality Appendix") {
 		t.Fatalf("expected markdown appendix for detector rows, got %q", markdown)
 	}
+}
+
+func TestBuildSummaryExcludesContextOnlyPathsFromReconciliationDisplayCount(t *testing.T) {
+	t.Parallel()
+
+	quality := scanquality.Build(scanquality.Input{UnresolvedPaths: 1})
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			ScanQuality: &quality,
+			RiskReport: &risk.Report{ActionPaths: []risk.ActionPath{{
+				PathID:             "apc-context-only",
+				Org:                "acme",
+				Repo:               "acme/api",
+				ToolType:           "openapi",
+				Location:           "openapi.json",
+				ActionBindingState: risk.ActionBindingStateUnboundContext,
+				ConfidenceLane:     risk.ConfidenceLaneContextOnly,
+			}}},
+		},
+		GeneratedAt: time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.ScanQuality == nil || summary.ScanQuality.ReconciliationLedger == nil || !summary.ScanQuality.ReconciliationLedger.Valid {
+		t.Fatalf("context-only paths must not invalidate eligible/displayed reconciliation: %+v", summary.ScanQuality)
+	}
+}
+
+func TestReportProjectionLedgersUseEachArtifactCap(t *testing.T) {
+	t.Parallel()
+
+	const eligible = defaultMaxAgentActionBOM + 1
+	paths := make([]risk.ActionPath, 0, eligible)
+	items := make([]AgentActionBOMItem, 0, eligible)
+	for index := 0; index < eligible; index++ {
+		pathID := fmt.Sprintf("apc-%03d", index)
+		paths = append(paths, risk.ActionPath{
+			PathID:             pathID,
+			ActionPathEligible: true,
+			ActionBindingState: risk.ActionBindingStateBound,
+		})
+		items = append(items, AgentActionBOMItem{PathID: pathID, ActionPathEligible: true})
+	}
+	quality := scanquality.Build(scanquality.Input{EligiblePaths: eligible})
+	bomQuality := scanquality.Build(scanquality.Input{EligiblePaths: eligible})
+	summary := Summary{
+		ActionPaths: paths,
+		ScanQuality: &quality,
+		AgentActionBOM: &AgentActionBOM{
+			Items:       items,
+			ScanQuality: &bomQuality,
+		},
+	}
+	ApplySummaryCaps(&summary)
+	updateReportProjectionLedgers(&summary, paths)
+
+	if got := reconciliationStageCount(summary.ScanQuality, "displayed_paths"); got != eligible {
+		t.Fatalf("summary ledger must reflect its %d retained paths, got %d", eligible, got)
+	}
+	if got := reconciliationStageCount(summary.AgentActionBOM.ScanQuality, "displayed_paths"); got != defaultMaxAgentActionBOM {
+		t.Fatalf("BOM ledger must reflect its %d-item cap, got %d", defaultMaxAgentActionBOM, got)
+	}
+	if got := reconciliationStageCount(summary.AgentActionBOM.ScanQuality, "suppressed_paths"); got != 1 {
+		t.Fatalf("BOM ledger must record one cap-suppressed path, got %d", got)
+	}
+}
+
+func reconciliationStageCount(report *scanquality.Report, stageID string) int {
+	if report == nil || report.ReconciliationLedger == nil {
+		return -1
+	}
+	for _, stage := range report.ReconciliationLedger.Stages {
+		if stage.StageID == stageID {
+			return stage.Count
+		}
+	}
+	return -1
 }
 
 func TestBuyerMarkdownUsesCompactCoverageSummary(t *testing.T) {
@@ -2711,6 +2791,67 @@ func TestMergeBacklogGovernanceAppendsOverlayOnlyItems(t *testing.T) {
 	last := merged.Items[1]
 	if last.ID != "cb-overlay" || last.GovernanceDisposition == nil || last.GovernanceDisposition.Kind != controlbacklog.GovernanceKindAcceptedRisk {
 		t.Fatalf("expected appended overlay item with governance metadata, got %+v", last)
+	}
+}
+
+func TestMergeBacklogGovernanceAppliesOverlayPresentationToUngovernedBase(t *testing.T) {
+	t.Parallel()
+
+	base := &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+		ID: "cb-base", Repo: "acme/repo", Path: ".github/workflows/release.yml", Queue: controlbacklog.QueueReviewQueue,
+	}}}
+	overlay := &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+		ID: "cb-overlay", Repo: "acme/repo", Path: ".github/workflows/release.yml",
+		Queue: controlbacklog.QueueAcceptedRisk, FindingVisibility: controlbacklog.FindingVisibilityAppendix,
+		GovernanceDisposition: &controlbacklog.GovernanceDisposition{Kind: controlbacklog.GovernanceKindAcceptedRisk, Status: controlbacklog.GovernanceStatusActive},
+	}}}
+
+	merged := mergeBacklogGovernance(base, overlay)
+	if merged.Items[0].GovernanceDisposition == nil || merged.Items[0].Queue != controlbacklog.QueueAcceptedRisk || merged.Items[0].FindingVisibility != controlbacklog.FindingVisibilityAppendix {
+		t.Fatalf("overlay governance presentation was not applied to ungoverned base: %+v", merged.Items[0])
+	}
+}
+
+func TestMergeBacklogGovernanceAppliesAcceptedRiskPresentationToApprovedBase(t *testing.T) {
+	t.Parallel()
+
+	base := &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+		ID: "cb-base", Repo: "acme/repo", Path: ".github/workflows/release.yml",
+		Queue: controlbacklog.QueueReviewQueue, FindingVisibility: controlbacklog.FindingVisibilityPrimary, ApprovalStatus: "approved",
+	}}}
+	overlay := &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+		ID: "cb-base", Repo: "acme/repo", Path: ".github/workflows/release.yml",
+		Queue: controlbacklog.QueueAcceptedRisk, FindingVisibility: controlbacklog.FindingVisibilityAppendix,
+		GovernanceDisposition: &controlbacklog.GovernanceDisposition{Kind: controlbacklog.GovernanceKindAcceptedRisk, Status: controlbacklog.GovernanceStatusActive},
+	}}}
+
+	merged := mergeBacklogGovernance(base, overlay)
+	item := merged.Items[0]
+	if item.GovernanceDisposition == nil || item.Queue != controlbacklog.QueueAcceptedRisk || item.FindingVisibility != controlbacklog.FindingVisibilityAppendix {
+		t.Fatalf("accepted-risk disposition and presentation must remain consistent: %+v", item)
+	}
+}
+
+func TestMergeBacklogGovernanceRepromotesExpiredSavedDisposition(t *testing.T) {
+	t.Parallel()
+
+	base := &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+		ID: "cb-base", Repo: "acme/repo", Path: ".github/workflows/release.yml",
+		Queue: controlbacklog.QueueAcceptedRisk, FindingVisibility: controlbacklog.FindingVisibilityAppendix,
+		GovernanceDisposition: &controlbacklog.GovernanceDisposition{Kind: controlbacklog.GovernanceKindAcceptedRisk, Status: controlbacklog.GovernanceStatusActive},
+	}}}
+	overlay := &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+		ID: "cb-base", Repo: "acme/repo", Path: ".github/workflows/release.yml",
+		Queue: controlbacklog.QueueReviewQueue, FindingVisibility: controlbacklog.FindingVisibilityPrimary,
+		GovernanceDisposition: &controlbacklog.GovernanceDisposition{Kind: controlbacklog.GovernanceKindAcceptedRisk, Status: controlbacklog.GovernanceStatusExpired},
+	}}}
+
+	item := mergeBacklogGovernance(base, overlay).Items[0]
+	if item.GovernanceDisposition == nil || item.GovernanceDisposition.Status != controlbacklog.GovernanceStatusExpired {
+		t.Fatalf("expected current expired disposition, got %+v", item.GovernanceDisposition)
+	}
+	if item.Queue != controlbacklog.QueueReviewQueue || item.FindingVisibility != controlbacklog.FindingVisibilityPrimary {
+		t.Fatalf("expired governance must return to primary review, got %+v", item)
 	}
 }
 

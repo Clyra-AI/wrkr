@@ -72,8 +72,19 @@ func TestScanSavesControlBacklogAndQualityInState(t *testing.T) {
 	if snapshot.ControlBacklog == nil || snapshot.ControlBacklog.ControlBacklogVersion != "1" {
 		t.Fatalf("expected saved control backlog, got %+v", snapshot.ControlBacklog)
 	}
-	if snapshot.ScanQuality == nil || snapshot.ScanQuality.ScanQualityVersion != "1" {
+	if snapshot.ScanQuality == nil || snapshot.ScanQuality.ScanQualityVersion != "2" {
 		t.Fatalf("expected saved scan quality, got %+v", snapshot.ScanQuality)
+	}
+	ledger := snapshot.ScanQuality.ReconciliationLedger
+	if ledger == nil || !ledger.Valid {
+		t.Fatalf("expected persisted reconciliation ledger to be valid, got %+v", ledger)
+	}
+	counts := map[string]int{}
+	for _, stage := range ledger.Stages {
+		counts[stage.StageID] = stage.Count
+	}
+	if counts["displayed_paths"]+counts["suppressed_paths"] != counts["eligible_paths"] {
+		t.Fatalf("expected persisted path projection to reconcile, got %v", counts)
 	}
 }
 

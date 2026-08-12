@@ -4,17 +4,17 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Contract and Artifact Identity
 
-- Packet: pacpkt-0fc15efc68d52657
-- Artifact: paca-9a929be681911cd1
-- Contract: pac-526ded95b1eba035
+- Packet: pacpkt-a2bc27f566ebff59
+- Artifact: paca-7c26e20008d56cd8
+- Contract: pac-73293bb1eaa87677
 - Family: pacf-551683d10a9e914d
 - Revision: 1
 - Supersedes: none
-- Contract digest: sha256:b5dd98815f73e64dcffc680d9aec31313dc014e0cc75168f4ffb9e5f566faa2e
-- Artifact digest: sha256:9a929be681911cd1ef8e860dfb95db981f0176800b6e60b4f02e539d7690ed09
+- Contract digest: sha256:5a94c8b6932e4cf85b858ad3262fa6bc58fc7844c4e3cd5446ca44d17f6d9d90
+- Artifact digest: sha256:7c26e20008d56cd83789d1eab9175db5e6b1a9142cd84a1e744e2ca3feaa6270
 - Share profile: internal
 - Source scan refs: saved_scan:v1
-- Creation evidence: wch-789ab4b4420d, wch-bd1e152cd6ba
+- Creation evidence: wch-86520c168374, wch-e6052f99766c
 - Report only: true
 
 ## Composed Path
@@ -31,33 +31,33 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Authority Requirements
 
-- `pacr-1feca1ce57cde7c3` affected_system_owner: required=affected_system_owner:required observed=owner:system:@local/demo evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-56232a9cc86b0657` business_owner: required=business_owner:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-7d36c1ff5587898c` credential_subject_constraint: required=credential_subject:required observed=binding_subject:cloud_admin_key,binding_subject:workflow_kubernetes_deploy,provenance_subject:broad_pat,provenance_subject:cloud_admin_key evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-c6ae69d327e85033` delegation_root: required=delegation_root:required observed=authority-bfc23b0d135943e8 evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-b3a437682c6a5c8b` originating_intent: required=originating_task_or_intent:required observed=intent:release evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-947cdf963274300e` permitted_agent_role: required=permitted_agent_role:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-ba876ec04e3f2090` policy_authority: required=policy_authority:required observed=policy:gait://release-control evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-b257b5787ef41672` requester_identity: required=requester_identity:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
-- `pacr-6a9541ec35bb26f9` separation_of_duties: required=requester_must_not_approve observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, authority_standing:true, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access
+- `pacr-1feca1ce57cde7c3` affected_system_owner: required=affected_system_owner:required observed=owner:system:@local/demo evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-56232a9cc86b0657` business_owner: required=business_owner:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-7d36c1ff5587898c` credential_subject_constraint: required=credential_subject:required observed=binding_subject:cloud_admin_key,binding_subject:workflow_kubernetes_deploy,provenance_subject:broad_pat,provenance_subject:cloud_admin_key evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-c6ae69d327e85033` delegation_root: required=delegation_root:required observed=authority-16b128ce8beb8f5d evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-b3a437682c6a5c8b` originating_intent: required=originating_task_or_intent:required observed=intent:release evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-947cdf963274300e` permitted_agent_role: required=permitted_agent_role:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-ba876ec04e3f2090` policy_authority: required=policy_authority:required observed=policy:gait://release-control evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-b257b5787ef41672` requester_identity: required=requester_identity:required observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
+- `pacr-6a9541ec35bb26f9` separation_of_duties: required=requester_must_not_approve observed=not_observed evidence=unknown freshness=unknown refs=.gait/policy.yaml, approval_status=unapproved, baseline:discovered_surface, binding_subject:cloud_admin_key, binding_subject:workflow_kubernetes_deploy, credential_access:true, credential_likely_scope:cloud_or_infra_access, credential_reference_observed
 
 ## Credential Posture
 
 - Required mode: ephemeral
-- Evidence: contradictory
+- Evidence: unknown
 - Freshness: unknown
 - Requirement refs: pacp-f51e237be307906c, pacr-7d36c1ff5587898c, pacr-b257b5787ef41672
 - Wrkr activation grant: false
 
 ## Readiness Checks
 
-- `pacp-f51e237be307906c` credential_mode: required=credential_mode:ephemeral observed=standing result=standing evidence=contradictory freshness=unknown producers=credential_authority
+- `pacp-f51e237be307906c` credential_mode: required=credential_mode:ephemeral observed=ephemeral result=ephemeral evidence=unknown freshness=unknown producers=credential_authority
 - `pacp-c307b0619c1f4669` effect_contract: required=effect_contract:required observed=not_observed result=failed evidence=contradictory freshness=unknown producers=control_declaration, gait_policy
 - `pacp-1180e91556c5d75f` environment: required=environment:declared observed=production result=production evidence=unknown freshness=unknown producers=control_declaration, gait_policy
 - `pacp-645cb943abd8397d` expected_effect: required=effect:production_deploy observed=production_deploy result=production_deploy evidence=unknown freshness=unknown producers=action_path
 - `pacp-35f2785682713aa7` forbidden_effect: required=effect:not_unbounded observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=control_declaration, gait_policy
 - `pacp-b9e7664d67b7327b` freshness: required=fresh observed=unknown result=unknown evidence=unknown freshness=unknown producers=evidence_policy
-- `pacp-ec0fb84968773e61` policy_digest: required=policy_digest:required observed=sha256:4e0344286f00724e711f91cd88181313d84fbc3cd74174f393f1b5122e69d3f3 result=sha256:4e0344286f00724e711f91cd88181313d84fbc3cd74174f393f1b5122e69d3f3 evidence=unknown freshness=unknown producers=control_declaration, gait_policy
+- `pacp-ec0fb84968773e61` policy_digest: required=policy_digest:required observed=sha256:3babc7893e4ecc100ae9e3aad582ff4783dd208c6fe629aa944a4071277e0384 result=sha256:3babc7893e4ecc100ae9e3aad582ff4783dd208c6fe629aa944a4071277e0384 evidence=unknown freshness=unknown producers=control_declaration, gait_policy
 - `pacp-b953c2307a57f713` producer: required=producer:approved observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=ci, control_declaration, gait_policy
 - `pacp-29bc81f8eb3adcc1` required_check: required=check:required observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=ci, control_declaration, gait_policy
 - `pacp-28bc43e0c50f22aa` sandbox: required=sandbox:required observed=not_observed result=not_observed evidence=unknown freshness=unknown producers=control_declaration, gait_policy
@@ -71,8 +71,8 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Confirmation and Approval
 
-- Confirmation: required=false mode=not_required evidence=verified freshness=unknown
-- Approval: required=false minimum=0 roles=control_owner, security_reviewer separation=requester_must_not_approve validity=PT24H evidence=verified freshness=unknown
+- Confirmation: required=true mode=explicit_confirmation evidence=unknown freshness=unknown
+- Approval: required=true minimum=2 roles=control_owner, security_reviewer separation=requester_must_not_approve validity=PT24H evidence=unknown freshness=unknown
 - Reapproval triggers: contract_content_change, scope_digest_change
 
 ## Compensation
@@ -81,6 +81,7 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Evidence Gaps
 
+- `approval` approval: evidence=unknown freshness=unknown reasons=approval:evidence_missing, approval:required, approval:scope_digest_missing
 - `pacr-1feca1ce57cde7c3` authority:affected_system_owner: evidence=unknown freshness=unknown reasons=authority:affected_system_owner:unknown
 - `pacr-56232a9cc86b0657` authority:business_owner: evidence=unknown freshness=unknown reasons=authority:business_owner:missing, authority:business_owner:unknown
 - `pacr-7d36c1ff5587898c` authority:credential_subject_constraint: evidence=unknown freshness=unknown reasons=authority:credential_subject_constraint:unknown
@@ -91,8 +92,9 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 - `pacr-b257b5787ef41672` authority:requester_identity: evidence=unknown freshness=unknown reasons=authority:requester_identity:missing, authority:requester_identity:unknown
 - `pacr-6a9541ec35bb26f9` authority:separation_of_duties: evidence=unknown freshness=unknown reasons=authority:separation_of_duties:missing, authority:separation_of_duties:unknown
 - `compensation` compensation: evidence=unknown freshness=unknown reasons=compensation:evidence_missing, compensation:required
+- `confirmation` confirmation: evidence=unknown freshness=unknown reasons=confirmation:evidence_missing, confirmation:required
 - `pacl-e977a42a397c18e4` lifecycle:gait_effect: evidence=contradictory freshness=fresh reasons=none
-- `pacp-f51e237be307906c` precondition:credential_mode: evidence=contradictory freshness=unknown reasons=precondition:credential_mode:contradictory, precondition:credential_mode:unknown
+- `pacp-f51e237be307906c` precondition:credential_mode: evidence=unknown freshness=unknown reasons=precondition:credential_mode:unknown
 - `pacp-c307b0619c1f4669` precondition:effect_contract: evidence=contradictory freshness=unknown reasons=precondition:effect_contract:failed, precondition:effect_contract:missing, precondition:effect_contract:unknown
 - `pacp-1180e91556c5d75f` precondition:environment: evidence=unknown freshness=unknown reasons=precondition:environment:unknown
 - `pacp-645cb943abd8397d` precondition:expected_effect: evidence=unknown freshness=unknown reasons=precondition:expected_effect:unknown
@@ -111,22 +113,22 @@ Wrkr proposes and reports this contract. Gait alone decides activation and runti
 
 ## Presentation Limits
 
-- authority_requirements.pacr-1feca1ce57cde7c3.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-56232a9cc86b0657.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-6a9541ec35bb26f9.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-7d36c1ff5587898c.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-947cdf963274300e.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-b257b5787ef41672.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-b3a437682c6a5c8b.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-ba876ec04e3f2090.evidence_refs: reason=item_cap omitted=37
-- authority_requirements.pacr-c6ae69d327e85033.evidence_refs: reason=item_cap omitted=37
-- readiness_checks.pacp-1180e91556c5d75f.evidence_refs: reason=item_cap omitted=37
-- readiness_checks.pacp-28bc43e0c50f22aa.evidence_refs: reason=item_cap omitted=37
-- readiness_checks.pacp-29bc81f8eb3adcc1.evidence_refs: reason=item_cap omitted=37
+- authority_requirements.pacr-1feca1ce57cde7c3.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-56232a9cc86b0657.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-6a9541ec35bb26f9.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-7d36c1ff5587898c.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-947cdf963274300e.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-b257b5787ef41672.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-b3a437682c6a5c8b.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-ba876ec04e3f2090.evidence_refs: reason=item_cap omitted=35
+- authority_requirements.pacr-c6ae69d327e85033.evidence_refs: reason=item_cap omitted=35
+- readiness_checks.pacp-1180e91556c5d75f.evidence_refs: reason=item_cap omitted=35
+- readiness_checks.pacp-28bc43e0c50f22aa.evidence_refs: reason=item_cap omitted=35
+- readiness_checks.pacp-29bc81f8eb3adcc1.evidence_refs: reason=item_cap omitted=35
 - truncations: 9 additional presentation-limit records omitted
 
 ## Next Action
 
-- Action: Resolve pacr-1feca1ce57cde7c3 before requesting a Gait activation decision.
-- Reason: authority:affected_system_owner remains unknown
+- Action: Resolve approval before requesting a Gait activation decision.
+- Reason: approval remains unknown
 - Owner: contract owner

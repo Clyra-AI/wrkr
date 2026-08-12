@@ -41,6 +41,47 @@ type scanProgressHeartbeatIntervalProvider interface {
 	ScanProgressHeartbeatInterval() time.Duration
 }
 
+type synchronizedScanWriter struct {
+	mu           sync.Mutex
+	writer       io.Writer
+	capabilities scanProgressCapabilities
+	heartbeat    time.Duration
+}
+
+func newSynchronizedScanWriter(writer io.Writer) io.Writer {
+	if writer == nil {
+		return nil
+	}
+	return &synchronizedScanWriter{
+		writer:       writer,
+		capabilities: detectScanProgressCapabilities(writer),
+		heartbeat:    scanProgressHeartbeatInterval(writer),
+	}
+}
+
+func (w *synchronizedScanWriter) Write(payload []byte) (int, error) {
+	if w == nil || w.writer == nil {
+		return 0, io.ErrClosedPipe
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.writer.Write(payload)
+}
+
+func (w *synchronizedScanWriter) ScanProgressCapabilities() scanProgressCapabilities {
+	if w == nil {
+		return scanProgressCapabilities{}
+	}
+	return w.capabilities
+}
+
+func (w *synchronizedScanWriter) ScanProgressHeartbeatInterval() time.Duration {
+	if w == nil {
+		return defaultScanProgressHeartbeatInterval
+	}
+	return w.heartbeat
+}
+
 type scanProgressSnapshot struct {
 	TargetMode       string
 	TargetValue      string

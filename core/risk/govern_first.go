@@ -138,6 +138,7 @@ func BuildIdentityActionTargets(paths []ActionPath) (*IdentityActionTarget, *Ide
 		pathCount         int
 		writeCapableCount int
 		highImpactCount   int
+		standingCount     int
 		unknownCount      int
 		unresolvedCount   int
 	}
@@ -168,6 +169,9 @@ func BuildIdentityActionTargets(paths []ActionPath) (*IdentityActionTarget, *Ide
 		if actionPathHighImpact(path) {
 			item.highImpactCount++
 		}
+		if path.StandingPrivilege {
+			item.standingCount++
+		}
 		if strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity {
 			item.unknownCount++
 		}
@@ -193,11 +197,12 @@ func BuildIdentityActionTargets(paths []ActionPath) (*IdentityActionTarget, *Ide
 			UnresolvedOwnershipPathCount: item.unresolvedCount,
 		}
 		target.SharedExecutionIdentity = target.PathCount > 1 || target.RepoCount > 1
-		target.StandingPrivilege = target.SharedExecutionIdentity && (target.WriteCapablePathCount > 0 || target.HighImpactPathCount > 0)
+		target.StandingPrivilege = item.standingCount > 0
 		target.Rationale = []string{
 			fmt.Sprintf("path_count=%d", target.PathCount),
 			fmt.Sprintf("write_capable_path_count=%d", target.WriteCapablePathCount),
 			fmt.Sprintf("high_impact_path_count=%d", target.HighImpactPathCount),
+			fmt.Sprintf("standing_privilege_path_count=%d", item.standingCount),
 			fmt.Sprintf("unknown_to_security_path_count=%d", target.UnknownToSecurityPathCount),
 			fmt.Sprintf("unresolved_ownership_path_count=%d", target.UnresolvedOwnershipPathCount),
 		}
@@ -348,10 +353,6 @@ func DecorateActionPaths(paths []ActionPath) []ActionPath {
 			continue
 		}
 		out[idx].SharedExecutionIdentity = usage.pathCount > 1 || len(usage.repos) > 1
-		if out[idx].SharedExecutionIdentity && (out[idx].WriteCapable || out[idx].ProductionWrite || actionPathHighImpact(out[idx])) {
-			out[idx].StandingPrivilege = true
-			out[idx].StandingPrivilegeReasons = dedupeSortedStrings(append(out[idx].StandingPrivilegeReasons, "shared_execution_identity"))
-		}
 	}
 	return out
 }

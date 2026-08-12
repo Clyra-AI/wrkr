@@ -15,7 +15,7 @@ func TestWave3AcceptanceEvidencePacketsAndRecentReview(t *testing.T) {
 	scanRoot := filepath.Join(paths.repoRoot, "scenarios", "wrkr", "agent-action-bom-demo", "after", "repos")
 	scanPayload := runJSONOK(t, "scan", "--path", scanRoot, "--state", statePath, "--json")
 	actionPaths := requireArray(t, scanPayload, "action_paths")
-	firstPath := requireObjectItem(t, actionPaths[0])
+	firstPath := actionPathByLocation(t, actionPaths, ".github/workflows/release.yml")
 	pathID := firstPath["path_id"].(string)
 
 	packetPath := filepath.Join(t.TempDir(), "packets.json")
@@ -68,7 +68,7 @@ func TestWave3AcceptanceEvidencePacketsAndRecentReview(t *testing.T) {
 	}
 	bom := requireObject(t, reportPayload, "agent_action_bom")
 	items := requireArrayFromObject(t, bom, "items")
-	firstItem := requireObjectItem(t, items[0])
+	firstItem := bomItemByID(t, items, pathID)
 	if firstItem["evidence_packet_status"] != "matched" || firstItem["evidence_packet_result"] != "partial" {
 		t.Fatalf("expected evidence packet projection on BOM item, got %v", firstItem)
 	}

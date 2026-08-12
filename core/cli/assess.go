@@ -124,6 +124,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	focusPathRaw := fs.String("focus-path", "", "explicit agent-action-bom path_id for focused workflow rendering")
 	baselinePath := fs.String("baseline", "", "optional regress baseline for drift review")
 	runtimeInput := fs.String("runtime-input", "", "optional runtime/session/evidence input artifact")
+	executionTopologyPath := fs.String("execution-topology", "", "optional local execution relationship mappings")
 	frameworksRaw := fs.String("frameworks", "soc2", "comma-separated framework ids")
 	ticketFormat := fs.String("ticket-format", "", "optional dry-run ticket payload format [jira|github|servicenow]")
 	top := fs.Int("top", 10, "number of top findings and paths to project into report artifacts")
@@ -238,6 +239,9 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	}
 
 	scanArgs := []string{"scan", "--state", statePath, "--profile", *scanProfile, "--json"}
+	if strings.TrimSpace(*executionTopologyPath) != "" {
+		scanArgs = append(scanArgs, "--execution-topology", strings.TrimSpace(*executionTopologyPath))
+	}
 	if strings.TrimSpace(*pathTarget) != "" {
 		scanArgs = append(scanArgs, "--path", strings.TrimSpace(*pathTarget))
 	}

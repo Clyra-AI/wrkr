@@ -95,3 +95,60 @@ func TestSortFindingsOrdersByLocationRange(t *testing.T) {
 		t.Fatalf("expected lower start line first, got %+v", findings)
 	}
 }
+
+func TestNormalizeExecutionRelationshipsCanonicalizesAndDeduplicates(t *testing.T) {
+	t.Parallel()
+
+	relationships := NormalizeExecutionRelationships([]ExecutionRelationship{
+		{RelationshipID: " b ", Kind: " workflow_call ", Caller: " caller-b ", Callee: " callee-b ", Origin: " source ", ResolutionState: " resolved_local ", Confidence: " high ", EvidenceRefs: []string{"z", "a", "a"}, TruncationReasons: []string{" ", "cycle"}},
+		{RelationshipID: "a", Kind: "workflow_call", Caller: "caller-a", Callee: "callee-a", ResolutionState: "unresolved_external"},
+		{RelationshipID: "a", Kind: "workflow_call", Caller: "caller-a", Callee: "callee-a", ResolutionState: "unresolved_external"},
+		{RelationshipID: "invalid", Kind: "", Caller: "caller", Callee: "callee", ResolutionState: "resolved_local"},
+	})
+	if len(relationships) != 2 {
+		t.Fatalf("expected two canonical relationships, got %+v", relationships)
+	}
+	if relationships[0].RelationshipID != "a" || relationships[1].RelationshipID != "b" {
+		t.Fatalf("unexpected relationship ordering: %+v", relationships)
+	}
+	if len(relationships[1].EvidenceRefs) != 2 || relationships[1].EvidenceRefs[0] != "a" {
+		t.Fatalf("unexpected normalized refs: %+v", relationships[1])
+	}
+	if NormalizeExecutionRelationships(nil) != nil || NormalizeExecutionRelationships([]ExecutionRelationship{{Kind: "missing"}}) != nil {
+		t.Fatal("expected empty relationships to normalize to nil")
+	}
+}
+
+func TestNormalizeFindingTrimsAllContractFields(t *testing.T) {
+	t.Parallel()
+
+	normalized := NormalizeFinding(Finding{
+		FindingType: " type ", RuleID: " rule ", CheckResult: " pass ", PolicyOutcomeID: " outcome ",
+		Severity: "unknown", DiscoveryMethod: " Imported ", Remediation: " fix ", ToolType: " tool ",
+		Location: " path ", Repo: " repo ", Org: " org ", Detector: " detector ", Autonomy: " gated ",
+		ParseError: &ParseError{Kind: " parse ", Format: " yaml ", Path: " path ", Detector: " parser ", Message: " bad "},
+	})
+	if normalized.FindingType != "type" || normalized.Severity != SeverityInfo || normalized.DiscoveryMethod != "imported" || normalized.Remediation != "fix" {
+		t.Fatalf("unexpected normalized finding: %+v", normalized)
+	}
+	if normalized.ParseError == nil || normalized.ParseError.Message != "bad" {
+		t.Fatalf("unexpected normalized parse error: %+v", normalized.ParseError)
+	}
+}
+
+func TestNormalizeLocationRangeBoundaries(t *testing.T) {
+	t.Parallel()
+
+	if normalizeLocationRange(nil) != nil || normalizeLocationRange(&LocationRange{}) != nil {
+		t.Fatal("empty ranges must normalize to nil")
+	}
+	if got := normalizeLocationRange(&LocationRange{StartLine: -1, EndLine: 7}); got == nil || got.StartLine != 7 || got.EndLine != 7 {
+		t.Fatalf("unexpected end-only range: %+v", got)
+	}
+	if got := normalizeLocationRange(&LocationRange{StartLine: 9, EndLine: -2}); got == nil || got.StartLine != 9 || got.EndLine != 9 {
+		t.Fatalf("unexpected start-only range: %+v", got)
+	}
+	if start, end := locationRangeBounds(nil); start != 0 || end != 0 {
+		t.Fatalf("unexpected nil range bounds: %d..%d", start, end)
+	}
+}

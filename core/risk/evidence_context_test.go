@@ -84,6 +84,13 @@ func TestClosureRequirementsForExpiredEvidenceAndRuntimeGap(t *testing.T) {
 		ProductionWrite:      true,
 		CredentialAccess:     true,
 		CredentialProvenance: &credentialProvenanceJIT,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			ExistenceEvidenceState: agginventory.AuthorityEvidenceDeclared,
+			BindingEvidenceState:   agginventory.AuthorityEvidenceDeclared,
+			LifetimeEvidenceState:  agginventory.AuthorityEvidenceDeclared,
+			LifetimeKind:           agginventory.CredentialLifetimeJIT,
+			AccessType:             agginventory.CredentialAccessTypeJIT,
+		},
 		EvidenceDecisions: []evidencepolicy.Decision{{
 			Field:                  evidencepolicy.FieldApproval,
 			SelectedSourceType:     evidencepolicy.SourceTypeProviderExport,

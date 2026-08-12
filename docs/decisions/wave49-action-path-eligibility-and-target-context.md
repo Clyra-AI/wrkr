@@ -86,3 +86,7 @@ Acceptance criteria:
 - instruction surfaces use path-type-specific wording
 - Action Contract readiness distinguishes blocked, proof-needed, and
   correlation-needed states
+
+## Typed predecessor extension
+
+Eligibility now consumes typed execution relationships and canonical credential authority. A resolved source or customer-declared topology edge can establish lineage, but neither can independently establish credential existence/lifetime, runtime execution, target binding, or control effectiveness.

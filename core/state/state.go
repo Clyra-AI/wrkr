@@ -53,6 +53,8 @@ type Snapshot struct {
 	LifecycleGaps              []lifecycle.Gap                `json:"lifecycle_gaps,omitempty"`
 	ScanQuality                *scanquality.Report            `json:"scan_quality,omitempty"`
 	ScanMode                   string                         `json:"scan_mode,omitempty"`
+	ExecutionTopologyDigest    string                         `json:"execution_topology_digest,omitempty"`
+	ExecutionTopologyMappings  int                            `json:"execution_topology_mappings,omitempty"`
 	PartialResult              bool                           `json:"partial_result,omitempty"`
 	SourceErrors               []source.RepoFailure           `json:"source_errors,omitempty"`
 	SourceDegraded             bool                           `json:"source_degraded,omitempty"`
