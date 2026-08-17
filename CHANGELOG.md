@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- Raised the pinned Go toolchain from `1.26.5` to `1.26.6` across `go.mod`, `.tool-versions`, and the Wrkr pin-enforcement fixtures so the nightly vulnerability gate clears the reachable standard-library advisories fixed in Go `1.26.6`.
 
 ## Changelog maintenance process
 

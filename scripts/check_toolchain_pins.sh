@@ -265,7 +265,7 @@ fi
 resolve_pin_target_files
 
 expected=(
-  "golang 1.26.5"
+  "golang 1.26.6"
   "python 3.13.1"
   "nodejs 22.14.0"
 )
@@ -276,12 +276,12 @@ for line in "${expected[@]}"; do
   fi
 done
 
-if grep -Eq '^go 1\.26\.5$' go.mod; then
+if grep -Eq '^go 1\.26\.6$' go.mod; then
   :
-elif grep -Eq '^toolchain go1\.26\.5$' go.mod; then
+elif grep -Eq '^toolchain go1\.26\.6$' go.mod; then
   :
 else
-  echo "go.mod must pin go toolchain version 1.26.5 (toolchain or go directive)" >&2
+  echo "go.mod must pin go toolchain version 1.26.6 (toolchain or go directive)" >&2
   exit 3
 fi
 
@@ -306,8 +306,8 @@ if [[ ! -f "$factory_profile_snapshot_path" ]]; then
 fi
 
 snapshot_go_version="$(read_single_yaml_value "toolchain_version" "$factory_profile_snapshot_path" "Wrkr Factory profile snapshot")"
-if [[ "$snapshot_go_version" != "1.26.5" ]]; then
-  echo "Factory profile snapshot Go pin mismatch: expected 1.26.5 from go.mod, found $snapshot_go_version in $factory_profile_snapshot_path" >&2
+if [[ "$snapshot_go_version" != "1.26.6" ]]; then
+  echo "Factory profile snapshot Go pin mismatch: expected 1.26.6 from go.mod, found $snapshot_go_version in $factory_profile_snapshot_path" >&2
   exit 3
 fi
 snapshot_git_commit="$(read_single_yaml_value "git_commit" "$factory_profile_snapshot_path" "Wrkr Factory profile snapshot")"
@@ -323,10 +323,10 @@ if [[ ! -f "$factory_profile_path" ]]; then
     exit 3
   fi
   echo "using Wrkr Factory profile snapshot because $factory_profile_path is unavailable" >&2
-else
+elif require_factory_profile; then
   factory_go_version="$(read_single_yaml_value "toolchain_version" "$factory_profile_path" "Wrkr Factory profile")"
-  if [[ "$factory_go_version" != "1.26.5" ]]; then
-    echo "Factory profile Go pin mismatch: expected 1.26.5 from go.mod, found $factory_go_version in $factory_profile_path" >&2
+  if [[ "$factory_go_version" != "1.26.6" ]]; then
+    echo "Factory profile Go pin mismatch: expected 1.26.6 from go.mod, found $factory_go_version in $factory_profile_path" >&2
     exit 3
   fi
   if [[ "$snapshot_go_version" != "$factory_go_version" ]]; then

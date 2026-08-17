@@ -102,15 +102,33 @@ func TestCheckToolchainPinsFailsWhenFactoryProfileDrifts(t *testing.T) {
 		syftVersion:              "v1.32.0",
 		grypeVersion:             "v0.99.1",
 		factoryGoVersion:         "1.26.4",
-		factorySnapshotGoVersion: "1.26.5",
+		factorySnapshotGoVersion: "1.26.6",
 	})
-	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
+	_, stderr, err := runToolchainPinCheckWithEnv(t, fixtureRoot, "WRKR_PIN_CHECK_REQUIRE_FACTORY_PROFILE=1")
 	if err == nil {
 		t.Fatal("expected checker to fail when the Wrkr Factory profile Go pin drifts")
 	}
-	expected := "Factory profile Go pin mismatch: expected 1.26.5 from go.mod, found 1.26.4 in factory/profiles/wrkr.yaml"
+	expected := "Factory profile Go pin mismatch: expected 1.26.6 from go.mod, found 1.26.4 in factory/profiles/wrkr.yaml"
 	if !strings.Contains(stderr, expected) {
 		t.Fatalf("expected deterministic Factory profile drift message %q, got %q", expected, stderr)
+	}
+}
+
+func TestCheckToolchainPinsUsesSnapshotWhenFactoryProfileDriftsAndProfileIsOptional(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
+		gosecVersion:             "v2.23.0",
+		golangciLintVersion:      "v2.0.1",
+		cosignVersion:            "v2.5.3",
+		syftVersion:              "v1.32.0",
+		grypeVersion:             "v0.99.1",
+		factoryGoVersion:         "1.26.4",
+		factorySnapshotGoVersion: "1.26.6",
+	})
+	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
+	if err != nil {
+		t.Fatalf("expected checker to prefer the snapshot when the Factory profile is optional, got err=%v stderr=%q", err, stderr)
 	}
 }
 
@@ -175,7 +193,7 @@ func TestCheckToolchainPinsFailsWhenFactoryProfileSnapshotDrifts(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected checker to fail when the Wrkr Factory profile snapshot drifts")
 	}
-	expected := "Factory profile snapshot Go pin mismatch: expected 1.26.5 from go.mod, found 1.26.4 in testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml"
+	expected := "Factory profile snapshot Go pin mismatch: expected 1.26.6 from go.mod, found 1.26.4 in testinfra/contracts/fixtures/factory/wrkr-profile-snapshot.yaml"
 	if !strings.Contains(stderr, expected) {
 		t.Fatalf("expected deterministic Factory profile snapshot drift message %q, got %q", expected, stderr)
 	}
@@ -246,12 +264,12 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, ".tool-versions"), strings.Join([]string{
-		"golang 1.26.5",
+		"golang 1.26.6",
 		"python 3.13.1",
 		"nodejs 22.14.0",
 		"",
 	}, "\n"))
-	mustWriteFile(t, filepath.Join(root, "go.mod"), "module fixture\n\ngo 1.26.5\n")
+	mustWriteFile(t, filepath.Join(root, "go.mod"), "module fixture\n\ngo 1.26.6\n")
 	mustWriteFile(t, filepath.Join(root, "Makefile"), "lint-fast:\n\t@echo ok\n")
 
 	mustWriteFile(t, filepath.Join(root, "product/dev_guides.md"), strings.Join([]string{
@@ -276,7 +294,7 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), agentsContent)
 	factoryGoVersion := versions.factoryGoVersion
 	if factoryGoVersion == "" {
-		factoryGoVersion = "1.26.5"
+		factoryGoVersion = "1.26.6"
 	}
 	mustWriteFile(t, filepath.Join(root, "factory/profiles/wrkr.yaml"), strings.Join([]string{
 		"runtime_pins:",
