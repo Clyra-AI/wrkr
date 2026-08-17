@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- Raised the pinned Go toolchain from `1.26.5` to `1.26.6` across `go.mod`, `.tool-versions`, the Wrkr pin-enforcement fixtures, and the authoritative Factory profile snapshot path so the vulnerability and strict pin-alignment gates clear on Go `1.26.6`.
 
 ## Changelog maintenance process
 
