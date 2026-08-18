@@ -78,7 +78,7 @@ func TestBuildRollupSummaryDeterministic(t *testing.T) {
 	for _, control := range soc2.Controls {
 		counts[control.ControlID] = control.FindingCount
 	}
-	if counts["cc6"] != 1 || counts["cc7"] != 1 || counts["cc8"] != 2 {
+	if counts["cc6.1"] != 1 || counts["cc7.1"] != 1 || counts["cc8.1"] != 2 {
 		t.Fatalf("unexpected soc2 control finding counts: %+v", counts)
 	}
 }

@@ -181,11 +181,7 @@ func buildRuleFindingIndex(findings []model.Finding) map[string]map[string]struc
 }
 
 func controlRuleIDs(frameworkID, controlID string) []string {
-	controls := frameworkControlRuleMap[strings.TrimSpace(frameworkID)]
-	if len(controls) == 0 {
-		return nil
-	}
-	return uniqueSortedStrings(controls[strings.TrimSpace(controlID)])
+	return uniqueSortedStrings(configuredControlRuleIDs(strings.TrimSpace(frameworkID), strings.TrimSpace(controlID)))
 }
 
 func mappedFindingKeys(frameworkID, controlID string, ruleFindingIndex map[string]map[string]struct{}) []string {
