@@ -149,7 +149,7 @@ func evaluateLegacyControl(frameworkID string, control framework.Control, record
 }
 
 func evaluateEvidenceSetControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
-	selected, ok := selectEvidenceSetCoverage(evidenceCoverage.EvidenceSets)
+	selected, ok := selectEvidenceSetCoverage(evidenceCoverage.EvidenceSets, records)
 	mappedRules := mappedRuleIDs(frameworkID, control.ID, matchedRuleIDs)
 	if !ok {
 		return ControlCheck{
@@ -179,42 +179,51 @@ func evaluateEvidenceSetControl(frameworkID string, control framework.Control, e
 	}
 }
 
-func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage) (framework.EvidenceSetCoverage, bool) {
+func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []proof.Record) (framework.EvidenceSetCoverage, bool) {
 	if len(sets) == 0 {
 		return framework.EvidenceSetCoverage{}, false
 	}
-	ordered := make([]framework.EvidenceSetCoverage, 0, len(sets))
+	type candidate struct {
+		coverage           framework.EvidenceSetCoverage
+		missingRecordTypes int
+		missingFields      int
+		key                string
+	}
+	ordered := make([]candidate, 0, len(sets))
 	for _, set := range sets {
-		if evidenceSetAppliesToWrkr(set.SourceProducts) {
-			ordered = append(ordered, set)
+		if !evidenceSetAppliesToWrkr(set.SourceProducts) {
+			continue
 		}
+		missingRecordTypes, missingFields := evidenceSetGaps(set, records)
+		ordered = append(ordered, candidate{
+			coverage:           set,
+			missingRecordTypes: len(missingRecordTypes),
+			missingFields:      len(missingFields),
+			key: strings.Join([]string{
+				strings.TrimSpace(set.ID),
+				strings.Join(uniqueSortedStrings(set.SourceProducts), ","),
+				strings.Join(uniqueSortedStrings(set.RequiredRecordTypes), ","),
+				strings.Join(uniqueSortedStrings(set.RequiredFields), ","),
+			}, "|"),
+		})
 	}
 	if len(ordered) == 0 {
 		return framework.EvidenceSetCoverage{}, false
 	}
 	sort.Slice(ordered, func(i, j int) bool {
 		left, right := ordered[i], ordered[j]
-		if left.Covered != right.Covered {
-			return left.Covered
+		if left.coverage.Covered != right.coverage.Covered {
+			return left.coverage.Covered
 		}
-		if len(left.MissingRecordTypes) != len(right.MissingRecordTypes) {
-			return len(left.MissingRecordTypes) < len(right.MissingRecordTypes)
+		if left.missingRecordTypes != right.missingRecordTypes {
+			return left.missingRecordTypes < right.missingRecordTypes
 		}
-		leftKey := strings.Join([]string{
-			strings.TrimSpace(left.ID),
-			strings.Join(uniqueSortedStrings(left.SourceProducts), ","),
-			strings.Join(uniqueSortedStrings(left.RequiredRecordTypes), ","),
-			strings.Join(uniqueSortedStrings(left.RequiredFields), ","),
-		}, "|")
-		rightKey := strings.Join([]string{
-			strings.TrimSpace(right.ID),
-			strings.Join(uniqueSortedStrings(right.SourceProducts), ","),
-			strings.Join(uniqueSortedStrings(right.RequiredRecordTypes), ","),
-			strings.Join(uniqueSortedStrings(right.RequiredFields), ","),
-		}, "|")
-		return leftKey < rightKey
+		if left.missingFields != right.missingFields {
+			return left.missingFields < right.missingFields
+		}
+		return left.key < right.key
 	})
-	return ordered[0], true
+	return ordered[0].coverage, true
 }
 
 func evidenceSetGaps(set framework.EvidenceSetCoverage, records []proof.Record) ([]string, []string) {

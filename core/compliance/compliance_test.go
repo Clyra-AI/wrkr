@@ -168,6 +168,49 @@ func TestEvaluateEvidenceSetCoverageReportsMissingFields(t *testing.T) {
 	}
 }
 
+func TestEvaluateEvidenceSetCoverageSelectsClosestFieldGap(t *testing.T) {
+	t.Parallel()
+
+	frameworkDef := &proof.Framework{}
+	frameworkDef.Framework.ID = "closest-gap-framework"
+	frameworkDef.Framework.Version = "1"
+	frameworkDef.Framework.Title = "Closest Gap Framework"
+	frameworkDef.Controls = []framework.Control{{
+		ID:    "closest-gap-control",
+		Title: "Closest Gap Control",
+		EvidenceSets: []framework.EvidenceSet{
+			{
+				ID:                  "a-farther-path",
+				SourceProducts:      []string{"wrkr"},
+				RequiredRecordTypes: []string{"scan_finding"},
+				RequiredFields:      []string{"record_id", "event.alpha", "event.beta"},
+				MinimumFrequency:    "continuous",
+			},
+			{
+				ID:                  "z-closer-path",
+				SourceProducts:      []string{"wrkr"},
+				RequiredRecordTypes: []string{"scan_finding"},
+				RequiredFields:      []string{"record_id", "event.near"},
+				MinimumFrequency:    "continuous",
+			},
+		},
+	}}
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding")
+
+	result, err := Evaluate(Input{Framework: frameworkDef, Chain: chain})
+	if err != nil {
+		t.Fatalf("evaluate closest evidence gap: %v", err)
+	}
+	check := result.Controls[0]
+	if !reflect.DeepEqual(check.RequiredFields, []string{"event.near", "record_id"}) {
+		t.Fatalf("expected closest field-gap path despite lexical set order: %+v", check)
+	}
+	if !reflect.DeepEqual(check.MissingFields, []string{"event.near"}) {
+		t.Fatalf("expected remediation for closest field-gap path: %+v", check)
+	}
+}
+
 func TestEvaluateEvidenceSetCoverageDoesNotProjectExternalOnlyAlternativeAsWrkrCoverage(t *testing.T) {
 	t.Parallel()
 
