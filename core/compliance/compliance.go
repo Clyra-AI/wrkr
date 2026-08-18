@@ -1,6 +1,7 @@
 package compliance
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -94,7 +95,7 @@ func Evaluate(in Input) (Result, error) {
 
 func evaluateControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
 	if len(control.EvidenceSets) > 0 {
-		return evaluateEvidenceSetControl(frameworkID, control, evidenceCoverage, matchedRuleIDs)
+		return evaluateEvidenceSetControl(frameworkID, control, evidenceCoverage, records, matchedRuleIDs)
 	}
 	return evaluateLegacyControl(frameworkID, control, records, matchedRuleIDs)
 }
@@ -147,7 +148,7 @@ func evaluateLegacyControl(frameworkID string, control framework.Control, record
 	}
 }
 
-func evaluateEvidenceSetControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, matchedRuleIDs map[string]struct{}) ControlCheck {
+func evaluateEvidenceSetControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
 	selected, ok := selectEvidenceSetCoverage(evidenceCoverage.EvidenceSets)
 	mappedRules := mappedRuleIDs(frameworkID, control.ID, matchedRuleIDs)
 	if !ok {
@@ -164,13 +165,15 @@ func evaluateEvidenceSetControl(frameworkID string, control framework.Control, e
 	if selected.Covered {
 		status = "covered"
 	}
+	missingRecordTypes, missingFields := evidenceSetGaps(selected, records)
 	return ControlCheck{
 		ID:                  control.ID,
 		Title:               control.Title,
 		Status:              status,
 		MatchedRecords:      len(selected.MatchingRecordIDs) + len(mappedRules),
 		MappedRuleIDs:       mappedRules,
-		MissingRecordTypes:  uniqueSortedStrings(selected.MissingRecordTypes),
+		MissingRecordTypes:  missingRecordTypes,
+		MissingFields:       missingFields,
 		RequiredRecordTypes: uniqueSortedStrings(selected.RequiredRecordTypes),
 		RequiredFields:      uniqueSortedStrings(selected.RequiredFields),
 	}
@@ -187,7 +190,7 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage) (framework.
 		}
 	}
 	if len(ordered) == 0 {
-		ordered = append(ordered, sets...)
+		return framework.EvidenceSetCoverage{}, false
 	}
 	sort.Slice(ordered, func(i, j int) bool {
 		left, right := ordered[i], ordered[j]
@@ -212,6 +215,133 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage) (framework.
 		return leftKey < rightKey
 	})
 	return ordered[0], true
+}
+
+func evidenceSetGaps(set framework.EvidenceSetCoverage, records []proof.Record) ([]string, []string) {
+	missingRecordTypes := make([]string, 0)
+	missingFields := make([]string, 0)
+	for _, requiredType := range uniqueSortedStrings(set.RequiredRecordTypes) {
+		candidates := evidenceSetCandidates(requiredType, set.SourceProducts, records)
+		if len(candidates) == 0 {
+			missingRecordTypes = append(missingRecordTypes, requiredType)
+			continue
+		}
+
+		bestMissing := missingEvidenceFields(candidates[0], set.RequiredFields)
+		bestKey := evidenceRecordKey(candidates[0])
+		for _, candidate := range candidates[1:] {
+			candidateMissing := missingEvidenceFields(candidate, set.RequiredFields)
+			candidateKey := evidenceRecordKey(candidate)
+			if len(candidateMissing) < len(bestMissing) || (len(candidateMissing) == len(bestMissing) && candidateKey < bestKey) {
+				bestMissing = candidateMissing
+				bestKey = candidateKey
+			}
+		}
+		missingFields = append(missingFields, bestMissing...)
+	}
+	return uniqueSortedStrings(missingRecordTypes), uniqueSortedStrings(missingFields)
+}
+
+func evidenceSetCandidates(requiredType string, sourceProducts []string, records []proof.Record) []proof.Record {
+	out := make([]proof.Record, 0)
+	for _, record := range records {
+		if strings.TrimSpace(record.RecordType) != strings.TrimSpace(requiredType) {
+			continue
+		}
+		if !evidenceSourceProductAllowed(record.SourceProduct, sourceProducts) {
+			continue
+		}
+		out = append(out, record)
+	}
+	return out
+}
+
+func evidenceSourceProductAllowed(sourceProduct string, allowed []string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, candidate := range allowed {
+		if strings.EqualFold(strings.TrimSpace(sourceProduct), strings.TrimSpace(candidate)) {
+			return true
+		}
+	}
+	return false
+}
+
+func missingEvidenceFields(record proof.Record, requiredFields []string) []string {
+	root, ok := evidenceRecordObject(record)
+	if !ok {
+		return uniqueSortedStrings(requiredFields)
+	}
+	missing := make([]string, 0)
+	for _, requiredField := range uniqueSortedStrings(requiredFields) {
+		if !evidenceFieldPresent(root, requiredField) {
+			missing = append(missing, requiredField)
+		}
+	}
+	return missing
+}
+
+func evidenceRecordObject(record proof.Record) (map[string]any, bool) {
+	raw, err := json.Marshal(record)
+	if err != nil {
+		return nil, false
+	}
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return nil, false
+	}
+	return root, true
+}
+
+func evidenceFieldPresent(root map[string]any, field string) bool {
+	value, ok := nestedEvidenceField(root, field)
+	return ok && evidenceValuePresent(value)
+}
+
+func nestedEvidenceField(root map[string]any, field string) (any, bool) {
+	current := any(root)
+	for _, part := range strings.Split(field, ".") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			return nil, false
+		}
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		next, exists := object[part]
+		if !exists {
+			return nil, false
+		}
+		current = next
+	}
+	return current, true
+}
+
+func evidenceValuePresent(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case []any:
+		return len(typed) > 0
+	case map[string]any:
+		return len(typed) > 0
+	default:
+		return true
+	}
+}
+
+func evidenceRecordKey(record proof.Record) string {
+	return strings.Join([]string{
+		strings.TrimSpace(record.RecordID),
+		strings.TrimSpace(record.SourceProduct),
+		strings.TrimSpace(record.Source),
+		strings.TrimSpace(record.RecordType),
+		strings.TrimSpace(record.Integrity.RecordHash),
+	}, "|")
 }
 
 func evidenceSetAppliesToWrkr(sourceProducts []string) bool {

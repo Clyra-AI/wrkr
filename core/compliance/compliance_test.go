@@ -131,6 +131,43 @@ func TestEvaluateEvidenceSetCoverageRequiresEveryTypeInSelectedSet(t *testing.T)
 	}
 }
 
+func TestEvaluateEvidenceSetCoverageReportsMissingFields(t *testing.T) {
+	t.Parallel()
+
+	frameworkDef := &proof.Framework{}
+	frameworkDef.Framework.ID = "field-scoped-framework"
+	frameworkDef.Framework.Version = "1"
+	frameworkDef.Framework.Title = "Field Scoped Framework"
+	frameworkDef.Controls = []framework.Control{{
+		ID:    "field-scoped-control",
+		Title: "Field Scoped Control",
+		EvidenceSets: []framework.EvidenceSet{{
+			ID:                  "wrkr-discovery",
+			SourceProducts:      []string{"wrkr"},
+			RequiredRecordTypes: []string{"scan_finding"},
+			RequiredFields:      []string{"record_id", "event.required_value"},
+			MinimumFrequency:    "continuous",
+		}},
+	}}
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding")
+
+	result, err := Evaluate(Input{Framework: frameworkDef, Chain: chain})
+	if err != nil {
+		t.Fatalf("evaluate field-scoped evidence set: %v", err)
+	}
+	check := result.Controls[0]
+	if check.Status != "gap" {
+		t.Fatalf("missing required field must keep the evidence set uncovered: %+v", check)
+	}
+	if len(check.MissingRecordTypes) != 0 {
+		t.Fatalf("present record type must not be reported missing when only a field is absent: %+v", check)
+	}
+	if !reflect.DeepEqual(check.MissingFields, []string{"event.required_value"}) {
+		t.Fatalf("missing fields mismatch: %+v", check)
+	}
+}
+
 func TestEvaluateEvidenceSetCoverageDoesNotProjectExternalOnlyAlternativeAsWrkrCoverage(t *testing.T) {
 	t.Parallel()
 
@@ -172,6 +209,40 @@ func TestEvaluateEvidenceSetCoverageDoesNotProjectExternalOnlyAlternativeAsWrkrC
 	if !reflect.DeepEqual(check.RequiredRecordTypes, []string{"scan_finding"}) ||
 		!reflect.DeepEqual(check.MissingRecordTypes, []string{"scan_finding"}) {
 		t.Fatalf("expected the wrkr evidence path to remain selected and incomplete: %+v", check)
+	}
+}
+
+func TestEvaluateEvidenceSetCoverageRejectsAllExternalAlternatives(t *testing.T) {
+	t.Parallel()
+
+	frameworkDef := &proof.Framework{}
+	frameworkDef.Framework.ID = "external-framework"
+	frameworkDef.Framework.Version = "1"
+	frameworkDef.Framework.Title = "External Framework"
+	frameworkDef.Controls = []framework.Control{{
+		ID:    "external-control",
+		Title: "External Control",
+		EvidenceSets: []framework.EvidenceSet{{
+			ID:                  "runtime-control",
+			SourceProducts:      []string{"gait"},
+			RequiredRecordTypes: []string{"permission_check"},
+			RequiredFields:      []string{"record_id", "source_product", "event"},
+			MinimumFrequency:    "continuous",
+		}},
+	}}
+	chain := proof.NewChain("wrkr-proof")
+	appendRecordForProduct(t, chain, "gait", "permission_check")
+
+	result, err := Evaluate(Input{Framework: frameworkDef, Chain: chain})
+	if err != nil {
+		t.Fatalf("evaluate external-only evidence set: %v", err)
+	}
+	check := result.Controls[0]
+	if check.Status != "gap" || check.MatchedRecords != 0 {
+		t.Fatalf("external-only evidence must not satisfy the wrkr projection: %+v", check)
+	}
+	if len(check.RequiredRecordTypes) != 0 || len(check.MissingRecordTypes) != 0 {
+		t.Fatalf("external-only requirements must not be projected as wrkr requirements: %+v", check)
 	}
 }
 
