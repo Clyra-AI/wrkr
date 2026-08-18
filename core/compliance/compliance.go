@@ -185,6 +185,7 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []p
 	}
 	type candidate struct {
 		coverage           framework.EvidenceSetCoverage
+		wrkrMatched        bool
 		missingRecordTypes int
 		missingFields      int
 		key                string
@@ -195,8 +196,12 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []p
 			continue
 		}
 		missingRecordTypes, missingFields := evidenceSetGaps(set, records)
+		wrkrMatched := evidenceSetHasMatchingWrkrRecord(set, records)
+		projectedCoverage := set
+		projectedCoverage.Covered = set.Covered && wrkrMatched
 		ordered = append(ordered, candidate{
-			coverage:           set,
+			coverage:           projectedCoverage,
+			wrkrMatched:        wrkrMatched,
 			missingRecordTypes: len(missingRecordTypes),
 			missingFields:      len(missingFields),
 			key: strings.Join([]string{
@@ -215,6 +220,9 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []p
 		if left.coverage.Covered != right.coverage.Covered {
 			return left.coverage.Covered
 		}
+		if left.wrkrMatched != right.wrkrMatched {
+			return left.wrkrMatched
+		}
 		if left.missingRecordTypes != right.missingRecordTypes {
 			return left.missingRecordTypes < right.missingRecordTypes
 		}
@@ -224,6 +232,23 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []p
 		return left.key < right.key
 	})
 	return ordered[0].coverage, true
+}
+
+func evidenceSetHasMatchingWrkrRecord(set framework.EvidenceSetCoverage, records []proof.Record) bool {
+	for _, requiredType := range uniqueSortedStrings(set.RequiredRecordTypes) {
+		for _, record := range records {
+			if !strings.EqualFold(strings.TrimSpace(record.SourceProduct), "wrkr") {
+				continue
+			}
+			if strings.TrimSpace(record.RecordType) != requiredType {
+				continue
+			}
+			if len(missingEvidenceFields(record, set.RequiredFields)) == 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func evidenceSetGaps(set framework.EvidenceSetCoverage, records []proof.Record) ([]string, []string) {

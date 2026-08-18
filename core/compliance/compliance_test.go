@@ -289,6 +289,45 @@ func TestEvaluateEvidenceSetCoverageRejectsAllExternalAlternatives(t *testing.T)
 	}
 }
 
+func TestEvaluateEvidenceSetCoverageRequiresWrkrContributionForMixedSet(t *testing.T) {
+	t.Parallel()
+
+	frameworkDef := &proof.Framework{}
+	frameworkDef.Framework.ID = "mixed-source-framework"
+	frameworkDef.Framework.Version = "1"
+	frameworkDef.Framework.Title = "Mixed Source Framework"
+	frameworkDef.Controls = []framework.Control{{
+		ID:    "mixed-source-control",
+		Title: "Mixed Source Control",
+		EvidenceSets: []framework.EvidenceSet{{
+			ID:                  "combined",
+			SourceProducts:      []string{"wrkr", "gait"},
+			RequiredRecordTypes: []string{"permission_check"},
+			RequiredFields:      []string{"record_id", "source_product", "event"},
+			MinimumFrequency:    "continuous",
+		}},
+	}}
+	chain := proof.NewChain("wrkr-proof")
+	appendRecordForProduct(t, chain, "gait", "permission_check")
+
+	gaitOnly, err := Evaluate(Input{Framework: frameworkDef, Chain: chain})
+	if err != nil {
+		t.Fatalf("evaluate gait-only mixed evidence set: %v", err)
+	}
+	if gaitOnly.Controls[0].Status != "gap" {
+		t.Fatalf("gait-only evidence must not cover the wrkr projection: %+v", gaitOnly.Controls[0])
+	}
+
+	appendRecordForProduct(t, chain, "wrkr", "permission_check")
+	withWrkr, err := Evaluate(Input{Framework: frameworkDef, Chain: chain})
+	if err != nil {
+		t.Fatalf("evaluate mixed evidence set with wrkr contribution: %v", err)
+	}
+	if withWrkr.Controls[0].Status != "covered" {
+		t.Fatalf("matching wrkr contribution should allow mixed-set coverage: %+v", withWrkr.Controls[0])
+	}
+}
+
 func TestEvaluateFrameworkCoverage(t *testing.T) {
 	t.Parallel()
 	frameworkDef := &proof.Framework{}
