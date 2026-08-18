@@ -1,6 +1,7 @@
 package compliance
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -45,12 +46,30 @@ func Evaluate(in Input) (Result, error) {
 		return Result{}, fmt.Errorf("chain is required")
 	}
 	controls := flatten(in.Framework.Controls)
+	var coverageControls []framework.ControlCoverage
+	if controlsUseEvidenceSets(controls) {
+		evidenceCoverage, err := framework.EvaluateCoverage(in.Framework, in.Chain.Records)
+		if err != nil {
+			return Result{}, fmt.Errorf("evaluate framework evidence sets: %w", err)
+		}
+		coverageControls = flattenCoverage(evidenceCoverage.Controls)
+		if len(coverageControls) != len(controls) {
+			return Result{}, fmt.Errorf("framework control coverage mismatch: controls=%d coverage=%d", len(controls), len(coverageControls))
+		}
+	}
 	matchedRuleIDs := collectRuleIDs(in.Chain.Records)
 	checks := make([]ControlCheck, 0, len(controls))
 	gaps := make([]ControlCheck, 0)
 	covered := 0
-	for _, control := range controls {
-		check := evaluateControl(in.Framework.Framework.ID, control, in.Chain.Records, matchedRuleIDs)
+	for index, control := range controls {
+		var coverageControl framework.ControlCoverage
+		if len(control.EvidenceSets) > 0 {
+			coverageControl = coverageControls[index]
+			if coverageControl.ID != control.ID {
+				return Result{}, fmt.Errorf("framework control coverage order mismatch: control=%q coverage=%q", control.ID, coverageControl.ID)
+			}
+		}
+		check := evaluateControl(in.Framework.Framework.ID, control, coverageControl, in.Chain.Records, matchedRuleIDs)
 		checks = append(checks, check)
 		if check.Status == "covered" {
 			covered++
@@ -74,7 +93,14 @@ func Evaluate(in Input) (Result, error) {
 	}, nil
 }
 
-func evaluateControl(frameworkID string, control framework.Control, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
+func evaluateControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
+	if len(control.EvidenceSets) > 0 {
+		return evaluateEvidenceSetControl(frameworkID, control, evidenceCoverage, records, matchedRuleIDs)
+	}
+	return evaluateLegacyControl(frameworkID, control, records, matchedRuleIDs)
+}
+
+func evaluateLegacyControl(frameworkID string, control framework.Control, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
 	requiredTypes := uniqueSortedStrings(control.RequiredRecordTypes)
 	requiredFields := uniqueSortedStrings(control.RequiredFields)
 	missingTypes := make([]string, 0)
@@ -120,6 +146,248 @@ func evaluateControl(frameworkID string, control framework.Control, records []pr
 		RequiredRecordTypes: requiredTypes,
 		RequiredFields:      requiredFields,
 	}
+}
+
+func evaluateEvidenceSetControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
+	selected, ok := selectEvidenceSetCoverage(evidenceCoverage.EvidenceSets, records)
+	mappedRules := mappedRuleIDs(frameworkID, control.ID, matchedRuleIDs)
+	if !ok {
+		return ControlCheck{
+			ID:             control.ID,
+			Title:          control.Title,
+			Status:         "gap",
+			MappedRuleIDs:  mappedRules,
+			MatchedRecords: len(mappedRules),
+		}
+	}
+
+	status := "gap"
+	if selected.Covered {
+		status = "covered"
+	}
+	missingRecordTypes, missingFields := evidenceSetGaps(selected, records)
+	return ControlCheck{
+		ID:                  control.ID,
+		Title:               control.Title,
+		Status:              status,
+		MatchedRecords:      len(selected.MatchingRecordIDs) + len(mappedRules),
+		MappedRuleIDs:       mappedRules,
+		MissingRecordTypes:  missingRecordTypes,
+		MissingFields:       missingFields,
+		RequiredRecordTypes: uniqueSortedStrings(selected.RequiredRecordTypes),
+		RequiredFields:      uniqueSortedStrings(selected.RequiredFields),
+	}
+}
+
+func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []proof.Record) (framework.EvidenceSetCoverage, bool) {
+	if len(sets) == 0 {
+		return framework.EvidenceSetCoverage{}, false
+	}
+	type candidate struct {
+		coverage           framework.EvidenceSetCoverage
+		wrkrMatched        bool
+		missingRecordTypes int
+		missingFields      int
+		key                string
+	}
+	ordered := make([]candidate, 0, len(sets))
+	for _, set := range sets {
+		if !evidenceSetAppliesToWrkr(set.SourceProducts) {
+			continue
+		}
+		missingRecordTypes, missingFields := evidenceSetGaps(set, records)
+		wrkrMatched := evidenceSetHasMatchingWrkrRecord(set, records)
+		projectedCoverage := set
+		projectedCoverage.Covered = set.Covered && wrkrMatched
+		ordered = append(ordered, candidate{
+			coverage:           projectedCoverage,
+			wrkrMatched:        wrkrMatched,
+			missingRecordTypes: len(missingRecordTypes),
+			missingFields:      len(missingFields),
+			key: strings.Join([]string{
+				strings.TrimSpace(set.ID),
+				strings.Join(uniqueSortedStrings(set.SourceProducts), ","),
+				strings.Join(uniqueSortedStrings(set.RequiredRecordTypes), ","),
+				strings.Join(uniqueSortedStrings(set.RequiredFields), ","),
+			}, "|"),
+		})
+	}
+	if len(ordered) == 0 {
+		return framework.EvidenceSetCoverage{}, false
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		left, right := ordered[i], ordered[j]
+		if left.coverage.Covered != right.coverage.Covered {
+			return left.coverage.Covered
+		}
+		if left.wrkrMatched != right.wrkrMatched {
+			return left.wrkrMatched
+		}
+		if left.missingRecordTypes != right.missingRecordTypes {
+			return left.missingRecordTypes < right.missingRecordTypes
+		}
+		if left.missingFields != right.missingFields {
+			return left.missingFields < right.missingFields
+		}
+		return left.key < right.key
+	})
+	return ordered[0].coverage, true
+}
+
+func evidenceSetHasMatchingWrkrRecord(set framework.EvidenceSetCoverage, records []proof.Record) bool {
+	for _, requiredType := range uniqueSortedStrings(set.RequiredRecordTypes) {
+		for _, record := range records {
+			if !strings.EqualFold(strings.TrimSpace(record.SourceProduct), "wrkr") {
+				continue
+			}
+			if strings.TrimSpace(record.RecordType) != requiredType {
+				continue
+			}
+			if len(missingEvidenceFields(record, set.RequiredFields)) == 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func evidenceSetGaps(set framework.EvidenceSetCoverage, records []proof.Record) ([]string, []string) {
+	missingRecordTypes := make([]string, 0)
+	missingFields := make([]string, 0)
+	for _, requiredType := range uniqueSortedStrings(set.RequiredRecordTypes) {
+		candidates := evidenceSetCandidates(requiredType, set.SourceProducts, records)
+		if len(candidates) == 0 {
+			missingRecordTypes = append(missingRecordTypes, requiredType)
+			continue
+		}
+
+		bestMissing := missingEvidenceFields(candidates[0], set.RequiredFields)
+		bestKey := evidenceRecordKey(candidates[0])
+		for _, candidate := range candidates[1:] {
+			candidateMissing := missingEvidenceFields(candidate, set.RequiredFields)
+			candidateKey := evidenceRecordKey(candidate)
+			if len(candidateMissing) < len(bestMissing) || (len(candidateMissing) == len(bestMissing) && candidateKey < bestKey) {
+				bestMissing = candidateMissing
+				bestKey = candidateKey
+			}
+		}
+		missingFields = append(missingFields, bestMissing...)
+	}
+	return uniqueSortedStrings(missingRecordTypes), uniqueSortedStrings(missingFields)
+}
+
+func evidenceSetCandidates(requiredType string, sourceProducts []string, records []proof.Record) []proof.Record {
+	out := make([]proof.Record, 0)
+	for _, record := range records {
+		if strings.TrimSpace(record.RecordType) != strings.TrimSpace(requiredType) {
+			continue
+		}
+		if !evidenceSourceProductAllowed(record.SourceProduct, sourceProducts) {
+			continue
+		}
+		out = append(out, record)
+	}
+	return out
+}
+
+func evidenceSourceProductAllowed(sourceProduct string, allowed []string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, candidate := range allowed {
+		if strings.EqualFold(strings.TrimSpace(sourceProduct), strings.TrimSpace(candidate)) {
+			return true
+		}
+	}
+	return false
+}
+
+func missingEvidenceFields(record proof.Record, requiredFields []string) []string {
+	root, ok := evidenceRecordObject(record)
+	if !ok {
+		return uniqueSortedStrings(requiredFields)
+	}
+	missing := make([]string, 0)
+	for _, requiredField := range uniqueSortedStrings(requiredFields) {
+		if !evidenceFieldPresent(root, requiredField) {
+			missing = append(missing, requiredField)
+		}
+	}
+	return missing
+}
+
+func evidenceRecordObject(record proof.Record) (map[string]any, bool) {
+	raw, err := json.Marshal(record)
+	if err != nil {
+		return nil, false
+	}
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return nil, false
+	}
+	return root, true
+}
+
+func evidenceFieldPresent(root map[string]any, field string) bool {
+	value, ok := nestedEvidenceField(root, field)
+	return ok && evidenceValuePresent(value)
+}
+
+func nestedEvidenceField(root map[string]any, field string) (any, bool) {
+	current := any(root)
+	for _, part := range strings.Split(field, ".") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			return nil, false
+		}
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		next, exists := object[part]
+		if !exists {
+			return nil, false
+		}
+		current = next
+	}
+	return current, true
+}
+
+func evidenceValuePresent(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(typed) != ""
+	case []any:
+		return len(typed) > 0
+	case map[string]any:
+		return len(typed) > 0
+	default:
+		return true
+	}
+}
+
+func evidenceRecordKey(record proof.Record) string {
+	return strings.Join([]string{
+		strings.TrimSpace(record.RecordID),
+		strings.TrimSpace(record.SourceProduct),
+		strings.TrimSpace(record.Source),
+		strings.TrimSpace(record.RecordType),
+		strings.TrimSpace(record.Integrity.RecordHash),
+	}, "|")
+}
+
+func evidenceSetAppliesToWrkr(sourceProducts []string) bool {
+	if len(sourceProducts) == 0 {
+		return true
+	}
+	for _, sourceProduct := range sourceProducts {
+		if strings.EqualFold(strings.TrimSpace(sourceProduct), "wrkr") {
+			return true
+		}
+	}
+	return false
 }
 
 func fieldCovered(requiredField string, matchedByType map[string][]proof.Record) bool {
@@ -184,6 +452,31 @@ func flatten(controls []framework.Control) []framework.Control {
 		return out[i].ID < out[j].ID
 	})
 	return out
+}
+
+func flattenCoverage(controls []framework.ControlCoverage) []framework.ControlCoverage {
+	out := make([]framework.ControlCoverage, 0)
+	for _, control := range controls {
+		out = append(out, control)
+		children := flattenCoverage(control.Children)
+		out = append(out, children...)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ID == out[j].ID {
+			return out[i].Title < out[j].Title
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
+}
+
+func controlsUseEvidenceSets(controls []framework.Control) bool {
+	for _, control := range controls {
+		if len(control.EvidenceSets) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func uniqueSortedStrings(values []string) []string {
@@ -255,11 +548,7 @@ func eventRuleID(event map[string]any) string {
 }
 
 func mappedRuleIDs(frameworkID, controlID string, matchedRuleIDs map[string]struct{}) []string {
-	controls := frameworkControlRuleMap[strings.TrimSpace(frameworkID)]
-	if len(controls) == 0 {
-		return nil
-	}
-	ruleIDs := controls[strings.TrimSpace(controlID)]
+	ruleIDs := configuredControlRuleIDs(strings.TrimSpace(frameworkID), strings.TrimSpace(controlID))
 	if len(ruleIDs) == 0 {
 		return nil
 	}
