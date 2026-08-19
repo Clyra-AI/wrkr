@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- Pinned the nine Action Contract v3 interoperability fixtures to the released `v1.14.0` producer identity, preserving exact artifact bytes and canonical digests while making release conformance reject `devel` or untagged producer metadata.
 
 ### Deprecated
 

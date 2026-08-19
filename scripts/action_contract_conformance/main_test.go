@@ -14,8 +14,27 @@ func TestLoadSpecAcceptsCanonicalNineScenarioContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load canonical fixture spec: %v", err)
 	}
-	if spec.FixtureVersion != "1" || len(spec.Scenarios) != 9 || len(spec.ExternalConsumers) != 2 {
+	if spec.FixtureVersion != "1" || spec.ProducerVersion != "v1.14.0" || len(spec.Scenarios) != 9 || len(spec.ExternalConsumers) != 2 {
 		t.Fatalf("unexpected canonical fixture spec: %+v", spec)
+	}
+}
+
+func TestValidateProducerVersionFailsClosedForNonReleaseMetadata(t *testing.T) {
+	t.Parallel()
+	for _, version := range []string{"", "devel", "(devel)", "v1.14.0-next", "v9.9.9"} {
+		version := version
+		t.Run(version, func(t *testing.T) {
+			t.Parallel()
+			if err := validateProducerVersion(".", version, false); err == nil {
+				t.Fatalf("producer version %q must fail release validation", version)
+			}
+		})
+	}
+	if err := validateProducerVersion(".", "devel", true); err != nil {
+		t.Fatalf("explicit developer override should remain available: %v", err)
+	}
+	if err := validateProducerVersion(".", "v1.14.0", false); err != nil {
+		t.Fatalf("released fixture producer tag should validate: %v", err)
 	}
 }
 

@@ -31,6 +31,16 @@ git diff -- scenarios/cross-product/action-contract-interop/expected
 SHA-256 digests, canonical artifact digest, artifact/contract/family/revision
 identity, and the Gait/Axym consumer entrypoints for every scenario. Tests
 always regenerate to temporary storage; they never update committed files.
+The committed producer is explicitly `v1.14.0`: it is the first released Wrkr
+tag containing these nine artifact bytes and the v3/artifact/packet schemas;
+`origin/main` is byte-identical to that tag for this fixture pack. The release
+conformance check rejects missing, `devel`, malformed, or untagged producer
+metadata with a stable diagnostic. The normal generator reads
+`inputs/scenario-specs.json` and never defaults to `devel`.
+
+For a deliberately non-release developer experiment, the Go finalizer supports
+`--allow-development-version --producer-version devel`; do not use that flag
+with committed goldens or a release gate.
 
 Tier 12 consumers are owned by Gait and Axym. Configure executable wrappers in
 `WRKR_GAIT_ACTION_CONTRACT_CONSUMER` and

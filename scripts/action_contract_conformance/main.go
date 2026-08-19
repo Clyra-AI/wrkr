@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -24,6 +25,7 @@ import (
 
 type fixtureSpec struct {
 	FixtureVersion    string                  `json:"fixture_version"`
+	ProducerVersion   string                  `json:"producer_version"`
 	BaseScanRoot      string                  `json:"base_scan_root"`
 	Scenarios         []scenarioSpec          `json:"scenarios"`
 	ExternalConsumers map[string]consumerSpec `json:"external_consumers"`
@@ -76,6 +78,7 @@ type manifestScenario struct {
 }
 
 var safeFixtureScenarioID = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var releasedProducerVersion = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func main() {
 	if len(os.Args) < 2 {
@@ -164,16 +167,14 @@ func runFinalize(args []string) error {
 	generatedDir := fs.String("generated-dir", "", "generated expected tree")
 	manifestRoot := fs.String("manifest-root", "", "repo-relative committed expected root")
 	outputPath := fs.String("output", "", "manifest output path")
-	producerVersion := fs.String("producer-version", "devel", "Wrkr producer version")
+	producerVersion := fs.String("producer-version", "", "Wrkr producer version (defaults to the released version in the fixture spec)")
+	allowDevelopmentVersion := fs.Bool("allow-development-version", false, "allow devel only for an explicitly non-release developer run")
 	repoRoot := fs.String("repo-root", ".", "Wrkr repository root")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if strings.TrimSpace(*specPath) == "" || strings.TrimSpace(*generatedDir) == "" || strings.TrimSpace(*manifestRoot) == "" || strings.TrimSpace(*outputPath) == "" {
 		return errors.New("finalize requires --spec, --generated-dir, --manifest-root, and --output")
-	}
-	if strings.TrimSpace(*producerVersion) == "" {
-		return errors.New("finalize requires a non-empty producer version")
 	}
 	cleanRoot, err := cleanManifestRoot(*manifestRoot)
 	if err != nil {
@@ -183,9 +184,16 @@ func runFinalize(args []string) error {
 	if err != nil {
 		return err
 	}
+	producer := strings.TrimSpace(*producerVersion)
+	if producer == "" {
+		producer = strings.TrimSpace(spec.ProducerVersion)
+	}
+	if err := validateProducerVersion(*repoRoot, producer, *allowDevelopmentVersion); err != nil {
+		return err
+	}
 	manifest := fixtureManifest{
 		FixtureVersion: spec.FixtureVersion,
-		Producer:       manifestProducer{Name: actioncontracts.Producer, Version: strings.TrimSpace(*producerVersion)},
+		Producer:       manifestProducer{Name: actioncontracts.Producer, Version: producer},
 		Schemas: manifestSchemas{
 			Artifact: actioncontracts.SchemaVersion,
 			Contract: risk.ProposedActionContractVersionV3,
@@ -456,6 +464,9 @@ func loadSpec(path string) (fixtureSpec, error) {
 	if spec.FixtureVersion != "1" || len(spec.Scenarios) != 9 {
 		return fixtureSpec{}, fmt.Errorf("fixture spec requires version 1 and exactly nine scenarios")
 	}
+	if strings.TrimSpace(spec.ProducerVersion) == "" {
+		return fixtureSpec{}, errors.New("release conformance producer metadata: missing released producer version")
+	}
 	seen := map[string]struct{}{}
 	for _, scenario := range spec.Scenarios {
 		if !safeFixtureScenarioID.MatchString(strings.TrimSpace(scenario.ScenarioID)) || strings.TrimSpace(scenario.PatternID) == "" {
@@ -485,6 +496,29 @@ func loadSpec(path string) (fixtureSpec, error) {
 		}
 	}
 	return spec, nil
+}
+
+func validateProducerVersion(repoRoot, version string, allowDevelopment bool) error {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return errors.New("release conformance producer metadata: missing released producer version")
+	}
+	if allowDevelopment {
+		if version != "devel" && version != "(devel)" {
+			return fmt.Errorf("release conformance producer metadata: developer override requires version %q", "devel")
+		}
+		return nil
+	}
+	if version == "devel" || version == "(devel)" {
+		return fmt.Errorf("release conformance producer metadata: producer version must be a released vX.Y.Z tag; got %q", version)
+	}
+	if !releasedProducerVersion.MatchString(version) {
+		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released vX.Y.Z tag", version)
+	}
+	if _, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output(); err != nil {
+		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
+	}
+	return nil
 }
 
 func cleanManifestRoot(value string) (string, error) {
