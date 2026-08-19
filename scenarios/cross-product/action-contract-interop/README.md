@@ -28,10 +28,11 @@ git diff -- scenarios/cross-product/action-contract-interop/expected
 ```
 
 `--update` requires the explicit released producer tag so a future artifact
-change cannot silently retain the historical `v1.14.0` identity. Local
-`--check` runs continue to use the version in `inputs/scenario-specs.json`;
-tagged release checks require `WRKR_FIXTURE_PRODUCER_VERSION` and require it to
-equal `GITHUB_REF_NAME`.
+change cannot silently retain the historical `v1.14.0` identity. Local and
+tagged `--check` runs use the committed producer version and verify that the
+tagged release is a descendant of that historical producer tag. A new release
+may therefore preserve `v1.14.0` when these bytes remain unchanged; changing
+the bytes requires an intentional fixture update to a newly released producer.
 
 `expected/fixture-manifest.json` pins the producer/schema versions, exact file
 SHA-256 digests, canonical artifact digest, artifact/contract/family/revision

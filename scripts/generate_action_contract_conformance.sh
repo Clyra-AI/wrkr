@@ -31,10 +31,6 @@ if [[ "${mode}" == "--update" && -z "${producer_override}" ]]; then
   echo "release conformance producer metadata: --update requires explicit WRKR_FIXTURE_PRODUCER_VERSION=<released tag>" >&2
   exit 1
 fi
-if [[ "${GITHUB_REF_TYPE:-}" == "tag" && -z "${producer_override}" ]]; then
-  echo "release conformance producer metadata: tagged release requires explicit WRKR_FIXTURE_PRODUCER_VERSION=${GITHUB_REF_NAME:-<tag>}" >&2
-  exit 1
-fi
 if [[ -n "${producer_override}" ]]; then
   producer_version="${producer_override}"
 fi

@@ -225,25 +225,21 @@ func TestActionContractConformanceUpdateRequiresExplicitProducerVersion(t *testi
 	}
 }
 
-func TestActionContractConformanceTaggedCheckRequiresExplicitProducerVersion(t *testing.T) {
+func TestActionContractConformanceTaggedCheckUsesCommittedHistoricalProducer(t *testing.T) {
 	t.Parallel()
 	repoRoot := mustFindRepoRoot(t)
 	command := exec.Command("bash", filepath.Join(repoRoot, "scripts", "generate_action_contract_conformance.sh"), "--check")
 	command.Dir = repoRoot
 	command.Env = append(command.Env, "GITHUB_REF_TYPE=tag", "GITHUB_REF_NAME=v1.14.0")
 	for _, value := range os.Environ() {
-		if strings.HasPrefix(value, "WRKR_FIXTURE_PRODUCER_VERSION=") || strings.HasPrefix(value, "GITHUB_REF_TYPE=") || strings.HasPrefix(value, "GITHUB_REF_NAME=") {
+		if strings.HasPrefix(value, "GITHUB_REF_TYPE=") || strings.HasPrefix(value, "GITHUB_REF_NAME=") {
 			continue
 		}
 		command.Env = append(command.Env, value)
 	}
 	output, err := command.CombinedOutput()
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
-		t.Fatalf("tagged fixture check without explicit producer tag must fail with exit 1: err=%v output=%s", err, output)
-	}
-	if !strings.Contains(string(output), "tagged release requires explicit WRKR_FIXTURE_PRODUCER_VERSION") {
-		t.Fatalf("tagged fixture failure must explain explicit producer requirement: %s", output)
+	if err != nil {
+		t.Fatalf("tagged fixture check should use committed historical producer: err=%v output=%s", err, output)
 	}
 }
 

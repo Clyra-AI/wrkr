@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -191,7 +192,7 @@ func runFinalize(args []string) error {
 	if err := validateProducerVersion(*repoRoot, producer, *allowDevelopmentVersion); err != nil {
 		return err
 	}
-	if err := validateIntendedReleaseVersion(producer, os.Getenv("GITHUB_REF_TYPE"), os.Getenv("GITHUB_REF_NAME")); err != nil {
+	if err := validateIntendedReleaseVersion(*repoRoot, producer, os.Getenv("GITHUB_REF_TYPE"), os.Getenv("GITHUB_REF_NAME")); err != nil {
 		return err
 	}
 	manifest := fixtureManifest{
@@ -211,6 +212,9 @@ func runFinalize(args []string) error {
 			return fmt.Errorf("scenario %s: %w", scenario.ScenarioID, err)
 		}
 		manifest.Scenarios = append(manifest.Scenarios, item)
+	}
+	if err := validateFixtureBytesAgainstProducerTag(*repoRoot, producer, *generatedDir, manifest.Scenarios); err != nil {
+		return err
 	}
 	encoded, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -529,13 +533,14 @@ func validateProducerVersion(repoRoot, version string, allowDevelopment bool) er
 	if !releasedProducerVersion.MatchString(version) {
 		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released vX.Y.Z tag", version)
 	}
+	// #nosec G204 -- version is strict-semver validated and repoRoot is the explicit local checkout.
 	if _, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output(); err != nil {
 		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
 	}
 	return nil
 }
 
-func validateIntendedReleaseVersion(version, refType, refName string) error {
+func validateIntendedReleaseVersion(repoRoot, version, refType, refName string) error {
 	if strings.TrimSpace(refType) != "tag" {
 		return nil
 	}
@@ -543,8 +548,80 @@ func validateIntendedReleaseVersion(version, refType, refName string) error {
 	if want == "" {
 		return errors.New("release conformance producer metadata: tagged release is missing GITHUB_REF_NAME")
 	}
-	if strings.TrimSpace(version) != want {
-		return fmt.Errorf("release conformance producer metadata: producer version %q does not match tagged release %q", strings.TrimSpace(version), want)
+	if !releasedProducerVersion.MatchString(want) {
+		return fmt.Errorf("release conformance producer metadata: tagged release %q is not a released vX.Y.Z tag", want)
+	}
+	producerCommit, err := releasedTagCommit(repoRoot, version)
+	if err != nil {
+		return err
+	}
+	releaseCommit, err := releasedTagCommit(repoRoot, want)
+	if err != nil {
+		return err
+	}
+	// #nosec G204 -- commit IDs come directly from git rev-parse and repoRoot is the explicit local checkout.
+	if err := exec.Command("git", "-C", repoRoot, "merge-base", "--is-ancestor", producerCommit, releaseCommit).Run(); err != nil {
+		return fmt.Errorf("release conformance producer metadata: historical producer %q is not an ancestor of tagged release %q", strings.TrimSpace(version), want)
+	}
+	return nil
+}
+
+func releasedTagCommit(repoRoot, version string) (string, error) {
+	version = strings.TrimSpace(version)
+	if version == "devel" || version == "(devel)" || !releasedProducerVersion.MatchString(version) {
+		return "", fmt.Errorf("release conformance producer metadata: producer version %q is not a released vX.Y.Z tag", version)
+	}
+	// #nosec G204 -- version is strict-semver validated and repoRoot is the explicit local checkout.
+	commit, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output()
+	if err != nil {
+		return "", fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
+	}
+	return strings.TrimSpace(string(commit)), nil
+}
+
+func validateFixtureBytesAgainstProducerTag(repoRoot, producerVersion, generatedDir string, scenarios []manifestScenario) error {
+	if producerVersion == "devel" || producerVersion == "(devel)" {
+		return nil
+	}
+	for _, scenario := range scenarios {
+		for _, item := range []struct {
+			name      string
+			generated string
+			relative  string
+		}{
+			{name: "artifact", generated: filepath.Join(generatedDir, scenario.ScenarioID, filepath.Base(filepath.FromSlash(scenario.ArtifactPath))), relative: scenario.ArtifactPath},
+			{name: "packet JSON", generated: filepath.Join(generatedDir, scenario.ScenarioID, "packet.json"), relative: scenario.PacketJSONPath},
+			{name: "packet Markdown", generated: filepath.Join(generatedDir, scenario.ScenarioID, "packet.md"), relative: scenario.PacketMarkdownPath},
+		} {
+			generated, err := os.ReadFile(item.generated)
+			if err != nil {
+				return fmt.Errorf("release conformance producer metadata: read generated %s for %s: %w", item.name, scenario.ScenarioID, err)
+			}
+			// #nosec G204 -- producerVersion is strict-semver validated and item.relative is generated from safe manifest paths.
+			released, err := exec.Command("git", "-C", repoRoot, "show", producerVersion+":"+item.relative).Output()
+			if err != nil {
+				return fmt.Errorf("release conformance producer metadata: released tag %q is missing %s %s", producerVersion, item.name, item.relative)
+			}
+			if !bytes.Equal(generated, released) {
+				return fmt.Errorf("release conformance producer metadata: generated %s %s does not match released tag %q", item.name, item.relative, producerVersion)
+			}
+		}
+	}
+	for _, schemaPath := range []string{
+		"schemas/v1/proposed-action-contract-v3.schema.json",
+		"schemas/v1/proposed-action-contract-artifact.schema.json",
+		"schemas/v1/report/action-contract-packet.schema.json",
+	} {
+		// #nosec G304 -- schemaPath is selected from a fixed allowlist and repoRoot is the explicit local checkout.
+		current, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(schemaPath)))
+		if err != nil {
+			return fmt.Errorf("release conformance producer metadata: read current schema %s: %w", schemaPath, err)
+		}
+		// #nosec G204 -- producerVersion is strict-semver validated and schemaPath is a fixed allowlisted path.
+		released, err := exec.Command("git", "-C", repoRoot, "show", producerVersion+":"+schemaPath).Output()
+		if err != nil || !bytes.Equal(current, released) {
+			return fmt.Errorf("release conformance producer metadata: schema %s does not match released tag %q", schemaPath, producerVersion)
+		}
 	}
 	return nil
 }

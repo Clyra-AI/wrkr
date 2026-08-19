@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "fa7dfea041ebb70d3839015e0af9167fd0120b5b4c1ecc5335d88c7c74927f96",
+  "validated_content_sha256": "0e48a62215e554749edbc19269b733b8eb294369363b1108026aa223f595d657",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",

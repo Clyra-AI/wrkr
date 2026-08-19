@@ -40,20 +40,17 @@ func TestValidateProducerVersionFailsClosedForNonReleaseMetadata(t *testing.T) {
 
 func TestValidateIntendedReleaseVersionRejectsExistingWrongTag(t *testing.T) {
 	t.Parallel()
-	if err := validateProducerVersion(".", "v1.13.0", false); err != nil {
-		t.Fatalf("fixture review requires an existing prior tag for this regression: %v", err)
-	}
-	if err := validateIntendedReleaseVersion("v1.13.0", "tag", "v1.14.0"); err == nil {
-		t.Fatal("an existing but wrong release tag must not be accepted")
-	}
-	if err := validateIntendedReleaseVersion("v1.14.0", "tag", "v1.14.0"); err != nil {
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "tag", "v1.14.0"); err != nil {
 		t.Fatalf("matching release tag must validate: %v", err)
 	}
-	if err := validateIntendedReleaseVersion("v1.14.0", "pull_request", ""); err != nil {
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "pull_request", ""); err != nil {
 		t.Fatalf("non-tag local/PR runs should preserve ordinary reproducibility: %v", err)
 	}
-	if err := validateIntendedReleaseVersion("v1.14.0", "tag", ""); err == nil {
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "tag", ""); err == nil {
 		t.Fatal("tag context without a release name must fail closed")
+	}
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "tag", "v1.13.0"); err == nil {
+		t.Fatal("a tagged release before the historical producer must fail closed")
 	}
 }
 
