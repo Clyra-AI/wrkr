@@ -159,6 +159,28 @@ func TestActionContractConformanceReleaseWorkflowRunsExactCheckBeforePackaging(t
 	}
 }
 
+func TestActionContractConformanceNightlyCheckoutFetchesReleaseTags(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	workflowPayload, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "nightly.yml"))
+	if err != nil {
+		t.Fatalf("read nightly workflow: %v", err)
+	}
+	workflow := string(workflowPayload)
+	checkoutIndex := strings.Index(workflow, "uses: actions/checkout@")
+	if checkoutIndex < 0 {
+		t.Fatal("nightly workflow must have a checkout")
+	}
+	setupGoOffset := strings.Index(workflow[checkoutIndex:], "\n      - name: Setup Go")
+	if setupGoOffset < 0 {
+		t.Fatal("nightly workflow must have a checkout followed by Go setup")
+	}
+	checkoutBlock := workflow[checkoutIndex : checkoutIndex+setupGoOffset]
+	if !strings.Contains(checkoutBlock, "fetch-depth: 0") {
+		t.Fatalf("nightly checkout must fetch tags/history for released fixture provenance: %q", checkoutBlock)
+	}
+}
+
 func TestActionContractConformanceUpdateRequiresExplicitProducerVersion(t *testing.T) {
 	t.Parallel()
 	repoRoot := mustFindRepoRoot(t)
