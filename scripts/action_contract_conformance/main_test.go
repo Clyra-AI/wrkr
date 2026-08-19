@@ -14,8 +14,56 @@ func TestLoadSpecAcceptsCanonicalNineScenarioContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load canonical fixture spec: %v", err)
 	}
-	if spec.FixtureVersion != "1" || len(spec.Scenarios) != 9 || len(spec.ExternalConsumers) != 2 {
+	if spec.FixtureVersion != "1" || spec.ProducerVersion != "v1.14.0" || len(spec.Scenarios) != 9 || len(spec.ExternalConsumers) != 2 {
 		t.Fatalf("unexpected canonical fixture spec: %+v", spec)
+	}
+}
+
+func TestValidateProducerVersionFailsClosedForNonReleaseMetadata(t *testing.T) {
+	t.Parallel()
+	for _, version := range []string{"", "devel", "(devel)", "v1.14.0-next", "v9.9.9"} {
+		version := version
+		t.Run(version, func(t *testing.T) {
+			t.Parallel()
+			if err := validateProducerVersion(".", version, false); err == nil {
+				t.Fatalf("producer version %q must fail release validation", version)
+			}
+		})
+	}
+	if err := validateProducerVersion(".", "devel", true); err != nil {
+		t.Fatalf("explicit developer override should remain available: %v", err)
+	}
+	if err := validateProducerVersion(".", "v1.14.0", false); err != nil {
+		t.Fatalf("released fixture producer tag should validate: %v", err)
+	}
+}
+
+func TestValidateIntendedReleaseVersionRejectsExistingWrongTag(t *testing.T) {
+	t.Parallel()
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "tag", "v1.14.0"); err != nil {
+		t.Fatalf("matching release tag must validate: %v", err)
+	}
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "pull_request", ""); err != nil {
+		t.Fatalf("non-tag local/PR runs should preserve ordinary reproducibility: %v", err)
+	}
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "tag", ""); err == nil {
+		t.Fatal("tag context without a release name must fail closed")
+	}
+	if err := validateIntendedReleaseVersion(".", "v1.14.0", "tag", "v1.13.0"); err == nil {
+		t.Fatal("a tagged release before the historical producer must fail closed")
+	}
+}
+
+func TestParseExporterManifestUsesStableCardinalityDiagnostics(t *testing.T) {
+	t.Parallel()
+	if _, err := parseExporterManifest([]byte("{")); err == nil || err.Error() == "%!w(<nil>)" {
+		t.Fatalf("malformed exporter manifest must have a stable parse error: %v", err)
+	}
+	if _, err := parseExporterManifest([]byte(`{"artifacts":[]}`)); err == nil || err.Error() != "exporter manifest must contain exactly one artifact" {
+		t.Fatalf("zero-artifact manifest diagnostic drifted: %v", err)
+	}
+	if _, err := parseExporterManifest([]byte(`{"artifacts":[{},{}]}`)); err == nil || err.Error() != "exporter manifest must contain exactly one artifact" {
+		t.Fatalf("multi-artifact manifest diagnostic drifted: %v", err)
 	}
 }
 

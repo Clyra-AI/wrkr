@@ -1,5 +1,6 @@
 {
   "fixture_version": "1",
+  "producer_version": "v1.14.0",
   "base_scan_root": "scenarios/wrkr/agent-action-bom-demo/after/repos",
   "scenarios": [
     {"scenario_id": "customer-data-to-egress", "pattern_id": "sensitive_read_to_egress", "mutation": "none"},

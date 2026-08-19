@@ -2,7 +2,7 @@
   "fixture_version": "1",
   "producer": {
     "name": "wrkr",
-    "version": "devel"
+    "version": "v1.14.0"
   },
   "schemas": {
     "artifact": "1",

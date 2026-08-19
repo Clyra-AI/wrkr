@@ -21,6 +21,19 @@ spec_path="${repo_root}/scenarios/cross-product/action-contract-interop/inputs/s
 expected_root="${repo_root}/scenarios/cross-product/action-contract-interop/expected"
 manifest_root="scenarios/cross-product/action-contract-interop/expected"
 base_scan_root="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["base_scan_root"])' "${spec_path}")"
+producer_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("producer_version", ""))' "${spec_path}")"
+if [[ -z "${producer_version}" ]]; then
+  echo "release conformance producer metadata: missing released producer version" >&2
+  exit 1
+fi
+producer_override="${WRKR_FIXTURE_PRODUCER_VERSION:-}"
+if [[ "${mode}" == "--update" && -z "${producer_override}" ]]; then
+  echo "release conformance producer metadata: --update requires explicit WRKR_FIXTURE_PRODUCER_VERSION=<released tag>" >&2
+  exit 1
+fi
+if [[ -n "${producer_override}" ]]; then
+  producer_version="${producer_override}"
+fi
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/wrkr-action-contract-interop-XXXXXX")"
 trap 'rm -rf "${tmp_root}"' EXIT
 
@@ -76,7 +89,7 @@ normalize_fixture_tree "${generated_root}"
   --spec "${spec_path}" \
   --generated-dir "${generated_root}" \
   --manifest-root "${manifest_root}" \
-  --producer-version "${WRKR_FIXTURE_PRODUCER_VERSION:-devel}" \
+  --producer-version "${producer_version}" \
   --output "${generated_root}/fixture-manifest.json")
 normalize_fixture_tree "${generated_root}"
 

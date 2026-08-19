@@ -137,6 +137,112 @@ func TestActionContractConformanceManifestPinsNineVerifiedScenarios(t *testing.T
 	}
 }
 
+func TestActionContractConformanceReleaseWorkflowRunsExactCheckBeforePackaging(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	workflowPayload, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatalf("read release workflow: %v", err)
+	}
+	workflow := string(workflowPayload)
+	check := "scripts/generate_action_contract_conformance.sh --check"
+	checkIndex := strings.Index(workflow, check)
+	buildIndex := strings.Index(workflow, "goreleaser release")
+	if checkIndex < 0 {
+		t.Fatalf("release workflow must run the exact Action Contract fixture check")
+	}
+	if buildIndex < 0 || checkIndex > buildIndex {
+		t.Fatalf("fixture check must run before staged release packaging")
+	}
+	if tagGuardIndex := strings.LastIndex(workflow[:checkIndex], "if: startsWith(github.ref, 'refs/tags/v')"); tagGuardIndex < 0 || checkIndex-tagGuardIndex > 300 {
+		t.Fatalf("fixture check must be constrained to tag releases")
+	}
+}
+
+func TestActionContractConformanceNightlyCheckoutFetchesReleaseTags(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	workflowPayload, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "nightly.yml"))
+	if err != nil {
+		t.Fatalf("read nightly workflow: %v", err)
+	}
+	workflow := string(workflowPayload)
+	checkoutIndex := strings.Index(workflow, "uses: actions/checkout@")
+	if checkoutIndex < 0 {
+		t.Fatal("nightly workflow must have a checkout")
+	}
+	setupGoOffset := strings.Index(workflow[checkoutIndex:], "\n      - name: Setup Go")
+	if setupGoOffset < 0 {
+		t.Fatal("nightly workflow must have a checkout followed by Go setup")
+	}
+	checkoutBlock := workflow[checkoutIndex : checkoutIndex+setupGoOffset]
+	if !strings.Contains(checkoutBlock, "fetch-depth: 0") {
+		t.Fatalf("nightly checkout must fetch tags/history for released fixture provenance: %q", checkoutBlock)
+	}
+}
+
+func TestActionContractConformancePRFastLaneCheckoutFetchesReleaseTags(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	workflowPayload, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "pr.yml"))
+	if err != nil {
+		t.Fatalf("read PR workflow: %v", err)
+	}
+	workflow := string(workflowPayload)
+	fastLaneIndex := strings.Index(workflow, "  fast-lane:")
+	if fastLaneIndex < 0 {
+		t.Fatal("PR workflow must contain fast-lane")
+	}
+	fastLane := workflow[fastLaneIndex:]
+	setupGoIndex := strings.Index(fastLane, "\n      - name: Setup Go")
+	if setupGoIndex < 0 {
+		t.Fatal("PR fast-lane must have a checkout followed by Go setup")
+	}
+	checkoutIndex := strings.Index(fastLane[:setupGoIndex], "uses: actions/checkout@")
+	if checkoutIndex < 0 || !strings.Contains(fastLane[checkoutIndex:setupGoIndex], "fetch-depth: 0") {
+		t.Fatalf("PR fast-lane checkout must fetch tags/history for released fixture provenance: %q", fastLane[:setupGoIndex])
+	}
+}
+
+func TestActionContractConformanceUpdateRequiresExplicitProducerVersion(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	command := exec.Command("bash", filepath.Join(repoRoot, "scripts", "generate_action_contract_conformance.sh"), "--update")
+	command.Dir = repoRoot
+	for _, value := range os.Environ() {
+		if strings.HasPrefix(value, "WRKR_FIXTURE_PRODUCER_VERSION=") {
+			continue
+		}
+		command.Env = append(command.Env, value)
+	}
+	output, err := command.CombinedOutput()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("fixture update without explicit producer tag must fail with exit 1: err=%v output=%s", err, output)
+	}
+	if !strings.Contains(string(output), "requires explicit WRKR_FIXTURE_PRODUCER_VERSION") {
+		t.Fatalf("fixture update failure must explain explicit producer requirement: %s", output)
+	}
+}
+
+func TestActionContractConformanceTaggedCheckUsesCommittedHistoricalProducer(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	command := exec.Command("bash", filepath.Join(repoRoot, "scripts", "generate_action_contract_conformance.sh"), "--check")
+	command.Dir = repoRoot
+	command.Env = append(command.Env, "GITHUB_REF_TYPE=tag", "GITHUB_REF_NAME=v1.14.0")
+	for _, value := range os.Environ() {
+		if strings.HasPrefix(value, "GITHUB_REF_TYPE=") || strings.HasPrefix(value, "GITHUB_REF_NAME=") {
+			continue
+		}
+		command.Env = append(command.Env, value)
+	}
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tagged fixture check should use committed historical producer: err=%v output=%s", err, output)
+	}
+}
+
 func TestActionContractConformanceTamperedBytesFailDigestAndManifest(t *testing.T) {
 	t.Parallel()
 	repoRoot := mustFindRepoRoot(t)

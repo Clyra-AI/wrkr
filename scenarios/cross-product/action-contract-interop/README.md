@@ -23,14 +23,31 @@ scripts/generate_action_contract_conformance.sh --check
 Review and explicitly update the goldens:
 
 ```bash
-scripts/generate_action_contract_conformance.sh --update
+WRKR_FIXTURE_PRODUCER_VERSION=vX.Y.Z scripts/generate_action_contract_conformance.sh --update
 git diff -- scenarios/cross-product/action-contract-interop/expected
 ```
+
+`--update` requires the explicit released producer tag so a future artifact
+change cannot silently retain the historical `v1.14.0` identity. Local and
+tagged `--check` runs use the committed producer version and verify that the
+tagged release is a descendant of that historical producer tag. A new release
+may therefore preserve `v1.14.0` when these bytes remain unchanged; changing
+the bytes requires an intentional fixture update to a newly released producer.
 
 `expected/fixture-manifest.json` pins the producer/schema versions, exact file
 SHA-256 digests, canonical artifact digest, artifact/contract/family/revision
 identity, and the Gait/Axym consumer entrypoints for every scenario. Tests
 always regenerate to temporary storage; they never update committed files.
+The committed producer is explicitly `v1.14.0`: it is the first released Wrkr
+tag containing these nine artifact bytes and the v3/artifact/packet schemas;
+`origin/main` is byte-identical to that tag for this fixture pack. The release
+conformance check rejects missing, `devel`, malformed, or untagged producer
+metadata with a stable diagnostic. The normal generator reads
+`inputs/scenario-specs.json` and never defaults to `devel`.
+
+For a deliberately non-release developer experiment, the Go finalizer supports
+`--allow-development-version --producer-version devel`; do not use that flag
+with committed goldens or a release gate.
 
 Tier 12 consumers are owned by Gait and Axym. Configure executable wrappers in
 `WRKR_GAIT_ACTION_CONTRACT_CONSUMER` and

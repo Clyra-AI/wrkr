@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -24,6 +26,7 @@ import (
 
 type fixtureSpec struct {
 	FixtureVersion    string                  `json:"fixture_version"`
+	ProducerVersion   string                  `json:"producer_version"`
 	BaseScanRoot      string                  `json:"base_scan_root"`
 	Scenarios         []scenarioSpec          `json:"scenarios"`
 	ExternalConsumers map[string]consumerSpec `json:"external_consumers"`
@@ -76,6 +79,7 @@ type manifestScenario struct {
 }
 
 var safeFixtureScenarioID = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var releasedProducerVersion = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func main() {
 	if len(os.Args) < 2 {
@@ -164,16 +168,14 @@ func runFinalize(args []string) error {
 	generatedDir := fs.String("generated-dir", "", "generated expected tree")
 	manifestRoot := fs.String("manifest-root", "", "repo-relative committed expected root")
 	outputPath := fs.String("output", "", "manifest output path")
-	producerVersion := fs.String("producer-version", "devel", "Wrkr producer version")
+	producerVersion := fs.String("producer-version", "", "Wrkr producer version (defaults to the released version in the fixture spec)")
+	allowDevelopmentVersion := fs.Bool("allow-development-version", false, "allow devel only for an explicitly non-release developer run")
 	repoRoot := fs.String("repo-root", ".", "Wrkr repository root")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if strings.TrimSpace(*specPath) == "" || strings.TrimSpace(*generatedDir) == "" || strings.TrimSpace(*manifestRoot) == "" || strings.TrimSpace(*outputPath) == "" {
 		return errors.New("finalize requires --spec, --generated-dir, --manifest-root, and --output")
-	}
-	if strings.TrimSpace(*producerVersion) == "" {
-		return errors.New("finalize requires a non-empty producer version")
 	}
 	cleanRoot, err := cleanManifestRoot(*manifestRoot)
 	if err != nil {
@@ -183,9 +185,19 @@ func runFinalize(args []string) error {
 	if err != nil {
 		return err
 	}
+	producer := strings.TrimSpace(*producerVersion)
+	if producer == "" {
+		producer = strings.TrimSpace(spec.ProducerVersion)
+	}
+	if err := validateProducerVersion(*repoRoot, producer, *allowDevelopmentVersion); err != nil {
+		return err
+	}
+	if err := validateIntendedReleaseVersion(*repoRoot, producer, os.Getenv("GITHUB_REF_TYPE"), os.Getenv("GITHUB_REF_NAME")); err != nil {
+		return err
+	}
 	manifest := fixtureManifest{
 		FixtureVersion: spec.FixtureVersion,
-		Producer:       manifestProducer{Name: actioncontracts.Producer, Version: strings.TrimSpace(*producerVersion)},
+		Producer:       manifestProducer{Name: actioncontracts.Producer, Version: producer},
 		Schemas: manifestSchemas{
 			Artifact: actioncontracts.SchemaVersion,
 			Contract: risk.ProposedActionContractVersionV3,
@@ -200,6 +212,9 @@ func runFinalize(args []string) error {
 			return fmt.Errorf("scenario %s: %w", scenario.ScenarioID, err)
 		}
 		manifest.Scenarios = append(manifest.Scenarios, item)
+	}
+	if err := validateFixtureBytesAgainstProducerTag(*repoRoot, producer, *generatedDir, manifest.Scenarios); err != nil {
+		return err
 	}
 	encoded, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -333,13 +348,11 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if err != nil {
 		return manifestScenario{}, fmt.Errorf("read exporter manifest: %w", err)
 	}
-	var exporterManifest struct {
-		Artifacts []actioncontracts.ManifestItem `json:"artifacts"`
+	exporterArtifacts, err := parseExporterManifest(artifactManifestPayload)
+	if err != nil {
+		return manifestScenario{}, err
 	}
-	if err := json.Unmarshal(artifactManifestPayload, &exporterManifest); err != nil || len(exporterManifest.Artifacts) != 1 {
-		return manifestScenario{}, fmt.Errorf("parse exporter manifest with one artifact: %w", err)
-	}
-	artifactFilename := exporterManifest.Artifacts[0].Filename
+	artifactFilename := exporterArtifacts[0].Filename
 	if strings.TrimSpace(artifactFilename) == "" || filepath.IsAbs(artifactFilename) || filepath.Base(artifactFilename) != artifactFilename || strings.Contains(artifactFilename, `\`) {
 		return manifestScenario{}, fmt.Errorf("unsafe exporter artifact filename %q", artifactFilename)
 	}
@@ -354,7 +367,7 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if err := actioncontracts.VerifyArtifact(artifact); err != nil {
 		return manifestScenario{}, fmt.Errorf("verify artifact digest: %w", err)
 	}
-	exporterItem := exporterManifest.Artifacts[0]
+	exporterItem := exporterArtifacts[0]
 	if exporterItem.ArtifactID != artifact.ArtifactID || exporterItem.ContractID != artifact.ContractID || exporterItem.CanonicalContentDigest != artifact.CanonicalContentDigest {
 		return manifestScenario{}, errors.New("exporter manifest identity does not match artifact bytes")
 	}
@@ -393,6 +406,19 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 		ContractID: artifact.ContractID, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision,
 		ConsumerEntrypoints: entrypoints,
 	}, nil
+}
+
+func parseExporterManifest(payload []byte) ([]actioncontracts.ManifestItem, error) {
+	var exporterManifest struct {
+		Artifacts []actioncontracts.ManifestItem `json:"artifacts"`
+	}
+	if err := json.Unmarshal(payload, &exporterManifest); err != nil {
+		return nil, fmt.Errorf("parse exporter manifest: %w", err)
+	}
+	if len(exporterManifest.Artifacts) != 1 {
+		return nil, errors.New("exporter manifest must contain exactly one artifact")
+	}
+	return exporterManifest.Artifacts, nil
 }
 
 func validateSchemas(repoRoot string, artifactPayload, packetPayload []byte) error {
@@ -456,6 +482,9 @@ func loadSpec(path string) (fixtureSpec, error) {
 	if spec.FixtureVersion != "1" || len(spec.Scenarios) != 9 {
 		return fixtureSpec{}, fmt.Errorf("fixture spec requires version 1 and exactly nine scenarios")
 	}
+	if strings.TrimSpace(spec.ProducerVersion) == "" {
+		return fixtureSpec{}, errors.New("release conformance producer metadata: missing released producer version")
+	}
 	seen := map[string]struct{}{}
 	for _, scenario := range spec.Scenarios {
 		if !safeFixtureScenarioID.MatchString(strings.TrimSpace(scenario.ScenarioID)) || strings.TrimSpace(scenario.PatternID) == "" {
@@ -485,6 +514,116 @@ func loadSpec(path string) (fixtureSpec, error) {
 		}
 	}
 	return spec, nil
+}
+
+func validateProducerVersion(repoRoot, version string, allowDevelopment bool) error {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return errors.New("release conformance producer metadata: missing released producer version")
+	}
+	if allowDevelopment {
+		if version != "devel" && version != "(devel)" {
+			return fmt.Errorf("release conformance producer metadata: developer override requires version %q", "devel")
+		}
+		return nil
+	}
+	if version == "devel" || version == "(devel)" {
+		return fmt.Errorf("release conformance producer metadata: producer version must be a released vX.Y.Z tag; got %q", version)
+	}
+	if !releasedProducerVersion.MatchString(version) {
+		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released vX.Y.Z tag", version)
+	}
+	// #nosec G204 G702 -- version is strict-semver validated and repoRoot is the explicit local checkout.
+	if _, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output(); err != nil {
+		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
+	}
+	return nil
+}
+
+func validateIntendedReleaseVersion(repoRoot, version, refType, refName string) error {
+	if strings.TrimSpace(refType) != "tag" {
+		return nil
+	}
+	want := strings.TrimSpace(refName)
+	if want == "" {
+		return errors.New("release conformance producer metadata: tagged release is missing GITHUB_REF_NAME")
+	}
+	if !releasedProducerVersion.MatchString(want) {
+		return fmt.Errorf("release conformance producer metadata: tagged release %q is not a released vX.Y.Z tag", want)
+	}
+	producerCommit, err := releasedTagCommit(repoRoot, version)
+	if err != nil {
+		return err
+	}
+	releaseCommit, err := releasedTagCommit(repoRoot, want)
+	if err != nil {
+		return err
+	}
+	// #nosec G204 G702 -- commit IDs come directly from git rev-parse and repoRoot is the explicit local checkout.
+	if err := exec.Command("git", "-C", repoRoot, "merge-base", "--is-ancestor", producerCommit, releaseCommit).Run(); err != nil {
+		return fmt.Errorf("release conformance producer metadata: historical producer %q is not an ancestor of tagged release %q", strings.TrimSpace(version), want)
+	}
+	return nil
+}
+
+func releasedTagCommit(repoRoot, version string) (string, error) {
+	version = strings.TrimSpace(version)
+	if version == "devel" || version == "(devel)" || !releasedProducerVersion.MatchString(version) {
+		return "", fmt.Errorf("release conformance producer metadata: producer version %q is not a released vX.Y.Z tag", version)
+	}
+	// #nosec G204 G702 -- version is strict-semver validated and repoRoot is the explicit local checkout.
+	commit, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output()
+	if err != nil {
+		return "", fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
+	}
+	return strings.TrimSpace(string(commit)), nil
+}
+
+func validateFixtureBytesAgainstProducerTag(repoRoot, producerVersion, generatedDir string, scenarios []manifestScenario) error {
+	if producerVersion == "devel" || producerVersion == "(devel)" {
+		return nil
+	}
+	for _, scenario := range scenarios {
+		for _, item := range []struct {
+			name      string
+			generated string
+			relative  string
+		}{
+			{name: "artifact", generated: filepath.Join(generatedDir, scenario.ScenarioID, filepath.Base(filepath.FromSlash(scenario.ArtifactPath))), relative: scenario.ArtifactPath},
+			{name: "packet JSON", generated: filepath.Join(generatedDir, scenario.ScenarioID, "packet.json"), relative: scenario.PacketJSONPath},
+			{name: "packet Markdown", generated: filepath.Join(generatedDir, scenario.ScenarioID, "packet.md"), relative: scenario.PacketMarkdownPath},
+		} {
+			generated, err := os.ReadFile(item.generated)
+			if err != nil {
+				return fmt.Errorf("release conformance producer metadata: read generated %s for %s: %w", item.name, scenario.ScenarioID, err)
+			}
+			// #nosec G204 G702 -- producerVersion is strict-semver validated and item.relative is generated from safe manifest paths.
+			released, err := exec.Command("git", "-C", repoRoot, "show", producerVersion+":"+item.relative).Output()
+			if err != nil {
+				return fmt.Errorf("release conformance producer metadata: released tag %q is missing %s %s", producerVersion, item.name, item.relative)
+			}
+			if !bytes.Equal(generated, released) {
+				return fmt.Errorf("release conformance producer metadata: generated %s %s does not match released tag %q", item.name, item.relative, producerVersion)
+			}
+		}
+	}
+	for _, schemaPath := range []string{
+		"schemas/v1/proposed-action-contract-v3.schema.json",
+		"schemas/v1/proposed-action-contract-artifact.schema.json",
+		"schemas/v1/report/action-contract-packet.schema.json",
+	} {
+		// #nosec G304 -- schemaPath is selected from a fixed allowlist and repoRoot is the explicit local checkout.
+		current, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(schemaPath)))
+		if err != nil {
+			return fmt.Errorf("release conformance producer metadata: read current schema %s: %w", schemaPath, err)
+		}
+		// #nosec G204 G702 -- producerVersion is strict-semver validated and schemaPath is a fixed allowlisted path.
+		released, err := exec.Command("git", "-C", repoRoot, "show", producerVersion+":"+schemaPath).Output()
+		if err != nil || !bytes.Equal(current, released) {
+			return fmt.Errorf("release conformance producer metadata: schema %s does not match released tag %q", schemaPath, producerVersion)
+		}
+	}
+	return nil
 }
 
 func cleanManifestRoot(value string) (string, error) {
