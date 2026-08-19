@@ -533,7 +533,7 @@ func validateProducerVersion(repoRoot, version string, allowDevelopment bool) er
 	if !releasedProducerVersion.MatchString(version) {
 		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released vX.Y.Z tag", version)
 	}
-	// #nosec G204 -- version is strict-semver validated and repoRoot is the explicit local checkout.
+	// #nosec G204 G702 -- version is strict-semver validated and repoRoot is the explicit local checkout.
 	if _, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output(); err != nil {
 		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
 	}
@@ -559,7 +559,7 @@ func validateIntendedReleaseVersion(repoRoot, version, refType, refName string) 
 	if err != nil {
 		return err
 	}
-	// #nosec G204 -- commit IDs come directly from git rev-parse and repoRoot is the explicit local checkout.
+	// #nosec G204 G702 -- commit IDs come directly from git rev-parse and repoRoot is the explicit local checkout.
 	if err := exec.Command("git", "-C", repoRoot, "merge-base", "--is-ancestor", producerCommit, releaseCommit).Run(); err != nil {
 		return fmt.Errorf("release conformance producer metadata: historical producer %q is not an ancestor of tagged release %q", strings.TrimSpace(version), want)
 	}
@@ -571,7 +571,7 @@ func releasedTagCommit(repoRoot, version string) (string, error) {
 	if version == "devel" || version == "(devel)" || !releasedProducerVersion.MatchString(version) {
 		return "", fmt.Errorf("release conformance producer metadata: producer version %q is not a released vX.Y.Z tag", version)
 	}
-	// #nosec G204 -- version is strict-semver validated and repoRoot is the explicit local checkout.
+	// #nosec G204 G702 -- version is strict-semver validated and repoRoot is the explicit local checkout.
 	commit, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output()
 	if err != nil {
 		return "", fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
@@ -597,7 +597,7 @@ func validateFixtureBytesAgainstProducerTag(repoRoot, producerVersion, generated
 			if err != nil {
 				return fmt.Errorf("release conformance producer metadata: read generated %s for %s: %w", item.name, scenario.ScenarioID, err)
 			}
-			// #nosec G204 -- producerVersion is strict-semver validated and item.relative is generated from safe manifest paths.
+			// #nosec G204 G702 -- producerVersion is strict-semver validated and item.relative is generated from safe manifest paths.
 			released, err := exec.Command("git", "-C", repoRoot, "show", producerVersion+":"+item.relative).Output()
 			if err != nil {
 				return fmt.Errorf("release conformance producer metadata: released tag %q is missing %s %s", producerVersion, item.name, item.relative)
@@ -617,7 +617,7 @@ func validateFixtureBytesAgainstProducerTag(repoRoot, producerVersion, generated
 		if err != nil {
 			return fmt.Errorf("release conformance producer metadata: read current schema %s: %w", schemaPath, err)
 		}
-		// #nosec G204 -- producerVersion is strict-semver validated and schemaPath is a fixed allowlisted path.
+		// #nosec G204 G702 -- producerVersion is strict-semver validated and schemaPath is a fixed allowlisted path.
 		released, err := exec.Command("git", "-C", repoRoot, "show", producerVersion+":"+schemaPath).Output()
 		if err != nil || !bytes.Equal(current, released) {
 			return fmt.Errorf("release conformance producer metadata: schema %s does not match released tag %q", schemaPath, producerVersion)
