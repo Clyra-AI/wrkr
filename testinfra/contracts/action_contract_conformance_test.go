@@ -181,6 +181,29 @@ func TestActionContractConformanceNightlyCheckoutFetchesReleaseTags(t *testing.T
 	}
 }
 
+func TestActionContractConformancePRFastLaneCheckoutFetchesReleaseTags(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	workflowPayload, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "pr.yml"))
+	if err != nil {
+		t.Fatalf("read PR workflow: %v", err)
+	}
+	workflow := string(workflowPayload)
+	fastLaneIndex := strings.Index(workflow, "  fast-lane:")
+	if fastLaneIndex < 0 {
+		t.Fatal("PR workflow must contain fast-lane")
+	}
+	fastLane := workflow[fastLaneIndex:]
+	setupGoIndex := strings.Index(fastLane, "\n      - name: Setup Go")
+	if setupGoIndex < 0 {
+		t.Fatal("PR fast-lane must have a checkout followed by Go setup")
+	}
+	checkoutIndex := strings.Index(fastLane[:setupGoIndex], "uses: actions/checkout@")
+	if checkoutIndex < 0 || !strings.Contains(fastLane[checkoutIndex:setupGoIndex], "fetch-depth: 0") {
+		t.Fatalf("PR fast-lane checkout must fetch tags/history for released fixture provenance: %q", fastLane[:setupGoIndex])
+	}
+}
+
 func TestActionContractConformanceUpdateRequiresExplicitProducerVersion(t *testing.T) {
 	t.Parallel()
 	repoRoot := mustFindRepoRoot(t)
