@@ -39,6 +39,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
 
+## [v1.15.1] - 2026-08-19
+<!-- release-semver: patch -->
+
+### Security
+
+- Upgraded `golang.org/x/mod` to `v0.40.0` to remediate Grype advisories `GO-2026-6179` and `GO-2026-6180` identified in the v1.15.0 release SBOM.
+
 ## [v1.15.0] - 2026-08-19
 <!-- release-semver: minor -->
 
