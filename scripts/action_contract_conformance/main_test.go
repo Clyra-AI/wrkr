@@ -38,6 +38,38 @@ func TestValidateProducerVersionFailsClosedForNonReleaseMetadata(t *testing.T) {
 	}
 }
 
+func TestValidateIntendedReleaseVersionRejectsExistingWrongTag(t *testing.T) {
+	t.Parallel()
+	if err := validateProducerVersion(".", "v1.13.0", false); err != nil {
+		t.Fatalf("fixture review requires an existing prior tag for this regression: %v", err)
+	}
+	if err := validateIntendedReleaseVersion("v1.13.0", "tag", "v1.14.0"); err == nil {
+		t.Fatal("an existing but wrong release tag must not be accepted")
+	}
+	if err := validateIntendedReleaseVersion("v1.14.0", "tag", "v1.14.0"); err != nil {
+		t.Fatalf("matching release tag must validate: %v", err)
+	}
+	if err := validateIntendedReleaseVersion("v1.14.0", "pull_request", ""); err != nil {
+		t.Fatalf("non-tag local/PR runs should preserve ordinary reproducibility: %v", err)
+	}
+	if err := validateIntendedReleaseVersion("v1.14.0", "tag", ""); err == nil {
+		t.Fatal("tag context without a release name must fail closed")
+	}
+}
+
+func TestParseExporterManifestUsesStableCardinalityDiagnostics(t *testing.T) {
+	t.Parallel()
+	if _, err := parseExporterManifest([]byte("{")); err == nil || err.Error() == "%!w(<nil>)" {
+		t.Fatalf("malformed exporter manifest must have a stable parse error: %v", err)
+	}
+	if _, err := parseExporterManifest([]byte(`{"artifacts":[]}`)); err == nil || err.Error() != "exporter manifest must contain exactly one artifact" {
+		t.Fatalf("zero-artifact manifest diagnostic drifted: %v", err)
+	}
+	if _, err := parseExporterManifest([]byte(`{"artifacts":[{},{}]}`)); err == nil || err.Error() != "exporter manifest must contain exactly one artifact" {
+		t.Fatalf("multi-artifact manifest diagnostic drifted: %v", err)
+	}
+}
+
 func TestLoadSpecRejectsUnsafeScenarioAndConsumerDrift(t *testing.T) {
 	t.Parallel()
 	validPath := filepath.Join("..", "..", "scenarios", "cross-product", "action-contract-interop", "inputs", "scenario-specs.json")

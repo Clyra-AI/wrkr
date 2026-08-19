@@ -23,9 +23,15 @@ scripts/generate_action_contract_conformance.sh --check
 Review and explicitly update the goldens:
 
 ```bash
-scripts/generate_action_contract_conformance.sh --update
+WRKR_FIXTURE_PRODUCER_VERSION=vX.Y.Z scripts/generate_action_contract_conformance.sh --update
 git diff -- scenarios/cross-product/action-contract-interop/expected
 ```
+
+`--update` requires the explicit released producer tag so a future artifact
+change cannot silently retain the historical `v1.14.0` identity. Local
+`--check` runs continue to use the version in `inputs/scenario-specs.json`;
+tagged release checks require `WRKR_FIXTURE_PRODUCER_VERSION` and require it to
+equal `GITHUB_REF_NAME`.
 
 `expected/fixture-manifest.json` pins the producer/schema versions, exact file
 SHA-256 digests, canonical artifact digest, artifact/contract/family/revision

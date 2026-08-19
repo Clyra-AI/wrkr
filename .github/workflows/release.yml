@@ -89,6 +89,12 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Verify Action Contract fixture freeze
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          WRKR_FIXTURE_PRODUCER_VERSION: ${{ github.ref_name }}
+        run: scripts/generate_action_contract_conformance.sh --check
+
       - name: Validate toolchain pins
         env:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}

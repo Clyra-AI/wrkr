@@ -191,6 +191,9 @@ func runFinalize(args []string) error {
 	if err := validateProducerVersion(*repoRoot, producer, *allowDevelopmentVersion); err != nil {
 		return err
 	}
+	if err := validateIntendedReleaseVersion(producer, os.Getenv("GITHUB_REF_TYPE"), os.Getenv("GITHUB_REF_NAME")); err != nil {
+		return err
+	}
 	manifest := fixtureManifest{
 		FixtureVersion: spec.FixtureVersion,
 		Producer:       manifestProducer{Name: actioncontracts.Producer, Version: producer},
@@ -341,13 +344,11 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if err != nil {
 		return manifestScenario{}, fmt.Errorf("read exporter manifest: %w", err)
 	}
-	var exporterManifest struct {
-		Artifacts []actioncontracts.ManifestItem `json:"artifacts"`
+	exporterArtifacts, err := parseExporterManifest(artifactManifestPayload)
+	if err != nil {
+		return manifestScenario{}, err
 	}
-	if err := json.Unmarshal(artifactManifestPayload, &exporterManifest); err != nil || len(exporterManifest.Artifacts) != 1 {
-		return manifestScenario{}, fmt.Errorf("parse exporter manifest with one artifact: %w", err)
-	}
-	artifactFilename := exporterManifest.Artifacts[0].Filename
+	artifactFilename := exporterArtifacts[0].Filename
 	if strings.TrimSpace(artifactFilename) == "" || filepath.IsAbs(artifactFilename) || filepath.Base(artifactFilename) != artifactFilename || strings.Contains(artifactFilename, `\`) {
 		return manifestScenario{}, fmt.Errorf("unsafe exporter artifact filename %q", artifactFilename)
 	}
@@ -362,7 +363,7 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 	if err := actioncontracts.VerifyArtifact(artifact); err != nil {
 		return manifestScenario{}, fmt.Errorf("verify artifact digest: %w", err)
 	}
-	exporterItem := exporterManifest.Artifacts[0]
+	exporterItem := exporterArtifacts[0]
 	if exporterItem.ArtifactID != artifact.ArtifactID || exporterItem.ContractID != artifact.ContractID || exporterItem.CanonicalContentDigest != artifact.CanonicalContentDigest {
 		return manifestScenario{}, errors.New("exporter manifest identity does not match artifact bytes")
 	}
@@ -401,6 +402,19 @@ func finalizeScenario(repoRoot, generatedDir, manifestRoot string, scenario scen
 		ContractID: artifact.ContractID, ContractFamilyID: artifact.ContractFamilyID, Revision: artifact.Revision,
 		ConsumerEntrypoints: entrypoints,
 	}, nil
+}
+
+func parseExporterManifest(payload []byte) ([]actioncontracts.ManifestItem, error) {
+	var exporterManifest struct {
+		Artifacts []actioncontracts.ManifestItem `json:"artifacts"`
+	}
+	if err := json.Unmarshal(payload, &exporterManifest); err != nil {
+		return nil, fmt.Errorf("parse exporter manifest: %w", err)
+	}
+	if len(exporterManifest.Artifacts) != 1 {
+		return nil, errors.New("exporter manifest must contain exactly one artifact")
+	}
+	return exporterManifest.Artifacts, nil
 }
 
 func validateSchemas(repoRoot string, artifactPayload, packetPayload []byte) error {
@@ -517,6 +531,20 @@ func validateProducerVersion(repoRoot, version string, allowDevelopment bool) er
 	}
 	if _, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--verify", "refs/tags/"+version+"^{commit}").Output(); err != nil {
 		return fmt.Errorf("release conformance producer metadata: producer version %q is not a released git tag", version)
+	}
+	return nil
+}
+
+func validateIntendedReleaseVersion(version, refType, refName string) error {
+	if strings.TrimSpace(refType) != "tag" {
+		return nil
+	}
+	want := strings.TrimSpace(refName)
+	if want == "" {
+		return errors.New("release conformance producer metadata: tagged release is missing GITHUB_REF_NAME")
+	}
+	if strings.TrimSpace(version) != want {
+		return fmt.Errorf("release conformance producer metadata: producer version %q does not match tagged release %q", strings.TrimSpace(version), want)
 	}
 	return nil
 }

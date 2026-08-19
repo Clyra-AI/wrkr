@@ -137,6 +137,71 @@ func TestActionContractConformanceManifestPinsNineVerifiedScenarios(t *testing.T
 	}
 }
 
+func TestActionContractConformanceReleaseWorkflowRunsExactCheckBeforePackaging(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	workflowPayload, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatalf("read release workflow: %v", err)
+	}
+	workflow := string(workflowPayload)
+	check := "scripts/generate_action_contract_conformance.sh --check"
+	checkIndex := strings.Index(workflow, check)
+	buildIndex := strings.Index(workflow, "goreleaser release")
+	if checkIndex < 0 {
+		t.Fatalf("release workflow must run the exact Action Contract fixture check")
+	}
+	if buildIndex < 0 || checkIndex > buildIndex {
+		t.Fatalf("fixture check must run before staged release packaging")
+	}
+	if tagGuardIndex := strings.LastIndex(workflow[:checkIndex], "if: startsWith(github.ref, 'refs/tags/v')"); tagGuardIndex < 0 || checkIndex-tagGuardIndex > 300 {
+		t.Fatalf("fixture check must be constrained to tag releases")
+	}
+}
+
+func TestActionContractConformanceUpdateRequiresExplicitProducerVersion(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	command := exec.Command("bash", filepath.Join(repoRoot, "scripts", "generate_action_contract_conformance.sh"), "--update")
+	command.Dir = repoRoot
+	for _, value := range os.Environ() {
+		if strings.HasPrefix(value, "WRKR_FIXTURE_PRODUCER_VERSION=") {
+			continue
+		}
+		command.Env = append(command.Env, value)
+	}
+	output, err := command.CombinedOutput()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("fixture update without explicit producer tag must fail with exit 1: err=%v output=%s", err, output)
+	}
+	if !strings.Contains(string(output), "requires explicit WRKR_FIXTURE_PRODUCER_VERSION") {
+		t.Fatalf("fixture update failure must explain explicit producer requirement: %s", output)
+	}
+}
+
+func TestActionContractConformanceTaggedCheckRequiresExplicitProducerVersion(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	command := exec.Command("bash", filepath.Join(repoRoot, "scripts", "generate_action_contract_conformance.sh"), "--check")
+	command.Dir = repoRoot
+	command.Env = append(command.Env, "GITHUB_REF_TYPE=tag", "GITHUB_REF_NAME=v1.14.0")
+	for _, value := range os.Environ() {
+		if strings.HasPrefix(value, "WRKR_FIXTURE_PRODUCER_VERSION=") || strings.HasPrefix(value, "GITHUB_REF_TYPE=") || strings.HasPrefix(value, "GITHUB_REF_NAME=") {
+			continue
+		}
+		command.Env = append(command.Env, value)
+	}
+	output, err := command.CombinedOutput()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("tagged fixture check without explicit producer tag must fail with exit 1: err=%v output=%s", err, output)
+	}
+	if !strings.Contains(string(output), "tagged release requires explicit WRKR_FIXTURE_PRODUCER_VERSION") {
+		t.Fatalf("tagged fixture failure must explain explicit producer requirement: %s", output)
+	}
+}
+
 func TestActionContractConformanceTamperedBytesFailDigestAndManifest(t *testing.T) {
 	t.Parallel()
 	repoRoot := mustFindRepoRoot(t)

@@ -26,6 +26,18 @@ if [[ -z "${producer_version}" ]]; then
   echo "release conformance producer metadata: missing released producer version" >&2
   exit 1
 fi
+producer_override="${WRKR_FIXTURE_PRODUCER_VERSION:-}"
+if [[ "${mode}" == "--update" && -z "${producer_override}" ]]; then
+  echo "release conformance producer metadata: --update requires explicit WRKR_FIXTURE_PRODUCER_VERSION=<released tag>" >&2
+  exit 1
+fi
+if [[ "${GITHUB_REF_TYPE:-}" == "tag" && -z "${producer_override}" ]]; then
+  echo "release conformance producer metadata: tagged release requires explicit WRKR_FIXTURE_PRODUCER_VERSION=${GITHUB_REF_NAME:-<tag>}" >&2
+  exit 1
+fi
+if [[ -n "${producer_override}" ]]; then
+  producer_version="${producer_override}"
+fi
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/wrkr-action-contract-interop-XXXXXX")"
 trap 'rm -rf "${tmp_root}"' EXIT
 
@@ -81,7 +93,7 @@ normalize_fixture_tree "${generated_root}"
   --spec "${spec_path}" \
   --generated-dir "${generated_root}" \
   --manifest-root "${manifest_root}" \
-  --producer-version "${WRKR_FIXTURE_PRODUCER_VERSION:-${producer_version}}" \
+  --producer-version "${producer_version}" \
   --output "${generated_root}/fixture-manifest.json")
 normalize_fixture_tree "${generated_root}"
 
