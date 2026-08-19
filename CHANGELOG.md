@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- Pinned the nine Action Contract v3 interoperability fixtures to the released `v1.14.0` producer identity, preserving exact artifact bytes and canonical digests while making release conformance reject `devel` or untagged producer metadata.
+- (none yet)
 
 ### Deprecated
 
@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- Raised the pinned Go toolchain from `1.26.5` to `1.26.6` across `go.mod`, `.tool-versions`, the Wrkr pin-enforcement fixtures, and the authoritative Factory profile snapshot path so the vulnerability and strict pin-alignment gates clear on Go `1.26.6`.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -38,6 +38,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.15.0] - 2026-08-19
+<!-- release-semver: minor -->
+
+### Changed
+
+- Pinned the nine Action Contract v3 interoperability fixtures to the released `v1.14.0` producer identity, preserving exact artifact bytes and canonical digests while making release conformance reject `devel` or untagged producer metadata.
+
+### Security
+
+- Raised the pinned Go toolchain from `1.26.5` to `1.26.6` across `go.mod`, `.tool-versions`, the Wrkr pin-enforcement fixtures, and the authoritative Factory profile snapshot path so the vulnerability and strict pin-alignment gates clear on Go `1.26.6`.
 
 ## [v1.14.0] - 2026-08-12
 <!-- release-semver: minor -->
