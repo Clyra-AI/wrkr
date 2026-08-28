@@ -171,7 +171,7 @@ All Clyra AI Go projects (proof, gait, wrkr, axym) share a dependency graph root
 | Component | Version | Scope |
 |-----------|---------|-------|
 | Go | `1.26.6` | All repos — `go.mod` + `.tool-versions` + CI (`go-version-file: go.mod`) |
-| `Clyra-AI/proof` | `>= v0.4.5` | All downstream SKUs (gait, wrkr, axym) — minimum import version |
+| `Clyra-AI/proof` | `>= v0.7.0` | All downstream SKUs (gait, wrkr, axym) — minimum import version |
 | Python | `3.13` | Scripts, SDKs — `pyproject.toml` + CI |
 | Node | `22` (LTS) | Docs sites only |
 
@@ -223,7 +223,7 @@ Use this sequence whenever updating governance-critical tool pins (`gosec`, `gol
 
 `Clyra-AI/proof` is the shared primitive. All downstream SKUs (gait, wrkr, axym) depend on it.
 
-- **Minimum version**: `v0.3.0`. No SKU may pin below this.
+- **Minimum version**: `v0.7.0`. No SKU may pin below this.
 - **Tracking policy**: all SKUs must track proof within **1 minor release** of the latest tag. When proof tags `v0.4.0`, all SKUs must upgrade within 2 weeks.
 - **Breaking changes**: proof uses semver. Minor version bumps add functionality (backward-compatible). Major version bumps may break API — coordinated upgrade across all SKUs required.
 - **CI validation**: each SKU's CI runs `go build ./...` against its pinned proof version. Proof's CI runs integration tests that build gait (and future wrkr/axym) against `main` to catch breaking changes before tagging.
