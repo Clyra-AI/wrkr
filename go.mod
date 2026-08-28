@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	github.com/Clyra-AI/proof v0.5.0
+	github.com/Clyra-AI/proof v0.7.0
 	github.com/dop251/goja v0.0.0-20260219130522-0ba9a5494a59
 	github.com/gofrs/flock v0.13.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1

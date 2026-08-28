@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- Updated the pinned `Clyra-AI/proof` dependency to `v0.7.0` and raised the downstream minimum in the interoperability guide to match the current shared primitive release.
 
 ### Deprecated
 
