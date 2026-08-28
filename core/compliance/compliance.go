@@ -38,6 +38,7 @@ type ControlCheck struct {
 	RequiredFields      []string `json:"required_fields"`
 }
 
+//nolint:staticcheck // Proof v0.7 retains framework coverage as a compatibility API; Wrkr owns the compliance interpretation here.
 func Evaluate(in Input) (Result, error) {
 	if in.Framework == nil {
 		return Result{}, fmt.Errorf("framework is required")
@@ -148,6 +149,7 @@ func evaluateLegacyControl(frameworkID string, control framework.Control, record
 	}
 }
 
+//nolint:staticcheck // Proof v0.7 retains framework coverage as a compatibility API; Wrkr owns the compliance interpretation here.
 func evaluateEvidenceSetControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
 	selected, ok := selectEvidenceSetCoverage(evidenceCoverage.EvidenceSets, records)
 	mappedRules := mappedRuleIDs(frameworkID, control.ID, matchedRuleIDs)
@@ -179,6 +181,7 @@ func evaluateEvidenceSetControl(frameworkID string, control framework.Control, e
 	}
 }
 
+//nolint:staticcheck // Proof v0.7 retains framework coverage as a compatibility API; Wrkr owns the compliance interpretation here.
 func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []proof.Record) (framework.EvidenceSetCoverage, bool) {
 	if len(sets) == 0 {
 		return framework.EvidenceSetCoverage{}, false
