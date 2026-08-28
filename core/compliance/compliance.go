@@ -38,7 +38,25 @@ type ControlCheck struct {
 	RequiredFields      []string `json:"required_fields"`
 }
 
-//nolint:staticcheck // Proof v0.7 retains framework coverage as a compatibility API; Wrkr owns the compliance interpretation here.
+type evidenceSetCoverage struct {
+	ID                  string
+	Title               string
+	Covered             bool
+	SourceProducts      []string
+	RequiredRecordTypes []string
+	RequiredFields      []string
+	MatchingRecordIDs   []string
+}
+
+type controlCoverage struct {
+	ID                    string
+	Title                 string
+	Covered               bool
+	MatchedEvidenceSetIDs []string
+	EvidenceSets          []evidenceSetCoverage
+	Children              []controlCoverage
+}
+
 func Evaluate(in Input) (Result, error) {
 	if in.Framework == nil {
 		return Result{}, fmt.Errorf("framework is required")
@@ -47,13 +65,9 @@ func Evaluate(in Input) (Result, error) {
 		return Result{}, fmt.Errorf("chain is required")
 	}
 	controls := flatten(in.Framework.Controls)
-	var coverageControls []framework.ControlCoverage
+	var coverageControls []controlCoverage
 	if controlsUseEvidenceSets(controls) {
-		evidenceCoverage, err := framework.EvaluateCoverage(in.Framework, in.Chain.Records)
-		if err != nil {
-			return Result{}, fmt.Errorf("evaluate framework evidence sets: %w", err)
-		}
-		coverageControls = flattenCoverage(evidenceCoverage.Controls)
+		coverageControls = flattenCoverage(evaluateCoverage(in.Framework.Controls, in.Chain.Records))
 		if len(coverageControls) != len(controls) {
 			return Result{}, fmt.Errorf("framework control coverage mismatch: controls=%d coverage=%d", len(controls), len(coverageControls))
 		}
@@ -63,7 +77,7 @@ func Evaluate(in Input) (Result, error) {
 	gaps := make([]ControlCheck, 0)
 	covered := 0
 	for index, control := range controls {
-		var coverageControl framework.ControlCoverage
+		var coverageControl controlCoverage
 		if len(control.EvidenceSets) > 0 {
 			coverageControl = coverageControls[index]
 			if coverageControl.ID != control.ID {
@@ -94,7 +108,7 @@ func Evaluate(in Input) (Result, error) {
 	}, nil
 }
 
-func evaluateControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
+func evaluateControl(frameworkID string, control framework.Control, evidenceCoverage controlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
 	if len(control.EvidenceSets) > 0 {
 		return evaluateEvidenceSetControl(frameworkID, control, evidenceCoverage, records, matchedRuleIDs)
 	}
@@ -149,8 +163,7 @@ func evaluateLegacyControl(frameworkID string, control framework.Control, record
 	}
 }
 
-//nolint:staticcheck // Proof v0.7 retains framework coverage as a compatibility API; Wrkr owns the compliance interpretation here.
-func evaluateEvidenceSetControl(frameworkID string, control framework.Control, evidenceCoverage framework.ControlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
+func evaluateEvidenceSetControl(frameworkID string, control framework.Control, evidenceCoverage controlCoverage, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
 	selected, ok := selectEvidenceSetCoverage(evidenceCoverage.EvidenceSets, records)
 	mappedRules := mappedRuleIDs(frameworkID, control.ID, matchedRuleIDs)
 	if !ok {
@@ -181,13 +194,12 @@ func evaluateEvidenceSetControl(frameworkID string, control framework.Control, e
 	}
 }
 
-//nolint:staticcheck // Proof v0.7 retains framework coverage as a compatibility API; Wrkr owns the compliance interpretation here.
-func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []proof.Record) (framework.EvidenceSetCoverage, bool) {
+func selectEvidenceSetCoverage(sets []evidenceSetCoverage, records []proof.Record) (evidenceSetCoverage, bool) {
 	if len(sets) == 0 {
-		return framework.EvidenceSetCoverage{}, false
+		return evidenceSetCoverage{}, false
 	}
 	type candidate struct {
-		coverage           framework.EvidenceSetCoverage
+		coverage           evidenceSetCoverage
 		wrkrMatched        bool
 		missingRecordTypes int
 		missingFields      int
@@ -216,7 +228,7 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []p
 		})
 	}
 	if len(ordered) == 0 {
-		return framework.EvidenceSetCoverage{}, false
+		return evidenceSetCoverage{}, false
 	}
 	sort.Slice(ordered, func(i, j int) bool {
 		left, right := ordered[i], ordered[j]
@@ -237,7 +249,7 @@ func selectEvidenceSetCoverage(sets []framework.EvidenceSetCoverage, records []p
 	return ordered[0].coverage, true
 }
 
-func evidenceSetHasMatchingWrkrRecord(set framework.EvidenceSetCoverage, records []proof.Record) bool {
+func evidenceSetHasMatchingWrkrRecord(set evidenceSetCoverage, records []proof.Record) bool {
 	for _, requiredType := range uniqueSortedStrings(set.RequiredRecordTypes) {
 		for _, record := range records {
 			if !strings.EqualFold(strings.TrimSpace(record.SourceProduct), "wrkr") {
@@ -254,7 +266,7 @@ func evidenceSetHasMatchingWrkrRecord(set framework.EvidenceSetCoverage, records
 	return false
 }
 
-func evidenceSetGaps(set framework.EvidenceSetCoverage, records []proof.Record) ([]string, []string) {
+func evidenceSetGaps(set evidenceSetCoverage, records []proof.Record) ([]string, []string) {
 	missingRecordTypes := make([]string, 0)
 	missingFields := make([]string, 0)
 	for _, requiredType := range uniqueSortedStrings(set.RequiredRecordTypes) {
@@ -457,8 +469,8 @@ func flatten(controls []framework.Control) []framework.Control {
 	return out
 }
 
-func flattenCoverage(controls []framework.ControlCoverage) []framework.ControlCoverage {
-	out := make([]framework.ControlCoverage, 0)
+func flattenCoverage(controls []controlCoverage) []controlCoverage {
+	out := make([]controlCoverage, 0)
 	for _, control := range controls {
 		out = append(out, control)
 		children := flattenCoverage(control.Children)
@@ -480,6 +492,80 @@ func controlsUseEvidenceSets(controls []framework.Control) bool {
 		}
 	}
 	return false
+}
+
+// evaluateCoverage computes only the deterministic evidence-path projection
+// needed by Wrkr's compliance report. Proof v0.7 keeps its former evaluator as
+// a deprecated compatibility API; this product-owned projection avoids making
+// compliance semantics depend on that legacy API.
+func evaluateCoverage(controls []framework.Control, records []proof.Record) []controlCoverage {
+	out := make([]controlCoverage, 0, len(controls))
+	for _, control := range controls {
+		out = append(out, evaluateControlCoverage(control, records))
+	}
+	return out
+}
+
+func evaluateControlCoverage(control framework.Control, records []proof.Record) controlCoverage {
+	sets := control.EvidenceSets
+	if len(sets) == 0 {
+		sets = []framework.EvidenceSet{{
+			ID:                  "legacy",
+			Title:               control.Title,
+			RequiredRecordTypes: append([]string(nil), control.RequiredRecordTypes...),
+			MinimumFrequency:    control.MinimumFrequency,
+			RequiredFields:      append([]string(nil), control.RequiredFields...),
+		}}
+	}
+	setCoverage := make([]evidenceSetCoverage, 0, len(sets))
+	matched := make([]string, 0, len(sets))
+	for _, set := range sets {
+		coverage := evaluateEvidenceSetCoverage(set, records)
+		setCoverage = append(setCoverage, coverage)
+		if coverage.Covered {
+			matched = append(matched, coverage.ID)
+		}
+	}
+	children := make([]controlCoverage, 0, len(control.Children))
+	for _, child := range control.Children {
+		children = append(children, evaluateControlCoverage(child, records))
+	}
+	return controlCoverage{
+		ID:                    control.ID,
+		Title:                 control.Title,
+		Covered:               len(matched) > 0,
+		MatchedEvidenceSetIDs: matched,
+		EvidenceSets:          setCoverage,
+		Children:              children,
+	}
+}
+
+func evaluateEvidenceSetCoverage(set framework.EvidenceSet, records []proof.Record) evidenceSetCoverage {
+	matching := make([]string, 0, len(set.RequiredRecordTypes))
+	for _, requiredType := range set.RequiredRecordTypes {
+		bestRecordID := ""
+		for _, candidate := range evidenceSetCandidates(requiredType, set.SourceProducts, records) {
+			if len(missingEvidenceFields(candidate, set.RequiredFields)) != 0 {
+				continue
+			}
+			if bestRecordID == "" || candidate.RecordID < bestRecordID {
+				bestRecordID = candidate.RecordID
+			}
+		}
+		if bestRecordID != "" {
+			matching = append(matching, bestRecordID)
+		}
+	}
+	matching = uniqueSortedStrings(matching)
+	return evidenceSetCoverage{
+		ID:                  set.ID,
+		Title:               set.Title,
+		Covered:             len(matching) == len(set.RequiredRecordTypes),
+		SourceProducts:      append([]string(nil), set.SourceProducts...),
+		RequiredRecordTypes: append([]string(nil), set.RequiredRecordTypes...),
+		RequiredFields:      append([]string(nil), set.RequiredFields...),
+		MatchingRecordIDs:   matching,
+	}
 }
 
 func uniqueSortedStrings(values []string) []string {
