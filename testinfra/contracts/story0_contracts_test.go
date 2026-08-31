@@ -328,7 +328,7 @@ func TestWorkflowValidationOwnershipAvoidsDuplicateRunnerLanes(t *testing.T) {
 	}
 
 	crossPlatformWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/cross-platform.yml"))
-	for _, required := range []string{"schedule:", "macos-latest", "make test-fast", "make build"} {
+	for _, required := range []string{"schedule:", "macos-latest", "fetch-depth: 0", "make test-fast", "make build"} {
 		if !strings.Contains(crossPlatformWorkflow, required) {
 			t.Fatalf("weekly cross-platform workflow missing %q", required)
 		}
