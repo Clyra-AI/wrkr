@@ -1,6 +1,6 @@
 {
   "validation_contract_version": 2,
-  "validated_content_sha256": "a782534c6078e24930ca1f3f940f78b44166b6ba85957c8c4e5f9fe3cb3181e0",
+  "validated_content_sha256": "58624adfa47c5cedba7b861bd15fd42da9762be40a2487f6552b9de1c4d657b9",
   "validation_scope_paths": [
     ".github/workflows",
     "Makefile",
@@ -67,7 +67,7 @@
     "customer_validation_worksheet",
     "customer_shaped_execution_truth_twin"
   ],
-  "validated_on": "2026-08-17",
+  "validated_on": "2026-09-01",
   "fixture_names": [
     "internal/enterprisepressure.VariantBaseline:96-repos",
     "internal/enterprisepressure.EndpointDense:1-repo",
